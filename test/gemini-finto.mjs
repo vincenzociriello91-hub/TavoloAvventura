@@ -22,9 +22,11 @@ http.createServer((req, res) => {
       if (ctx.luogo_attuale?.oggetti_di_scena?.length) eventi.push({ tipo: 'scena', azione: 'rompi', oggetto: ctx.luogo_attuale.oggetti_di_scena[0].id });
       eventi.push({ tipo: 'nemico', nome: 'Goblin', x: 10, y: 8 }, { tipo: 'nemico', nome: 'Lupo crudele', x: 12, y: 8 });
       if ((ctx.ultimi_eventi || []).some(e => e.includes('mondo vivo di prova')) && pg) eventi.push({ tipo: 'enigma', domanda: 'Più ne togli, più diventa grande. Cos\'è?', risposta: 'buca', indizio: 'si scava' }, { tipo: 'missione', titolo: 'Lupi al mulino', descrizione: 'Cacciate i lupi dal mulino', ricompensa: '50 mo' }, { tipo: 'nemesi', nome: 'Vaskar il Grigio', descrizione: 'mago rinnegato' }, { tipo: 'minaccia', nome: 'Il culto della luna', descrizione: 'rapisce i viandanti' }, { tipo: 'scelta', descrizione: 'Hanno risparmiato il goblin', peso: 'buona' }, { tipo: 'sogno', pg: pg.id, testo: 'Una torre nera sotto la luna' }, { tipo: 'reputazione_luogo', luogo: ctx.luogo_attuale?.nome, delta: 100, motivo: 'eroi' }, { tipo: 'compagno', pg: pg.id, nome: 'Zanna', specie: 'lupo' });
+      if (JSON.stringify(j.systemInstruction).includes('SFIDA DELLA SETTIMANA')) eventi.push({ tipo: 'sfida_vinta' });
       const gia = (ctx.png_incontrati || []).map(p => p.nome).join(', ');
       out = JSON.stringify({ narrazione: 'Una rissa scoppia nella locanda. Un boccale vola verso di voi.' + (gia ? ` Di nuovo: ${gia}.` : ''), png: 'Oste Bruno', eventi });
     } else if (/comando per modificare/.test(testoUtente)) out = JSON.stringify({ ops: [{ op: 'car', car: 'sag', delta: 1 }] });
+    else if (/^Traduci in inglese/.test(testoUtente)) out = 'The tavern falls silent.';
     else if (/Domanda di regole/.test(testoUtente)) out = 'In 5e un attacco di opportunità si fa con la reazione.';
     else if (/Racconta la serata/.test(testoUtente)) out = JSON.stringify({ titolo: 'La rissa del Cinghiale', racconto: 'Una serata di boccali volanti e goblin sconfitti.', prompt: 'heroes celebrating in a tavern' });
     else if (/PROMPT:/.test(testoUtente)) out = 'PROMPT: a tavern brawl, flying mugs\nDIDASCALIA: Rissa nella locanda';

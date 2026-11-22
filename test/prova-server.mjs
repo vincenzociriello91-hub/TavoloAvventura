@@ -172,6 +172,46 @@ D.invia({ t: 'compra', merce: merce.nome });
 const dopo = await D.aspetta(m => m.t === 'scheda' && m.per === bD.io && m.pg.oro < sCr.pg.oro);
 verifica(sCr.pg.oro - dopo.pg.oro === Math.max(1, Math.round(merce.prezzo * 0.75)), 'prezzi più bassi dove il gruppo è stimato');
 
+// tappa 5: serate, spettatori con reazioni, traduzione, note sulla mappa, giochi di taverna, presenze, sfida settimanale
+A.invia({ t: 'serata_nuova', quando: new Date(Date.now() + 3 * 86400000).toISOString(), nota: 'da Marco' });
+const se = await D.aspetta(m => m.t === 'serate' && m.serate.length);
+D.invia({ t: 'serata_risposta', id: se.serate[0].id, ci: true });
+verifica(!!(await A.aspetta(m => m.t === 'serate' && m.serate[0].risposte[bD.io] === true)), 'calendario: serata proposta e risposta "ci sono"');
+const S1 = client(); await S1.pronto; S1.invia({ t: 'entra', invito: ni.invito, nome: 'Amico curioso', ruolo: 'spettatore' });
+const bS = await S1.aspetta(m => m.t === 'benvenuto');
+verifica(bS.stato.membri[bS.io].ruolo === 'spettatore', 'amico entra come spettatore');
+S1.invia({ t: 'reazione', emoji: '👏' }); S1.invia({ t: 'reazione', emoji: '😂' });
+verifica((await A.aspetta(m => m.t === 'reazione')).emoji === '👏' && await A.aspetta(m => m.t === 'reazione', 1000).then(() => false, () => true), 'reazione degli spettatori arriva a tutti (e non si possono mandare a raffica)');
+S1.invia({ t: 'gioco_apri', tipo: 'dadi', posta: 5 }); S1.invia({ t: 'nota_mappa', x: 3, y: 3, testo: 'spam' });
+D.invia({ t: 'traduci', id: 'x1', testo: 'La taverna si fa silenziosa.', lingua: 'en' });
+verifica((await D.aspetta(m => m.t === 'traduzione' && m.id === 'x1', 8000)).testo === 'The tavern falls silent.', 'traduzione automatica');
+D.invia({ t: 'nota_mappa', x: 2, y: 2, testo: 'trappola qui' });
+const nm = await A.aspetta(m => m.t === 'note_mappa' && m.note.length);
+verifica(nm.note.length === 1 && nm.note[0].testo === 'trappola qui', 'nota sulla mappa (gli spettatori non ne mettono)');
+D.invia({ t: 'nota_mappa', togli: nm.note[0].id });
+verifica(!!(await A.aspetta(m => m.t === 'note_mappa' && !m.note.length)), 'nota tolta da chi l\'ha messa');
+verifica(await A.aspetta(m => m.t === 'gioco_taverna', 800).then(() => false, () => true), 'gli spettatori non aprono tavoli da gioco');
+A.invia({ t: 'scheda', pg: { nome: 'Vin', razza: 'Umano', classe: 'Guerriero', livello: 1, pf: 12, pfMax: 12, ca: 16, oro: 30, car: { for: 15, des: 12, cos: 14, int: 10, sag: 10, car: 10 } } });
+await A.aspetta(m => m.t === 'scheda' && m.per === bA.io && m.pg.nome === 'Vin');
+D.invia({ t: 'stato' }); const oroD = (await D.aspetta(m => m.t === 'stato')).stato.pg[bD.io].oro;
+D.invia({ t: 'gioco_apri', tipo: 'carte', posta: 5 });
+await A.aspetta(m => m.t === 'gioco_taverna' && m.gioco?.tipo === 'carte');
+A.invia({ t: 'gioco_entra' }); await D.aspetta(m => m.t === 'gioco_taverna' && m.gioco?.giocatori.length === 2);
+D.invia({ t: 'gioco_via' });
+const gv = await A.aspetta(m => m.t === 'diario' && /Carte sul tavolo/.test(m.ev.testo), 5000);
+const fine = await D.aspetta(m => m.t === 'gioco_taverna' && !m.gioco);
+D.invia({ t: 'stato' }); const st5 = (await D.aspetta(m => m.t === 'stato')).stato;
+verifica(!!gv && !!fine && st5.pg[bD.io].oro + st5.pg[bA.io].oro === oroD + 30, 'gioco di carte: il piatto va a chi vince, le monete tornano');
+verifica(st5.membri[bD.io].presenze >= 1 && Array.isArray(st5.avventure) && st5.avventure.some(a => a.id === 'torre' && a.seguito === 'miniera'), 'presenze contate e catalogo delle avventure (con il seguito della miniera)');
+A.invia({ t: 'avventura_inizia', id: 'lanterna' });
+verifica(!!(await A.aspetta(m => m.t === 'luogo' && m.luogo.nome === 'Villa Ombrosa', 8000)), 'avventura di una serata: "La notte della lanterna" parte da Villa Ombrosa');
+const codiceSf = codice; // sfida settimanale: campagna nuova in solitaria
+const SF = new WebSocket(`${BASE}/tavolo/SFIDA${Math.random().toString(36).slice(2, 7).toUpperCase()}/ws`, { origin: ORIGIN });
+const sfida = await new Promise((r, j) => { SF.on('open', () => SF.send(JSON.stringify({ t: 'crea', nome: 'Sfida', regole: '5e', masterTipo: 'ai', mioNome: 'Solo', solitaria: true, sfida: { titolo: 'Il ladro di campane', obiettivo: 'Ritrova la campana', settimana: '2026-47' } })));
+  SF.on('message', d => { const m = JSON.parse(d); if (m.t === 'benvenuto') { SF.send(JSON.stringify({ t: 'scheda', pg: { nome: 'Sola', razza: 'Elfo', classe: 'Ladro', livello: 1, pf: 9, pfMax: 9, ca: 14, car: { for: 10, des: 16, cos: 12, int: 12, sag: 10, car: 12 } } })); SF.send(JSON.stringify({ t: 'chat', testo: 'cerco la campana', alMaster: true })); } if (m.t === 'sfida') r(m.sfida); });
+  setTimeout(() => j(new Error('timeout sfida')), 25000); });
+verifica(sfida.esito === 'vinta' && sfida.titolo === 'Il ladro di campane', 'sfida della settimana in solitaria vinta'); SF.close();
+
 const Z = client('https://sito-cattivo.example');
 verifica(await Z.pronto.then(() => false, e => /403/.test(e.message)), 'origine sconosciuta rifiutata');
 
