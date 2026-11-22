@@ -1,0 +1,718 @@
+/* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
+const VERSION = '1.0.0';
+const CHANGELOG = [
+  { v: '1.0.0', data: '22/11/2026', voci: [
+    'Prima versione: stanze online con codice e QR che cambia a ogni sessione.',
+    'Chat vocale tra i giocatori e master che legge ad alta voce, con voci diverse per i PNG.',
+    'Master AI (o master in carne e ossa) con memoria della campagna.',
+    'Regolamento a scelta: D&D 5ª edizione o 3.5, con scheda che si calcola da sola (PF, CA, livelli, caratteristiche, abilità, tiri salvezza).',
+    'Comandi vocali sulla scheda: "aumenta di due punti intelligenza", "subisco 7 danni", "equipaggio l\'ascia bipenne", "tiro per percezione", "annulla".',
+    'Ritratto in pixel art che cambia con ferite, armatura, armi, scudo e condizioni.',
+    'Mappe persistenti: tornando in un luogo ritrovate la stessa mappa, con gli edifici bruciati o distrutti.',
+    'Dadi tirati dal server (nessuno bara), vantaggio, svantaggio e tiri segreti del master.',
+    'Modalità TV, prova di microfono e connessione, suggerimenti, rapporti cifrati e aggiornamento dall\'app.'
+  ] }
+];
+const SERVER_WS = location.hostname === 'localhost' ? 'ws://localhost:8787' : 'wss://rapporti-vincenzo.vincenzociriello91.workers.dev';
+let REPORT_URL = (() => { try { return localStorage.getItem('ta_report_url') || 'https://rapporti-vincenzo.vincenzociriello91.workers.dev'; } catch { return ''; } })();
+const REPORT_PUBKEY = {"key_ops":["encrypt"],"ext":true,"alg":"RSA-OAEP-256","kty":"RSA","n":"sFS_s5aqCnKSiQM9bFXHWIQkxaihGR1p8Quwtd7Tz07giEL7RGaOSa8sEF7OEJGmS0fxvrHch74oQOuS7O4UnTxNfKOFAoVWALB4R4vT-Vl6ke5ql1i9jmCbUPvHjz9XCnlpX7vDurnpHPsVSaDl0Tk7ofhj8zkHBlSb2YuvIu45LippEh-nb98fru9-B6Ezc-Cwd69piNcBLTGjwoxWjBMJxkKUB0IPm60FkvlNr0NcI8fJNMWRVSuh5yhkG4GO0r-_tP2lId0ttkESO7TsOXHG1BzuOfyC-rPI6B15LEVftPyM990C2cRVxnuXmYke0n9O7sX3XCkKSIB3IwzCWCYlEKTN_16JENZCV4rLMEB4dKH8BBZLwXyGBXbrizMyovPqHhcVWpheBfZneYt9C9L2ZUekLxiFLwQHZAoRjsZOR9VgWvrTdDuOGhcNQPULIlWkRhu25jMP3_gIMA10QoQD9iwdKmjchkn_HWw7DyXSVfZnJvG8JNGAd4fJ889j","e":"AQAB"};
+
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const leggi = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } };
+const scrivi = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const clona = o => JSON.parse(JSON.stringify(o));
+function toast(msg, errore = false, ms = 3500) { const t = $('#toast'); t.textContent = msg; t.classList.toggle('errore', errore); t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, ms); }
+function chiedi(html, bottoni) {
+  return new Promise(res => {
+    const d = $('#dlg'); $('#dlgCorpo').innerHTML = html;
+    $('#dlgAzioni').innerHTML = bottoni.map((b, i) => `<button value="${i}" class="${b.pieno ? 'pieno' : ''}">${esc(b.testo)}</button>`).join('');
+    d.onclose = () => res(d.returnValue === '' ? -1 : Number(d.returnValue));
+    d.returnValue = ''; d.showModal();
+  });
+}
+
+/* ============ RAPPORTI CIFRATI ============ */
+const Report = {
+  sessione: { id: Math.random().toString(36).slice(2, 10), inizio: new Date().toISOString(), versione: VERSION, ua: navigator.userAgent, schermo: `${screen.width}x${screen.height}`, installata: matchMedia('(display-mode: standalone)').matches },
+  eventi: [],
+  log(tipo, dati) { this.eventi.push({ t: new Date().toISOString(), tipo, dati }); if (this.eventi.length > 600) this.eventi.splice(0, this.eventi.length - 600); },
+  async cifra(obj) {
+    const testo = new TextEncoder().encode(JSON.stringify(obj));
+    const aes = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const dati = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aes, testo);
+    const pub = await crypto.subtle.importKey('jwk', REPORT_PUBKEY, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
+    const chiave = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, pub, await crypto.subtle.exportKey('raw', aes));
+    const b64 = b => { const u = new Uint8Array(b); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode(...u.subarray(i, i + 8192)); return btoa(s); };
+    return { app: 'TavoloAvventura', v: VERSION, alg: 'RSA-OAEP-256+A256GCM', key: b64(chiave), iv: b64(iv), data: b64(dati) };
+  },
+  async chiudi(motivo) {
+    if (!this.eventi.length) return;
+    this.log('fine', { motivo, stato: riepilogoStato() });
+    const rapporto = { sessione: this.sessione, fine: new Date().toISOString(), motivo, eventi: this.eventi };
+    this.eventi = [];
+    try {
+      const pacchetto = await this.cifra(rapporto);
+      const coda = leggi('ta_rapporti', []); coda.push(pacchetto); while (coda.length > 30) coda.shift();
+      scrivi('ta_rapporti', coda); this.invia();
+    } catch (e) { console.warn('rapporto', e); }
+  },
+  invia() {
+    if (!REPORT_URL || !navigator.onLine) return;
+    const coda = leggi('ta_rapporti', []);
+    if (!coda.length || this._inVolo) return;
+    const url = REPORT_URL.replace(/\/$/, '') + '/r/TavoloAvventura';
+    const corpo = JSON.stringify(coda);
+    if (document.visibilityState === 'hidden') { if (navigator.sendBeacon(url, new Blob([corpo], { type: 'text/plain' }))) scrivi('ta_rapporti', []); return; }
+    const esito = (stato, testo) => scrivi('ta_report_esito', { t: new Date().toLocaleString('it-IT'), stato, testo: String(testo).slice(0, 200), n: coda.length });
+    this._inVolo = true;
+    return fetch(url, { method: 'POST', body: corpo, headers: { 'Content-Type': 'text/plain' }, keepalive: corpo.length < 60000 })
+      .finally(() => { this._inVolo = false; })
+      .then(async r => { esito(r.status, await r.text().catch(() => '')); if (r.ok) scrivi('ta_rapporti', leggi('ta_rapporti', []).slice(coda.length)); })
+      .catch(e => esito(0, e.message || e));
+  },
+  async salvaFile() {
+    await this.chiudi('salvataggio manuale');
+    const blob = new Blob([JSON.stringify(leggi('ta_rapporti', []))], { type: 'application/json' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `rapporto-tavolo-${Date.now()}.json` }); a.click();
+    this.log('ripresa', {});
+  }
+};
+window.addEventListener('error', e => Report.log('errore', { msg: e.message, file: e.filename, riga: e.lineno, col: e.colno }));
+window.addEventListener('unhandledrejection', e => Report.log('errore-promise', { msg: String(e.reason?.message || e.reason), stack: String(e.reason?.stack || '').slice(0, 500) }));
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') Report.chiudi('app in background o chiusa'); else { Report.log('ripresa', {}); Report.invia(); Voce.riattivaAudio(); } });
+window.addEventListener('pagehide', () => Report.chiudi('chiusura'));
+function riepilogoStato() {
+  return { codice: S.codice || null, ruolo: me()?.ruolo, regole: S.st?.campagna?.regole, master: S.st?.campagna?.masterTipo, online: S.st?.online?.length, membri: Object.keys(S.st?.membri || {}).length,
+    luogo: S.st?.luogo?.nome, voce: Voce.stato(), ascolto: Ascolto.attivo, narratore: Narratore.attivo, pg: mioPg() ? { classe: mioPg().classe, livello: mioPg().livello, pf: mioPg().pf, pfMax: mioPg().pfMax } : null };
+}
+
+/* ============ STATO ============ */
+const S = { codice: null, io: null, chiave: null, st: null, ws: null, vista: 'vMappa', viewPg: null, undo: [], pendenti: {}, tentativi: 0, ultimoParlato: 0 };
+const OPZ = Object.assign({ narratore: true, avvisi: true, master: true, grandi: false }, leggi('ta_opzioni', {}));
+const me = () => S.st?.membri?.[S.io];
+const capo = () => !!(me() && (me().ruolo === 'master' || me().admin));
+const mioPg = () => S.st?.pg?.[S.io] || null;
+const regole = () => S.st?.campagna?.regole || '5e';
+const masterAI = () => S.st?.campagna?.masterTipo === 'ai';
+const campagneSalvate = () => leggi('ta_campagne', []);
+function salvaCampagna(c) { const l = campagneSalvate().filter(x => x.codice !== c.codice); l.unshift({ ...c, ultimo: Date.now() }); scrivi('ta_campagne', l.slice(0, 20)); }
+function dimenticaCampagna(codice) { scrivi('ta_campagne', campagneSalvate().filter(x => x.codice !== codice)); }
+const codiceNuovo = () => { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; const r = crypto.getRandomValues(new Uint32Array(8)); return [...r].map(x => a[x % a.length]).join(''); };
+
+/* ============ RETE ============ */
+function connetti(codice, primo) {
+  S.codice = codice.toUpperCase();
+  try { S.ws?.close(); } catch {}
+  const ws = new WebSocket(`${SERVER_WS}/tavolo/${S.codice}/ws`);
+  S.ws = ws;
+  ws.onopen = () => { S.tentativi = 0; $('#statoRete').hidden = true; ws.send(JSON.stringify(primo())); Report.log('connessione', { aperta: true }); };
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch { return; } try { gestisci(m); } catch (err) { Report.log('errore-gestione', { tipo: m.t, msg: err.message, stack: String(err.stack).slice(0, 400) }); console.error(err); } };
+  ws.onclose = () => {
+    if (S.ws !== ws) return;
+    Report.log('connessione', { chiusa: true, tentativi: S.tentativi });
+    if (!S.io) return;
+    $('#statoRete').hidden = false;
+    const attesa = Math.min(15000, 1000 * 2 ** S.tentativi++);
+    setTimeout(() => { if (S.ws === ws && S.io) connetti(S.codice, () => ({ t: 'ciao', membro: S.io, chiave: S.chiave })); }, attesa);
+  };
+}
+function invia(o) { if (S.ws?.readyState === 1) { S.ws.send(JSON.stringify(o)); return true; } toast('Non connesso: riprovo tra poco', true); return false; }
+setInterval(() => { if (S.ws?.readyState === 1) { S.ping = performance.now(); S.ws.send('{"t":"ping"}'); } }, 25000);
+
+function gestisci(m) {
+  switch (m.t) {
+    case 'benvenuto': {
+      S.io = m.io; if (m.chiave) S.chiave = m.chiave; S.st = m.stato; S.viewPg = S.io;
+      salvaCampagna({ codice: S.codice, io: S.io, chiave: S.chiave, nome: S.st.campagna.nome, ruolo: me()?.ruolo });
+      Report.log('entrato', { ruolo: me()?.ruolo, admin: me()?.admin, regole: regole(), master: S.st.campagna.masterTipo });
+      mostraGioco(); renderTutto(); avviaVoce();
+      // l'invito sparisce dalla barra degli indirizzi; resta il codice, così ricaricando si rientra da soli
+      history.replaceState(null, '', `${location.pathname}?c=${S.codice}${document.body.classList.contains('tv') ? '&tv=1' : ''}`);
+      scrivi('ta_attiva', S.codice);
+      return;
+    }
+    case 'stato': S.st = m.stato; renderTutto(); return;
+    case 'presenza': {
+      S.st.online = m.online;
+      if (m.entrato && m.membro) S.st.membri[m.entrato] = m.membro;
+      if (m.entrato && m.entrato !== S.io && Voce.attivo && S.io < m.entrato) Voce.crea(m.entrato, true);
+      if (m.uscito && m.uscito !== S.io) Voce.chiudi(m.uscito);
+      renderPresenza(); return;
+    }
+    case 'scheda': {
+      const prima = S.st.pg[m.per];
+      S.st.pg[m.per] = m.pg;
+      if (m.per === S.io && m.da !== S.io) {
+        if (OPZ.avvisi && prima && prima.pf > prima.pfMax / 2 && m.pg.pf <= m.pg.pfMax / 2 && m.pg.pf > 0) Narratore.avviso('Attenzione: sei sotto metà dei punti ferita');
+        if (OPZ.avvisi && prima && prima.pf > 0 && m.pg.pf <= 0) Narratore.avviso('Sei a terra, privo di sensi');
+        if (m.nota) toast(`${m.pg.nome}: ${m.nota}`);
+      }
+      if (S.st.segnalini?.[m.per]) S.st.segnalini[m.per].nome = m.pg.nome;
+      renderSchedaSeServe(); renderPresenza(); return;
+    }
+    case 'dado': {
+      S.st.dadi = [...(S.st.dadi || []), m.tiro].slice(-60);
+      if (m.tiro.chi === S.io || document.body.classList.contains('tv')) mostraTiro(m.tiro);
+      renderTiri(); return;
+    }
+    case 'luogo': S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; renderMappa(); return;
+    case 'luogo_mod': S.st.luogo = m.luogo; renderMappa(); return;
+    case 'segnalini': S.st.segnalini = m.segnalini; Mappa.aggiornaSegnalini(m.segnalini); return;
+    case 'diario': S.st.diario = [...(S.st.diario || []), m.ev].slice(-200); renderDiario(); return;
+    case 'narra': {
+      const ev = { t: Date.now(), tipo: 'narrazione', testo: m.testo, chi: m.chi, png: m.png };
+      S.st.diario = [...(S.st.diario || []), ev].slice(-200);
+      if (S.ultimoParlato) { Report.log('master-risposta', { ms: Date.now() - S.ultimoParlato, modello: m.modello, parole: m.testo.split(' ').length }); S.ultimoParlato = 0; }
+      mostraNarrazione(m.testo, m.png); renderDiario();
+      if (OPZ.narratore) Narratore.parla(m.testo, { png: m.png || null });
+      return;
+    }
+    case 'master_pensa': { const n = $('#narrazione'); n.hidden = false; n.classList.add('pensa'); $('#narrChi').textContent = 'Il master'; $('#narrTesto').textContent = 'Il master sta pensando…'; return; }
+    case 'master_zitto': { const n = $('#narrazione'); if (n.classList.contains('pensa')) n.hidden = true; n.classList.remove('pensa'); return; }
+    case 'richiesta_tiro': {
+      if (m.pg === S.io) {
+        $('#richTesto').textContent = `Il master chiede: prova di ${m.prova}${m.cd ? ' (CD ' + m.cd + ')' : ''}`;
+        $('#richiesta').hidden = false; $('#richTira').onclick = () => { tiraProva(m.prova); $('#richiesta').hidden = true; };
+        if (OPZ.avvisi) Narratore.avviso(`Tocca a te: prova di ${m.prova}`);
+      } else toast(`${m.nome || 'Un personaggio'} deve fare una prova di ${m.prova}`);
+      return;
+    }
+    case 'rtc': Voce.segnale(m.da, m.dati); return;
+    case 'invito': S.st.campagna.invito = m.invito; renderInvito(); toast('Nuovo codice invito creato: i vecchi QR non funzionano più'); return;
+    case 'interpretato': {
+      const frase = S.pendenti[m.id]; delete S.pendenti[m.id];
+      if (m.ops?.length) { modifica(m.ops, `a voce: "${frase}"`); Report.log('comando-voce', { testo: frase, esito: 'capito dall\'AI', ops: m.ops }); }
+      else { Report.log('comando-voce', { testo: frase, esito: 'non capito' }); if (masterAI() && OPZ.master && frase) inviaParlato(frase); }
+      return;
+    }
+    case 'regola': { const b = $('#rispostaRegola'); b.hidden = false; b.innerHTML = `<strong>${esc(m.domanda || 'Regola')}</strong><p>${esc(m.testo)}</p>`; return; }
+    case 'errore': {
+      toast(m.msg, true, 5000); Report.log('errore-server', { msg: m.msg, codice: m.codice });
+      if (m.codice === 'accesso' || m.codice === 'inesistente') { dimenticaCampagna(S.codice); S.io = null; mostraIngresso(); }
+      if (m.codice === 'invito') { S.io = null; mostraIngresso(); }
+      return;
+    }
+    case 'ok': if (m.cosa === 'suggerimento') toast('Grazie! Suggerimento inviato'); return;
+    case 'pong': S.latenza = Math.round(performance.now() - (S.ping || performance.now())); return;
+  }
+}
+
+/* ============ INGRESSO ============ */
+function mostraIngresso() {
+  $('#ingresso').hidden = false; $('#gioco').hidden = true; $('#azioniBarra').hidden = true;
+  $('#tCampagna').textContent = "Tavolo d'Avventura"; $('#tSotto').textContent = 'D&D online con gli amici'; $('#presenza').innerHTML = '';
+  const l = campagneSalvate();
+  $('#cartaMie').hidden = !l.length;
+  $('#listaMie').innerHTML = l.map(c => `<li><button class="apri" data-c="${esc(c.codice)}"><span><strong>${esc(c.nome || c.codice)}</strong><br><span class="piccolo">${esc(c.codice)} · ${esc(c.ruolo || 'giocatore')}</span></span><span aria-hidden="true">›</span></button><button class="testo-btn togli" data-c="${esc(c.codice)}" aria-label="Dimentica ${esc(c.nome || c.codice)}">Dimentica</button></li>`).join('');
+  const nome = leggi('ta_nome', ''); if (nome) { $('#eNome').value ||= nome; $('#cMioNome').value ||= nome; }
+}
+function mostraGioco() { $('#ingresso').hidden = true; $('#gioco').hidden = false; $('#azioniBarra').hidden = document.body.classList.contains('tv'); }
+$('#listaMie').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const c = campagneSalvate().find(x => x.codice === b.dataset.c); if (!c) return;
+  if (b.classList.contains('togli')) { dimenticaCampagna(c.codice); mostraIngresso(); return; }
+  S.io = c.io; S.chiave = c.chiave; connetti(c.codice, () => ({ t: 'ciao', membro: c.io, chiave: c.chiave }));
+});
+$$('input[name="cMaster"]').forEach(r => r.addEventListener('change', () => { $('#cMioRuoloBox').hidden = $('input[name="cMaster"]:checked').value !== 'umano'; }));
+$('#chipsAmb').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) $('#cAmbientazione').value = b.textContent; });
+$('#btnCrea').addEventListener('click', () => {
+  const mioNome = $('#cMioNome').value.trim();
+  if (!mioNome) { toast('Scrivi il tuo nome', true); $('#cMioNome').focus(); return; }
+  scrivi('ta_nome', mioNome);
+  const dati = { t: 'crea', nome: $('#cNome').value.trim() || 'La nostra campagna', regole: $('input[name="cRegole"]:checked').value, ambientazione: $('#cAmbientazione').value.trim() || 'Fantasy classico', masterTipo: $('input[name="cMaster"]:checked').value, ruolo: $('input[name="cMioRuolo"]:checked').value, mioNome };
+  Voce.riattivaAudio();
+  connetti(codiceNuovo(), () => dati);
+});
+$('#btnEntra').addEventListener('click', () => {
+  const nome = $('#eNome').value.trim(), codice = $('#eCodice').value.trim().toUpperCase(), invito = $('#eInvito').value.trim().toUpperCase();
+  if (!nome) { toast('Scrivi il tuo nome', true); $('#eNome').focus(); return; }
+  if (!codice || !invito) { toast('Servono il codice della campagna e il codice invito (sono nel QR)', true); return; }
+  scrivi('ta_nome', nome);
+  const salvata = campagneSalvate().find(x => x.codice === codice);
+  if (salvata) { S.io = salvata.io; S.chiave = salvata.chiave; connetti(codice, () => ({ t: 'ciao', membro: salvata.io, chiave: salvata.chiave })); return; }
+  connetti(codice, () => ({ t: 'entra', invito, nome, ruolo: $('input[name="eRuolo"]:checked').value }));
+});
+
+/* ============ RENDER GENERALE ============ */
+function renderTutto() {
+  if (!S.st) return;
+  const c = S.st.campagna;
+  $('#tCampagna').textContent = c.nome;
+  $('#tSotto').textContent = `${Regole.set(c.regole).nome} · master ${c.masterTipo === 'ai' ? 'AI' : 'in carne e ossa'} · sessione ${c.sessione || 1}`;
+  $('#aiutoCapo').hidden = !capo();
+  $('#dSegretoBox').hidden = !capo();
+  $('#boxNarra').hidden = !(capo() && c.masterTipo === 'umano');
+  $('#alMasterBox').hidden = !masterAI();
+  $('#formVai').hidden = !(capo() || masterAI());
+  $('#mappaVuotaSugg').textContent = masterAI() ? 'Il master AI vi porterà nel primo luogo appena iniziate a giocare: salutatelo o scrivete un luogo qui sopra.' : 'Il master sceglierà il primo luogo.';
+  $('#optMaster').closest('label').hidden = !masterAI();
+  renderPresenza(); renderMappa(); renderSchedaSeServe(true); renderTiri(); renderDiario(); renderAltro();
+}
+function renderPresenza() {
+  if (!S.st) return;
+  const on = new Set(S.st.online || []);
+  const ordinati = Object.entries(S.st.membri).sort((a, b) => (b[1].ruolo === 'master') - (a[1].ruolo === 'master'));
+  let html = masterAI() ? `<div class="av on ${Narratore.parlando ? 'parla' : ''}" id="av-master" style="background:#d9a441" title="Master AI">AI</div>` : '';
+  html += ordinati.filter(([, m]) => m.ruolo !== 'spettatore').map(([id, m]) => {
+    const pg = S.st.pg[id];
+    return `<div class="av ${on.has(id) ? 'on' : ''}" id="av-${id}" style="background:${esc(m.colore)}" title="${esc(m.nome)}${pg ? ' — ' + esc(pg.nome) : ''}${m.ruolo === 'master' ? ' (master)' : ''}">${esc((m.nome || '?').charAt(0).toUpperCase())}${m.ruolo === 'master' ? '<span class="ruolo">M</span>' : ''}</div>`;
+  }).join('');
+  $('#presenza').innerHTML = html;
+}
+function mostraVista(id) {
+  S.vista = id;
+  $$('.vista').forEach(v => v.classList.toggle('attiva', v.id === id));
+  $$('#nav button').forEach(b => b.classList.toggle('attivo', b.dataset.v === id));
+  if (id === 'vScheda') renderScheda();
+  if (id === 'vMappa') Mappa.adatta();
+  Report.log('vista', { id });
+}
+$('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) mostraVista(b.dataset.v); });
+
+/* ============ MAPPA ============ */
+const largo = () => matchMedia('(min-width: 1100px)').matches;
+Mappa.init($('#mappa'), {
+  io: () => S.io,
+  puoMuovere: id => id === S.io || capo(),
+  onMuovi: (id, x, y) => invia({ t: 'segnalino', id, x, y }),
+  altezzaMax: () => largo() || document.body.classList.contains('tv') ? window.innerHeight - 200 : 9999,
+  onEdificio: async ed => {
+    if (!capo()) { toast(`${ed.nome}${ed.stato !== 'integro' ? ' — ' + ed.stato : ''}`); return; }
+    const stati = ['integro', 'danneggiato', 'bruciato', 'distrutto'];
+    const i = await chiedi(`<h2>${esc(ed.nome)}</h2><p>Stato attuale: <strong>${esc(ed.stato)}</strong>. Il cambiamento resta sulla mappa per sempre.</p>`, [...stati.map(s => ({ testo: s.charAt(0).toUpperCase() + s.slice(1), pieno: s === ed.stato })), { testo: 'Chiudi' }]);
+    if (i >= 0 && i < stati.length && stati[i] !== ed.stato) invia({ t: 'modifica_luogo', edificio: ed.id, stato: stati[i] });
+  }
+});
+function renderMappa() {
+  const l = S.st?.luogo;
+  $('#mappaVuota').hidden = !!l;
+  $('#mappa').hidden = !l;
+  $('#luogoNome').textContent = l ? l.nome : 'Nessun luogo';
+  const TIPI = { citta: 'città', villaggio: 'villaggio', taverna: 'taverna', dungeon: 'dungeon', foresta: 'foresta', grotta: 'grotta', castello: 'castello', porto: 'porto', aperto: 'all\'aperto' };
+  $('#luogoTipo').textContent = l ? `${TIPI[l.tipo] || l.tipo}${l.visite > 1 ? ' · visitato ' + l.visite + ' volte' : ''}` : '';
+  if (l) Mappa.imposta(l, S.st.segnalini, S.st.membri);
+}
+$('#formVai').addEventListener('submit', e => { e.preventDefault(); const n = $('#vaiNome').value.trim(); if (!n) return; invia({ t: 'vai', nome: n }); $('#vaiNome').value = ''; Report.log('vai', { nome: n }); });
+function mostraNarrazione(testo, png) { const n = $('#narrazione'); n.hidden = false; n.classList.remove('pensa'); $('#narrChi').textContent = png ? `${png} (dal master)` : 'Il master'; $('#narrTesto').textContent = testo; }
+$('#btnZitto').addEventListener('click', () => { Narratore.zitto(); $('#narrazione').hidden = true; });
+Narratore.onInizio = () => { Ascolto.pausa(true); $('#av-master')?.classList.add('parla'); };
+Narratore.onFine = () => { Ascolto.pausa(false); $('#av-master')?.classList.remove('parla'); };
+
+/* ============ SCHEDA ============ */
+function renderSchedaSeServe(forza) { if (S.vista === 'vScheda' || largo() || forza) renderScheda(); }
+const PRIORITA = { Barbaro: 'for cos des sag car int', Bardo: 'car des cos sag int for', Chierico: 'sag cos for car int des', Druido: 'sag cos des int car for', Guerriero: 'for cos des sag car int', Ladro: 'des int cos sag car for', Mago: 'int cos des sag car for', Monaco: 'des sag cos for int car', Paladino: 'for car cos sag des int', Ranger: 'des sag cos for int car', Stregone: 'car cos des int sag for', Warlock: 'car cos des sag int for' };
+let bozza = null;
+function renderScheda() {
+  if (!S.st) return;
+  const sel = $('#selPg');
+  const ids = Object.entries(S.st.membri).filter(([, m]) => m.ruolo === 'giocatore').map(([id]) => id);
+  if (!S.viewPg || !S.st.membri[S.viewPg]) S.viewPg = ids.includes(S.io) ? S.io : ids[0];
+  sel.innerHTML = ids.map(id => `<option value="${id}" ${id === S.viewPg ? 'selected' : ''}>${esc(S.st.pg[id]?.nome || '—')} (${esc(S.st.membri[id].nome)}${id === S.io ? ', tu' : ''})</option>`).join('');
+  $('#selPgBox').hidden = ids.length < 2;
+  const box = $('#scheda');
+  const pg = S.st.pg[S.viewPg];
+  if (!S.viewPg) { box.innerHTML = '<p class="piccolo">Nessun giocatore al tavolo.</p>'; return; }
+  if (!pg) {
+    if (S.viewPg === S.io && me()?.ruolo === 'giocatore') return renderCreazione(box);
+    box.innerHTML = `<div class="carta"><p>${esc(S.st.membri[S.viewPg]?.nome)} non ha ancora creato il personaggio.</p></div>`; return;
+  }
+  const puo = S.viewPg === S.io || capo();
+  const set = Regole.set(pg.regole);
+  const r = pg.pfMax ? pg.pf / pg.pfMax : 1;
+  const comp = pg.regole === '3.5' ? `<div class="stat"><b>${segno(Regole.bab('3.5', pg.classe, pg.livello))}</b><span>BAB</span></div>` : `<div class="stat"><b>+${Regole.competenza(pg.livello)}</b><span>COMPETENZA</span></div>`;
+  const ts = pg.regole === '3.5' ? [['tem', 'Tempra'], ['rif', 'Riflessi'], ['vol', 'Volontà']] : CAR.map(k => [k, CAR_SIGLE[k]]);
+  const armi = (pg.equip || []).filter(e => e.indossato && (ARMI[e.nome] || tipoOggetto(e.nome) === 'arma'));
+  box.innerHTML = `
+  <div class="carta">
+    <div class="pg-testa">
+      <div class="ritratto">${Ritratto.svg(pg, { dim: largo() ? 130 : 120 })}</div>
+      <div class="pg-info">
+        <h2>${esc(pg.nome)}</h2>
+        <div class="piccolo">${esc(pg.razza)} · ${esc(pg.classe)} · livello ${pg.livello} · ${esc(pg.allineamento || '')}</div>
+        <div class="barra-pf" role="meter" aria-valuemin="0" aria-valuemax="${pg.pfMax}" aria-valuenow="${pg.pf}" aria-label="Punti ferita"><div class="${r <= 0.25 ? 'basso' : r <= 0.5 ? 'meta' : ''}" style="width:${Math.max(0, Math.min(100, r * 100))}%"></div></div>
+        <div><strong>${pg.pf}</strong> / ${pg.pfMax} PF${(pg.condizioni || []).length ? ' · <span style="color:#ffb199">' + esc(pg.condizioni.join(', ')) + '</span>' : ''}</div>
+        ${puo ? `<div class="pf-tasti"><button data-pf="-5">−5</button><button data-pf="-1">−1</button><button data-pf="1">+1</button><button data-pf="5">+5</button><button data-pf="?">Altro…</button></div>` : ''}
+      </div>
+    </div>
+    <div class="statini">
+      <div class="stat"><b>${pg.ca}</b><span>CLASSE ARMATURA</span></div>
+      <div class="stat"><b>${segno(Regole.iniziativa(pg))}</b><span>INIZIATIVA</span></div>
+      <div class="stat"><b>${String(pg.vel).replace('.', ',')} m</b><span>VELOCITÀ</span></div>
+      ${comp}
+    </div>
+    ${pg.puntiCar ? `<div class="avviso-punti">Hai <strong>${pg.puntiCar}</strong> punt${pg.puntiCar > 1 ? 'i' : 'o'} caratteristica da assegnare: tocca <strong>+</strong> su una caratteristica o dillo a voce ("aumenta di ${pg.puntiCar} punti intelligenza").</div>` : ''}
+    ${pg.regole === '3.5' && pg.puntiAbilita ? `<div class="avviso-punti">Hai <strong>${pg.puntiAbilita}</strong> gradi di abilità da assegnare: usa i tasti + nelle abilità.</div>` : ''}
+    <div class="riga">${puo ? `<button id="btnLivello" class="${Regole.puoSalire(pg) ? 'pieno' : ''}">Sali di livello${Regole.puoSalire(pg) ? ' (hai i PX!)' : ''}</button>` : ''}<span class="piccolo">PX ${pg.px || 0} / ${Regole.prossimoLivelloPx(pg)}</span></div>
+  </div>
+  <div class="carta"><h3 style="margin-top:0">Caratteristiche</h3>
+    <div class="car-griglia">${CAR.map(k => `<div class="car"><button class="tira" data-prova="car:${k}" aria-label="Prova di ${CAR_NOMI[k]}"><div class="sigla">${CAR_SIGLE[k]}</div><div class="val">${pg.car[k]}</div><div class="mod">${segno(mod(pg.car[k]))}</div></button>${puo && pg.puntiCar ? `<button class="piu" data-piu="${k}" aria-label="Aumenta ${CAR_NOMI[k]}">+</button>` : ''}</div>`).join('')}</div>
+    <h3>Tiri salvezza</h3>
+    <div class="chips">${ts.map(([k, n]) => `<button class="chip" data-prova="ts:${k}">${n} ${segno(Regole.tiroSalvezza(pg, k))}</button>`).join('')}</div>
+  </div>
+  ${armi.length ? `<div class="carta"><h3 style="margin-top:0">Attacchi</h3><ul class="equip">${armi.map(a => { const at = Regole.attacco(pg, a); return `<li><span class="n">${esc(a.nome)}</span><button data-attacco="${esc(a.nome)}">Colpire ${segno(at.colpire)}</button><button data-danni="${esc(a.nome)}">Danni ${esc(at.danno)}</button></li>`; }).join('')}</ul></div>` : ''}
+  <div class="carta"><h3 style="margin-top:0">Abilità</h3>
+    <ul class="lista-ab">${Object.keys(set.abilita).map(ab => `<li><span class="nome">${pg.regole === '5e' ? `<input type="checkbox" class="comp" data-comp="${esc(ab)}" ${(pg.competenze || []).includes(ab) ? 'checked' : ''} ${puo ? '' : 'disabled'} aria-label="Competenza in ${esc(ab)}"> ` : ''}${esc(ab)} <span class="piccolo">${CAR_SIGLE[set.abilita[ab]]}${pg.regole === '3.5' ? ' · gradi ' + (pg.gradi?.[ab] || 0) : ''}</span></span><b class="b">${segno(Regole.abilita(pg, ab))}</b>${pg.regole === '3.5' && puo && pg.puntiAbilita ? `<button data-grado="${esc(ab)}" aria-label="Aggiungi un grado a ${esc(ab)}">+</button>` : ''}<button data-prova="ab:${esc(ab)}" aria-label="Tira ${esc(ab)}">Tira</button></li>`).join('')}</ul>
+  </div>
+  <div class="carta"><h3 style="margin-top:0">Equipaggiamento</h3>
+    <ul class="equip">${(pg.equip || []).map((e, i) => `<li class="${e.indossato ? 'ind' : ''}"><span class="n">${esc(e.nome)}${e.qta > 1 ? ' ×' + e.qta : ''}${e.indossato ? ' <span class="piccolo">· indossato</span>' : ''}</span>${puo ? `${tipoOggetto(e.nome) ? `<button data-ind="${i}">${e.indossato ? 'Riponi' : 'Indossa'}</button>` : ''}<button data-tog="${i}" aria-label="Togli ${esc(e.nome)}">Togli</button>` : ''}</li>`).join('') || '<li class="piccolo">Zaino vuoto</li>'}</ul>
+    ${puo ? `<form id="formOggetto" class="riga" autocomplete="off" style="margin-top:8px"><input id="nuovoOggetto" maxlength="60" placeholder="Aggiungi oggetto (es. Pozione di guarigione)" list="listaOggetti"><button class="pieno">Aggiungi</button></form>
+    <datalist id="listaOggetti">${[...Object.keys(ARMI), ...Object.keys(ARMATURE), ...Object.keys(SCUDI), ...ELMI, 'Mantello', 'Amuleto', 'Pozione di guarigione', 'Torcia', 'Corda (15 m)', 'Razioni'].map(n => `<option value="${esc(n)}">`).join('')}</datalist>` : ''}
+    <div class="riga" style="margin-top:10px"><span>Monete d'oro: <strong>${pg.oro || 0}</strong></span>${puo ? '<button data-oro="?">Modifica</button>' : ''}<span>PX: <strong>${pg.px || 0}</strong></span>${puo ? '<button data-px="?">Aggiungi PX</button>' : ''}</div>
+  </div>
+  <div class="carta"><h3 style="margin-top:0">Condizioni</h3>
+    <div class="cond">${CONDIZIONI.map(c => `<button class="chip ${(pg.condizioni || []).includes(c) ? 'on' : ''}" data-cond="${esc(c)}" ${puo ? '' : 'disabled'}>${esc(c)}</button>`).join('')}</div>
+  </div>
+  <div class="carta">
+    <details><summary>Aspetto del personaggio</summary>${puo ? formAspetto(pg.aspetto || {}, pg.razza) : ''}</details>
+    <label>Note<textarea id="pgNote" rows="3" maxlength="4000" ${puo ? '' : 'readonly'}>${esc(pg.note || '')}</textarea></label>
+    <div class="riga"><button id="btnStampa">Stampa o salva in PDF</button>${puo ? '<button id="btnAnnullaScheda">Annulla ultima modifica</button>' : ''}</div>
+  </div>`;
+}
+function formAspetto(a, razza) {
+  const sel = (id, nome, opz, val) => `<label>${nome}<select data-asp="${id}">${opz.map(o => `<option ${o === val ? 'selected' : ''}>${o}</option>`).join('')}</select></label>`;
+  return `<div class="crea-car" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+    ${sel('pelle', 'Pelle', Object.keys(Ritratto.PELLE), a.pelle || 'chiara')}
+    ${sel('capelli', 'Capelli', ['corti', 'lunghi', 'coda', 'ricci', 'cresta', 'calvo'], a.capelli || (razza === 'Elfo' ? 'lunghi' : 'corti'))}
+    ${sel('coloreCapelli', 'Colore capelli', Object.keys(Ritratto.CAPELLI), a.coloreCapelli || (razza === 'Nano' ? 'rosso' : razza === 'Elfo' ? 'biondo' : 'castano'))}
+    ${sel('barba', 'Barba', ['nessuna', 'corta', 'lunga'], a.barba || (razza === 'Nano' ? 'lunga' : 'nessuna'))}
+    ${sel('occhi', 'Occhi', Object.keys(Ritratto.OCCHI), a.occhi || 'marroni')}
+    ${sel('corporatura', 'Corporatura', ['normale', 'snella', 'robusta'], a.corporatura || 'normale')}
+    ${razza === 'Dragonide' ? sel('drago', 'Scaglie', Object.keys(Ritratto.DRAGO), a.drago || 'rosso') : ''}
+  </div>`;
+}
+function renderCreazione(box) {
+  const r = regole(); const set = Regole.set(r);
+  bozza = bozza && bozza.regole === r ? bozza : { regole: r, nome: '', razza: Object.keys(set.razze)[0], classe: 'Guerriero', carBase: { for: 15, des: 13, cos: 14, int: 8, sag: 12, car: 10 }, competenze: [], aspetto: {}, allineamento: 'Neutrale buono' };
+  const anteprima = Regole.nuovo(r, bozza);
+  const nAb = r === '5e' ? set.classi[bozza.classe]?.abilita || 2 : 0;
+  box.innerHTML = `<div class="carta">
+    <h2>Crea il tuo personaggio</h2><p class="piccolo">${esc(set.nome)}: tutto il resto (PF, CA, tiri salvezza, abilità) si calcola da solo.</p>
+    <div class="pg-testa"><div class="ritratto" id="anteprima">${Ritratto.svg(anteprima, { dim: 120 })}</div>
+      <div class="pg-info"><label>Nome<input id="cpNome" maxlength="40" value="${esc(bozza.nome)}" placeholder="Es. Brann Barbaferro"></label>
+      <div class="piccolo">PF ${anteprima.pfMax} · CA ${anteprima.ca} · velocità ${String(anteprima.vel).replace('.', ',')} m</div></div></div>
+    <div class="crea-car" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+      <label>Razza<select id="cpRazza">${Object.keys(set.razze).map(x => `<option ${x === bozza.razza ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+      <label>Classe<select id="cpClasse">${Object.keys(set.classi).map(x => `<option ${x === bozza.classe ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+    </div>
+    <p class="piccolo">${esc(set.razze[bozza.razza]?.tratti || '')}</p>
+    <h3>Caratteristiche (prima dei bonus di razza)</h3>
+    <div class="riga"><button id="cpAuto" type="button">Distribuisci per la classe</button><button id="cpTira" type="button">Tira 4d6</button></div>
+    <div class="crea-car">${CAR.map(k => `<label>${CAR_NOMI[k]}<input type="number" min="3" max="18" data-cb="${k}" value="${bozza.carBase[k]}" inputmode="numeric"><span class="piccolo">finale ${anteprima.car[k]} (${segno(mod(anteprima.car[k]))})</span></label>`).join('')}</div>
+    ${r === '5e' ? `<h3>Abilità in cui sei competente (${bozza.competenze.length}/${nAb})</h3><div class="chips">${Object.keys(set.abilita).map(ab => `<button type="button" class="chip ${bozza.competenze.includes(ab) ? 'on' : ''}" data-cpab="${esc(ab)}">${esc(ab)}</button>`).join('')}</div>` : '<p class="piccolo">In 3.5 assegnerai i gradi di abilità dalla scheda dopo la creazione.</p>'}
+    <label>Allineamento<select id="cpAll">${['Legale buono', 'Neutrale buono', 'Caotico buono', 'Legale neutrale', 'Neutrale', 'Caotico neutrale', 'Legale malvagio', 'Neutrale malvagio', 'Caotico malvagio'].map(x => `<option ${x === bozza.allineamento ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+    <details open><summary>Aspetto</summary>${formAspetto(bozza.aspetto, bozza.razza)}</details>
+    <p class="piccolo">Equipaggiamento iniziale: ${esc(set.classi[bozza.classe].equip.join(', '))}.</p>
+    <button id="cpCrea" class="pieno grande" type="button">Crea il personaggio</button>
+  </div>`;
+}
+// eventi della scheda (delegati)
+$('#scheda').addEventListener('input', e => {
+  const t = e.target;
+  if (bozza && !mioPg()) {
+    if (t.id === 'cpNome') bozza.nome = t.value;
+    if (t.dataset.cb) { bozza.carBase[t.dataset.cb] = Math.max(3, Math.min(18, Number(t.value) || 10)); aggiornaAnteprima(); }
+  }
+});
+$('#scheda').addEventListener('change', e => {
+  const t = e.target;
+  if (bozza && !mioPg() && (t.id === 'cpRazza' || t.id === 'cpClasse' || t.id === 'cpAll' || t.dataset.asp)) {
+    if (t.id === 'cpRazza') bozza.razza = t.value;
+    if (t.id === 'cpClasse') { bozza.classe = t.value; bozza.competenze = []; }
+    if (t.id === 'cpAll') bozza.allineamento = t.value;
+    if (t.dataset.asp) bozza.aspetto[t.dataset.asp] = t.value;
+    renderScheda(); return;
+  }
+  const pg = S.st?.pg?.[S.viewPg]; if (!pg) return;
+  if (t.dataset.asp) modifica(p => { p.aspetto = { ...(p.aspetto || {}), [t.dataset.asp]: t.value }; return 'aspetto aggiornato'; });
+  if (t.dataset.comp) modifica(p => { const s = new Set(p.competenze || []); t.checked ? s.add(t.dataset.comp) : s.delete(t.dataset.comp); p.competenze = [...s]; return `${t.checked ? 'competente' : 'non più competente'} in ${t.dataset.comp}`; });
+  if (t.id === 'pgNote') modifica(p => { p.note = t.value; return null; });
+});
+function aggiornaAnteprima() { const a = Regole.nuovo(regole(), bozza); $('#anteprima').innerHTML = Ritratto.svg(a, { dim: 120 }); $$('[data-cb]').forEach(i => { i.nextElementSibling.textContent = `finale ${a.car[i.dataset.cb]} (${segno(mod(a.car[i.dataset.cb]))})`; }); }
+$('#scheda').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  // creazione
+  if (b.id === 'cpAuto') { const ord = (PRIORITA[bozza.classe] || 'for des cos int sag car').split(' '); ord.forEach((k, i) => bozza.carBase[k] = Regole.arrayStandard[i]); renderScheda(); return; }
+  if (b.id === 'cpTira') { const v = CAR.map(() => Regole.tira4d6()).sort((x, y) => y - x); (PRIORITA[bozza.classe] || 'for des cos int sag car').split(' ').forEach((k, i) => bozza.carBase[k] = v[i]); renderScheda(); toast('Tirati: ' + v.join(', ')); return; }
+  if (b.dataset.cpab) { const s = new Set(bozza.competenze); const max = Regole.set(regole()).classi[bozza.classe].abilita; s.has(b.dataset.cpab) ? s.delete(b.dataset.cpab) : s.size < max ? s.add(b.dataset.cpab) : toast(`La classe ${bozza.classe} ne ha ${max}`); bozza.competenze = [...s]; renderScheda(); return; }
+  if (b.id === 'cpCrea') {
+    if (!bozza.nome.trim()) { toast('Dai un nome al personaggio', true); $('#cpNome').focus(); return; }
+    const pg = Regole.nuovo(regole(), bozza);
+    invia({ t: 'scheda', pg, nota: `${pg.nome}, ${pg.razza} ${pg.classe}, entra in gioco` });
+    S.st.pg[S.io] = pg; bozza = null; Report.log('pg-creato', { razza: pg.razza, classe: pg.classe, regole: pg.regole });
+    renderScheda(); toast('Personaggio creato!'); return;
+  }
+  const pg = S.st?.pg?.[S.viewPg]; if (!pg) return;
+  if (b.dataset.prova) { const [tipo, k] = b.dataset.prova.split(':'); if (tipo === 'car') tira('d20' + fm(mod(pg.car[k])), 'Prova di ' + CAR_NOMI[k]); else if (tipo === 'ts') tira('d20' + fm(Regole.tiroSalvezza(pg, k)), 'Tiro salvezza ' + ({ tem: 'Tempra', rif: 'Riflessi', vol: 'Volontà' }[k] || CAR_NOMI[k])); else tira('d20' + fm(Regole.abilita(pg, k)), k); return; }
+  if (b.dataset.attacco) { const at = Regole.attacco(pg, { nome: b.dataset.attacco }); tira('d20' + fm(at.colpire), 'Attacco con ' + b.dataset.attacco); return; }
+  if (b.dataset.danni) { const at = Regole.attacco(pg, { nome: b.dataset.danni }); tira(at.danno.replace(/^1d/, 'd'), 'Danni ' + b.dataset.danni); return; }
+  if (b.dataset.pf) { let d = Number(b.dataset.pf); if (b.dataset.pf === '?') { const v = prompt('Punti ferita: scrivi un numero negativo per i danni (es. -7) o positivo per le cure (es. 5)'); d = parseInt(v, 10); if (!d) return; } modifica([{ op: 'pf', delta: d }]); return; }
+  if (b.dataset.piu) { modifica([{ op: 'car', car: b.dataset.piu, delta: 1 }]); return; }
+  if (b.dataset.grado) { modifica(p => { p.gradi = { ...(p.gradi || {}), [b.dataset.grado]: (p.gradi?.[b.dataset.grado] || 0) + 1 }; p.puntiAbilita = Math.max(0, (p.puntiAbilita || 0) - 1); return `+1 grado in ${b.dataset.grado}`; }); return; }
+  if (b.dataset.ind !== undefined) { const it = pg.equip[Number(b.dataset.ind)]; modifica([{ op: it.indossato ? 'ripon' : 'indossa', nome: it.nome }]); return; }
+  if (b.dataset.tog !== undefined) { const it = pg.equip[Number(b.dataset.tog)]; modifica(p => { p.equip.splice(Number(b.dataset.tog), 1); return `rimuove ${it.nome}`; }); return; }
+  if (b.dataset.cond) { const on = (pg.condizioni || []).includes(b.dataset.cond); modifica([{ op: 'condizione', nome: b.dataset.cond, attiva: !on }]); return; }
+  if (b.dataset.oro) { const v = parseInt(prompt('Monete d\'oro da aggiungere (usa il meno per togliere, es. -10)'), 10); if (v) modifica([{ op: 'oro', delta: v }]); return; }
+  if (b.dataset.px) { const v = parseInt(prompt('Punti esperienza guadagnati'), 10); if (v) modifica([{ op: 'px', delta: v }]); return; }
+  if (b.id === 'btnLivello') { const i = await chiedi(`<h2>Sali al livello ${pg.livello + 1}</h2><p>Punti ferita: media del dado vita (${Regole.mediaPf(pg)}) oppure tira 1d${Regole.dadoVita(pg)}. In entrambi i casi si aggiunge il modificatore di Costituzione.</p>`, [{ testo: 'Media', pieno: true }, { testo: `Tira 1d${Regole.dadoVita(pg)}` }, { testo: 'Annulla' }]); if (i === 0) modifica([{ op: 'livello', delta: 1 }]); if (i === 1) { const d = 1 + Math.floor(Math.random() * Regole.dadoVita(pg)); modifica(p => Regole.saliLivello(p, d).msg + ` (tiro ${d})`); } return; }
+  if (b.id === 'btnStampa') { window.print(); return; }
+  if (b.id === 'btnAnnullaScheda') { annulla(); return; }
+});
+$('#scheda').addEventListener('submit', e => { if (e.target.id !== 'formOggetto') return; e.preventDefault(); const n = $('#nuovoOggetto').value.trim(); if (n) modifica([{ op: 'oggetto', nome: n, qta: 1 }]); });
+$('#selPg').addEventListener('change', e => { S.viewPg = e.target.value; renderScheda(); });
+
+// Ogni modifica: copia per "annulla", applica, ricalcola, invia a tutti
+function modifica(azione, notaExtra) {
+  const per = S.viewPg && (S.viewPg === S.io || capo()) ? S.viewPg : S.io;
+  const pg = S.st?.pg?.[per];
+  if (!pg) { toast('Prima crea il personaggio nella scheda', true); return; }
+  if (per !== S.io && !capo()) return;
+  S.undo.push({ per, prima: clona(pg) }); if (S.undo.length > 30) S.undo.shift();
+  let note;
+  if (Array.isArray(azione)) note = Comandi.applica(pg, azione).join(', ');
+  else note = azione(pg);
+  Regole.ricalcola(pg);
+  if (notaExtra) note = note ? `${note} — ${notaExtra}` : notaExtra;
+  invia({ t: 'scheda', per, pg, nota: note || null });
+  renderScheda(); renderPresenza();
+  if (note) mostraAnnulla(`${pg.nome}: ${note}`);
+  Report.log('scheda', { nota: note, per: per === S.io ? 'io' : 'altro', pf: pg.pf, livello: pg.livello });
+}
+function annulla() {
+  const u = S.undo.pop(); if (!u) { toast('Niente da annullare'); return; }
+  S.st.pg[u.per] = u.prima;
+  invia({ t: 'scheda', per: u.per, pg: u.prima, nota: 'annullata l\'ultima modifica' });
+  renderScheda(); $('#annullaBar').hidden = true; toast('Modifica annullata'); Report.log('annulla', {});
+}
+function mostraAnnulla(testo) { $('#annullaTesto').textContent = testo; $('#annullaBar').hidden = false; clearTimeout(mostraAnnulla._t); mostraAnnulla._t = setTimeout(() => $('#annullaBar').hidden = true, 8000); }
+$('#btnAnnulla').addEventListener('click', annulla);
+
+/* ============ DADI ============ */
+$('#dadiTasti').innerHTML = [4, 6, 8, 10, 12, 20, 100].map(f => `<button type="button" data-f="${f}" class="${f === 20 ? 'd20' : ''}">d${f}</button>`).join('');
+$('#dadiTasti').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const q = Math.max(1, Math.min(20, Number($('#dQuanti').value) || 1)), m = Number($('#dMod').value) || 0;
+  tira(`${q > 1 ? q : ''}d${b.dataset.f}${fm(m)}`, $('#dMotivo').value.trim(), $('input[name="dModo"]:checked').value || null, $('#dSegreto').checked);
+});
+function tira(formula, motivo, modo, segreto) {
+  if (me()?.ruolo === 'spettatore') { toast('Gli spettatori non tirano i dadi'); return; }
+  if (invia({ t: 'dado', formula, motivo: motivo || '', modo, segreto: !!segreto })) Report.log('dado', { formula, motivo, modo });
+}
+function tiraProva(prova) {
+  const pg = mioPg(); if (!pg) { tira('d20', prova); return; }
+  const set = Regole.set(pg.regole);
+  const ab = Object.keys(set.abilita).find(a => pulisci(a) === pulisci(prova));
+  if (ab) return tira('d20' + fm(Regole.abilita(pg, ab)), ab);
+  const r = Comandi.interpreta('tiro ' + prova, pg, pg.regole);
+  if (r?.dado) return tira(r.dado.formula, r.dado.motivo || prova, r.dado.modo);
+  tira('d20', prova);
+}
+function mostraTiro(t) {
+  const el = $('#ultimoTiro');
+  el.innerHTML = `<div class="tot gira ${t.critico ? 'crit' : t.fallimento ? 'fail' : ''}">${t.totale}</div><div>${esc(t.nome)} · ${esc(t.formula)}${t.motivo ? ' · ' + esc(t.motivo) : ''}</div><div class="piccolo">dadi: ${t.dadi.join(', ')}${t.scartati?.length ? ` (scartato ${t.scartati.join(', ')}, ${t.modo})` : ''}${t.mod ? ' · modificatore ' + fm(t.mod) : ''}${t.segreto ? ' · segreto' : ''}${t.critico ? ' · CRITICO!' : t.fallimento ? ' · fallimento critico' : ''}</div>`;
+  if (t.chi === S.io && S.vista !== 'vDadi' && !largo()) toast(`${t.motivo || t.formula}: ${t.totale}${t.critico ? ' — CRITICO!' : t.fallimento ? ' — fallimento critico' : ''}`);
+}
+function renderTiri() {
+  const l = [...(S.st?.dadi || [])].reverse().slice(0, 30);
+  $('#listaTiri').innerHTML = l.map(t => `<li><b>${t.totale}</b> — ${esc(t.nome)}: ${esc(t.formula)}${t.motivo ? ' · ' + esc(t.motivo) : ''}${t.modo ? ' · ' + t.modo : ''}${t.segreto ? ' · segreto' : ''}${t.critico ? ' · CRITICO' : t.fallimento ? ' · fallimento' : ''}</li>`).join('') || '<li class="piccolo">Nessun tiro ancora.</li>';
+}
+
+/* ============ DIARIO ============ */
+function renderDiario() {
+  const l = [...(S.st?.diario || [])].reverse().slice(0, 150);
+  const ora = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  $('#diario').innerHTML = l.map(d => {
+    if (d.tipo === 'narrazione') return `<li class="narrazione-ev"><span class="chi">${ora(d.t)} · ${esc(d.png || (d.chi === 'master' ? 'Master AI' : S.st.membri[d.chi]?.nome || 'Master'))}</span><p>${esc(d.testo)}</p></li>`;
+    const cls = { scheda: 'scheda-ev', comando: 'comando' }[d.tipo] || d.tipo;
+    const chi = d.tipo === 'chat' ? `<strong>${esc(S.st.membri[d.chi]?.nome || '?')}:</strong> ` : '';
+    return `<li class="${esc(cls)}"><span class="chi">${ora(d.t)}</span> ${chi}${esc(d.testo)}</li>`;
+  }).join('') || '<li class="piccolo">Il diario della campagna è vuoto: iniziate a giocare!</li>';
+}
+$('#formChat').addEventListener('submit', e => {
+  e.preventDefault(); const t = $('#chatTesto').value.trim(); if (!t) return;
+  const r = mioPg() ? Comandi.interpreta(t, mioPg(), regole()) : null;
+  if (r) eseguiComando(r, t, 'scritto');
+  else { invia({ t: 'chat', testo: t, alMaster: masterAI() && $('#alMaster').checked }); if (masterAI() && $('#alMaster').checked) S.ultimoParlato = Date.now(); }
+  $('#chatTesto').value = '';
+});
+$('#formNarra').addEventListener('submit', e => { e.preventDefault(); const t = $('#narraTesto').value.trim(); if (!t) return; invia({ t: 'narra', testo: t, png: $('#narraPng').value.trim() }); $('#narraTesto').value = ''; });
+$('#formRegola').addEventListener('submit', e => { e.preventDefault(); const t = $('#regolaTesto').value.trim(); if (!t) return; invia({ t: 'regola', testo: t }); $('#rispostaRegola').hidden = false; $('#rispostaRegola').textContent = 'Cerco nel regolamento…'; $('#regolaTesto').value = ''; Report.log('regola', { testo: t }); });
+
+/* ============ VOCE ============ */
+function avviaVoce() {
+  if (document.body.classList.contains('tv')) return;
+  Voce.avvia({
+    io: S.io, invia, log: (t, d) => Report.log(t, d),
+    onParlante: (id, p) => { const el = id === S.io ? $(`#av-${S.io}`) : $(`#av-${id}`); el?.classList.toggle('parla', p); },
+    onStato: msg => { if (msg) toast(msg, true, 6000); }
+  }).then(ok => { if (ok) Voce.collegaTutti(S.st.online || []); aggiornaBottoniVoce(); });
+  if (me()?.ruolo !== 'spettatore' && leggi('ta_ascolto', true)) attivaAscolto();
+}
+function attivaAscolto() {
+  const ok = Ascolto.avvia({
+    log: (t, d) => Report.log(t, d),
+    onFrase: frase => sentitaFrase(frase),
+    onParziale: p => { const el = $('#parziale'); el.hidden = !p; el.textContent = '🎙 ' + p; },
+    onStato: msg => { if (msg) toast(msg, true, 6000); aggiornaBottoniVoce(); }
+  });
+  aggiornaBottoniVoce();
+  return ok;
+}
+function sentitaFrase(frase) {
+  if (!S.st || me()?.ruolo === 'spettatore') return;
+  const r = Comandi.interpreta(frase, mioPg(), regole());
+  if (r) return eseguiComando(r, frase, 'voce');
+  if (mioPg() && /\b(punt[oi]|livell|danni|monete|equipagg|indoss|inventario|zaino|caratteristic|punti ferita|ferit|esperienza)\b/i.test(frase)) {
+    const id = Math.random().toString(36).slice(2, 8); S.pendenti[id] = frase;
+    invia({ t: 'interpreta', id, testo: frase, regole: regole() }); return;
+  }
+  if (masterAI() && OPZ.master) inviaParlato(frase);
+}
+function inviaParlato(frase) { invia({ t: 'parlato', testo: frase }); S.ultimoParlato = Date.now(); }
+function eseguiComando(r, frase, come) {
+  if (r.annulla) { annulla(); return; }
+  if (r.dado) { tira(r.dado.formula, r.dado.motivo === 'a voce' ? frase : r.dado.motivo, r.dado.modo); Report.log('comando-voce', { testo: frase, esito: 'dado', come }); return; }
+  if (r.ops) { const pv = S.viewPg; S.viewPg = S.io; modifica(r.ops, come === 'voce' ? `a voce: "${frase}"` : null); S.viewPg = pv; invia({ t: 'comando', testo: frase }); Report.log('comando-voce', { testo: frase, esito: 'ok', ops: r.ops, come }); }
+}
+function aggiornaBottoniVoce() {
+  $('#btnMic').classList.toggle('muto', Voce.muto || !Voce.attivo);
+  $('#btnMic').setAttribute('aria-pressed', String(!Voce.muto && Voce.attivo));
+  $('#btnMic').title = !Voce.attivo ? 'Microfono non attivo: tocca per attivarlo' : Voce.muto ? 'Microfono spento: tocca per parlare' : 'Microfono acceso';
+  $('#btnAscolto').classList.toggle('on', Ascolto.attivo);
+  $('#btnAscolto').setAttribute('aria-pressed', String(Ascolto.attivo));
+}
+$('#btnMic').addEventListener('click', async () => {
+  Voce.riattivaAudio();
+  if (!Voce.attivo) { const ok = await Voce.avvia({ io: S.io, invia, log: (t, d) => Report.log(t, d), onParlante: (id, p) => $(`#av-${id}`)?.classList.toggle('parla', p) }); if (ok) Voce.collegaTutti(S.st.online || []); }
+  else Voce.setMuto(!Voce.muto);
+  aggiornaBottoniVoce(); Report.log('microfono-tasto', { muto: Voce.muto });
+});
+$('#btnAscolto').addEventListener('click', () => {
+  if (Ascolto.attivo) { Ascolto.ferma(); scrivi('ta_ascolto', false); toast('Comandi vocali spenti'); }
+  else if (attivaAscolto()) { scrivi('ta_ascolto', true); toast('Ti ascolto: prova "tiro un d20" o "subisco 3 danni"'); }
+  aggiornaBottoniVoce();
+});
+document.addEventListener('pointerdown', () => Voce.riattivaAudio(), { once: true });
+
+/* ============ ALTRO ============ */
+function linkInvito() { const c = S.st?.campagna; return c?.invito ? `${location.origin}${location.pathname}?c=${S.codice}&i=${c.invito}` : ''; }
+function renderInvito() {
+  const url = linkInvito();
+  $('#cartaInvito').hidden = !url;
+  if (!url) return;
+  try { const q = qrcode(0, 'M'); q.addData(url); q.make(); $('#qr').innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); } catch { $('#qr').textContent = S.codice; }
+  $('#btnNuovoInvito').hidden = !capo();
+  $('#linkTv').href = url + '&tv=1';
+}
+function renderAltro() {
+  renderInvito();
+  const c = S.st.campagna;
+  $('#cartaCampagna').hidden = !capo();
+  if (capo()) {
+    $('#aNome').value = c.nome; $('#aAmb').value = c.ambientazione;
+    $$('input[name="aRegole"]').forEach(r => r.checked = r.value === c.regole);
+    $$('input[name="aMaster"]').forEach(r => r.checked = r.value === c.masterTipo);
+    $('#ruoliBox').innerHTML = me()?.admin ? `<h3>Ruoli</h3>${Object.entries(S.st.membri).map(([id, m]) => `<label>${esc(m.nome)}${id === S.io ? ' (tu)' : ''}<select data-ruolo="${id}">${['giocatore', 'master', 'spettatore'].map(r => `<option ${r === m.ruolo ? 'selected' : ''}>${r}</option>`).join('')}</select></label>`).join('')}` : '';
+  }
+  $('#optNome').value = me()?.nome || '';
+  $('#optNarratore').checked = OPZ.narratore; $('#optAvvisi').checked = OPZ.avvisi; $('#optMaster').checked = OPZ.master; $('#optGrandi').checked = OPZ.grandi;
+  const n = leggi('ta_rapporti', []).length, es = leggi('ta_report_esito', null);
+  $('#repInfo').textContent = (n ? `${n} rapporti in coda. ` : 'Nessun rapporto in coda. ') + (es ? `Ultimo invio ${es.t}: ${es.stato >= 200 && es.stato < 300 ? 'OK' : 'errore ' + es.stato}` : '');
+}
+$('#btnCondividi').addEventListener('click', async () => { const url = linkInvito(); if (!url) return; if (navigator.share) { try { await navigator.share({ title: S.st.campagna.nome, text: `Unisciti alla nostra partita di D&D: ${S.st.campagna.nome}`, url }); } catch {} } else { await navigator.clipboard?.writeText(url); toast('Link copiato'); } });
+$('#btnCopia').addEventListener('click', async () => { try { await navigator.clipboard.writeText(linkInvito()); toast('Link copiato'); } catch { toast(linkInvito()); } });
+$('#btnNuovoInvito').addEventListener('click', () => invia({ t: 'nuovo_invito' }));
+$('#btnSalvaCamp').addEventListener('click', () => {
+  const ruoli = Object.fromEntries($$('[data-ruolo]').map(s => [s.dataset.ruolo, s.value]));
+  invia({ t: 'impostazioni', nome: $('#aNome').value.trim(), ambientazione: $('#aAmb').value.trim(), regole: $('input[name="aRegole"]:checked')?.value, masterTipo: $('input[name="aMaster"]:checked')?.value, ruoli });
+  toast('Impostazioni salvate');
+});
+$('#btnNuovaSessione').addEventListener('click', async () => { const i = await chiedi('<h2>Nuova sessione</h2><p>Si apre una nuova sessione e si crea un nuovo codice invito: i vecchi QR smettono di funzionare. La campagna, le schede e le mappe restano.</p>', [{ testo: 'Inizia', pieno: true }, { testo: 'Annulla' }]); if (i === 0) { invia({ t: 'impostazioni', nuovaSessione: true }); if (masterAI()) setTimeout(() => invia({ t: 'riassunto' }), 800); } });
+$('#btnRiassunto').addEventListener('click', () => { invia({ t: 'riassunto' }); toast('Il master prepara il riassunto…'); });
+$('#optNarratore').addEventListener('change', e => { OPZ.narratore = e.target.checked; Narratore.attivo = OPZ.narratore; scrivi('ta_opzioni', OPZ); });
+$('#optAvvisi').addEventListener('change', e => { OPZ.avvisi = e.target.checked; scrivi('ta_opzioni', OPZ); });
+$('#optMaster').addEventListener('change', e => { OPZ.master = e.target.checked; scrivi('ta_opzioni', OPZ); });
+$('#optGrandi').addEventListener('change', e => { OPZ.grandi = e.target.checked; scrivi('ta_opzioni', OPZ); applicaGrandi(); });
+$('#optNome').addEventListener('change', e => { const v = e.target.value.trim(); if (v) { invia({ t: 'impostazioni', mioNome: v }); scrivi('ta_nome', v); } });
+function applicaGrandi() { document.documentElement.style.setProperty('--scala', OPZ.grandi ? 1.2 : 1); setTimeout(() => Mappa.adatta(), 50); }
+$('#formSugg').addEventListener('submit', e => { e.preventDefault(); const t = $('#suggTesto').value.trim(); if (!t) return; invia({ t: 'suggerimento', testo: t }); Report.log('suggerimento', { testo: t }); $('#suggTesto').value = ''; });
+$('#btnRapporto').addEventListener('click', () => Report.salvaFile());
+$('#btnEsci').addEventListener('click', () => { scrivi('ta_attiva', null); history.replaceState(null, '', location.pathname); const ws = S.ws; S.io = null; S.ws = null; try { ws?.close(); } catch {} Object.keys(Voce.stato()).forEach(id => Voce.chiudi(id)); Ascolto.ferma(); Narratore.zitto(); mostraIngresso(); });
+
+// Prova prima della partita: browser, microfono, cuffie, connessione, voce
+$('#btnProva').addEventListener('click', async () => {
+  const ul = $('#esitoProva'); ul.innerHTML = '';
+  const riga = (ok, t) => { ul.insertAdjacentHTML('beforeend', `<li>${ok === true ? '✅' : ok === false ? '❌' : '⚠️'} ${esc(t)}</li>`); };
+  const chrome = /Chrome|CriOS|Edg\//.test(navigator.userAgent);
+  riga(chrome ? true : null, chrome ? 'Browser compatibile' : 'Per i comandi vocali è consigliato Chrome');
+  riga(Ascolto.supportato(), Ascolto.supportato() ? 'Riconoscimento vocale disponibile' : 'Riconoscimento vocale non disponibile su questo browser');
+  riga(!!window.RTCPeerConnection, window.RTCPeerConnection ? 'Chat vocale supportata' : 'Chat vocale non supportata');
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+    riga(true, 'Microfono autorizzato. Parla per 4 secondi…');
+    Voce.livelloProva = 0; Voce.analizza('__prova', s);
+    await new Promise(r => setTimeout(r, 4000));
+    s.getTracks().forEach(t => t.stop());
+    riga(Voce.livelloProva > 0.02 ? true : false, Voce.livelloProva > 0.02 ? 'Ti sento bene' : 'Non ti sento: controlla il microfono');
+    const dev = await navigator.mediaDevices.enumerateDevices();
+    const cuffie = dev.some(d => /cuffie|headphone|headset|buds|airpods|bluetooth|auricolar/i.test(d.label));
+    riga(cuffie ? true : null, cuffie ? 'Cuffie o auricolari rilevati' : 'Non vedo cuffie: usale, così il microfono non ripete la voce degli altri');
+  } catch (e) { riga(false, 'Microfono non autorizzato: ' + e.name); }
+  const tipo = navigator.connection?.effectiveType;
+  riga(navigator.onLine, navigator.onLine ? `Connessione attiva${tipo ? ' (' + tipo + ')' : ''}${S.latenza ? ', ritardo ' + S.latenza + ' ms' : ''}` : 'Sei offline');
+  const st = Voce.stato(), n = Object.keys(st).length, ok = Object.values(st).filter(x => x === 'connected').length;
+  riga(n ? ok === n : null, n ? `Voce collegata con ${ok} su ${n} giocatori` : 'Nessun altro giocatore collegato in voce per ora');
+  Report.log('prova', { righe: [...ul.children].map(li => li.textContent) });
+});
+
+/* ============ AGGIORNAMENTI ============ */
+let swReg = null;
+const confrontaVersioni = (a, b) => { const pa = String(a).split('.').map(Number), pb = String(b).split('.').map(Number); for (let i = 0; i < 3; i++) { if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0); } return 0; };
+async function installaAggiornamento() {
+  Report.log('aggiornamento', { da: VERSION }); await Report.chiudi('aggiornamento');
+  try { const r = await navigator.serviceWorker?.getRegistration(); await r?.update(); if (r?.waiting) r.waiting.postMessage('skipWaiting'); } catch {}
+  location.href = location.pathname + '?v=' + Date.now();
+}
+async function cercaAggiornamenti(manuale) {
+  try {
+    const j = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json());
+    if (typeof j.rapporti === 'string' && j.rapporti !== REPORT_URL) { REPORT_URL = j.rapporti; try { localStorage.setItem('ta_report_url', REPORT_URL); } catch {} Report.invia(); }
+    if (confrontaVersioni(j.versione, VERSION) > 0) {
+      $('#updatebar').hidden = false; $('#updatenotes').textContent = `Versione ${j.versione}: ${(j.novita || []).join(' · ')}`; $('#btnUpdate').onclick = installaAggiornamento;
+      if (manuale) $('#btnCheck').textContent = 'Nuova versione trovata';
+    } else if (manuale) $('#btnCheck').textContent = 'Sei all\'ultima versione';
+  } catch { if (manuale) $('#btnCheck').textContent = 'Nessuna connessione'; }
+  if (manuale) setTimeout(() => $('#btnCheck').textContent = 'Cerca aggiornamenti', 3000);
+}
+$('#btnCheck').addEventListener('click', () => { $('#btnCheck').textContent = 'Controllo…'; swReg?.update().catch(() => {}); cercaAggiornamenti(true); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') cercaAggiornamenti(false); });
+setInterval(() => cercaAggiornamenti(false), 30 * 60 * 1000);
+if ('serviceWorker' in navigator && location.protocol !== 'file:' && location.hostname !== 'localhost') {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => { swReg = reg; reg.update().catch(() => {}); }).catch(() => {});
+  const aveva = !!navigator.serviceWorker.controller; let ricaricato = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (aveva && !ricaricato) { ricaricato = true; location.reload(); } });
+}
+
+/* ============ AVVIO ============ */
+$('#ver').textContent = VERSION;
+$('#changelog').innerHTML = CHANGELOG.map(c => `<p><strong>${c.v}</strong> <span class="piccolo">${c.data}</span></p><ul>${c.voci.map(v => `<li>${esc(v)}</li>`).join('')}</ul>`).join('');
+Narratore.attivo = OPZ.narratore; applicaGrandi();
+window.addEventListener('resize', () => { if (largo() && S.vista === 'vMappa') mostraVista('vScheda'); });
+(() => {
+  const q = new URLSearchParams(location.search);
+  if (q.get('tv') === '1') document.body.classList.add('tv');
+  Report.log('avvio', { versione: VERSION, tv: q.get('tv') === '1', schermo: `${innerWidth}x${innerHeight}`, dpr: devicePixelRatio, voce: Ascolto.supportato(), webrtc: !!window.RTCPeerConnection });
+  cercaAggiornamenti(false); Report.invia();
+  const codice = (q.get('c') || (q.has('i') ? '' : leggi('ta_attiva', '')) || '').toUpperCase(), invito = (q.get('i') || '').toUpperCase();
+  const salvata = codice && campagneSalvate().find(x => x.codice === codice);
+  mostraIngresso();
+  if (largo()) mostraVista('vScheda');
+  if (salvata) { S.io = salvata.io; S.chiave = salvata.chiave; connetti(codice, () => ({ t: 'ciao', membro: salvata.io, chiave: salvata.chiave })); return; }
+  if (codice && invito) {
+    $('#eCodice').value = codice; $('#eInvito').value = invito;
+    if (document.body.classList.contains('tv')) { connetti(codice, () => ({ t: 'entra', invito, nome: 'TV del tavolo', ruolo: 'spettatore' })); return; }
+    $('#cartaCrea').hidden = true; $('#eNome').focus();
+  }
+})();
