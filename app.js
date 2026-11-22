@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.0.1';
+const VERSION = '3.0.2';
 const CHANGELOG = [
+  { v: '3.0.2', data: '22/11/2026', voci: [
+    'Tronchi e ceppi della grafica nuova restano nella loro casella (non coprono più strade e caselle vicine); i ponti di legno si vedono sopra l\'acqua.'
+  ] },
   { v: '3.0.1', data: '22/11/2026', voci: [
     'Mappe all\'aperto: niente più quadrati neri, le rocce sono massi veri sul prato.',
     'Ponti, viadotti e guadi hanno il fiume e il ponte sulla mappa; se il ponte è spezzato si passa dal guado.',

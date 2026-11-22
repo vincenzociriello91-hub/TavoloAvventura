@@ -521,10 +521,11 @@ const Mappa = (() => {
   }
   // tutte le varianti di un oggetto (albero_verde_0, albero_verde_1...)
   const varianti = radice => famiglie[radice] || (famiglie[radice] = Object.keys(P.r).filter(n => n === radice || (n.startsWith(radice + '_') && /^\d+$/.test(n.slice(radice.length + 1)))));
-  function sprite(c, radice, cx, basso, scala, x, y, filtro, altMax) {
+  function sprite(c, radice, cx, basso, scala, x, y, filtro, altMax, largMax) {
     const v = varianti(radice); if (!v.length) return false;
     const [sx, sy, w, h] = P.r[v[Math.floor(rnd(x, y, 7)() * v.length)]];
     if (altMax && h * scala > altMax) scala = altMax / h; // gli alberi non devono coprire i sentieri e le case vicine
+    if (largMax && w * scala > largMax) scala = largMax / w; // un oggetto non deborda sulle caselle accanto (il tronco del pacchetto è largo 4 caselle)
     if (filtro) c.filter = filtro;
     c.drawImage(P.img, sx, sy, w, h, cx - w * scala / 2, basso - h * scala, w * scala, h * scala);
     if (filtro) c.filter = 'none';
@@ -553,6 +554,7 @@ const Mappa = (() => {
       blob(c, prato, x, y, t, () => true);
       if (eStrada(x, y)) blob(c, strada, x, y, t, eStrada);
       else if (eAcqua(x, y)) blob(c, 'acqua', x, y, t, eAcqua);
+      else if (ch === '=') { blob(c, 'acqua', x, y, t, (a, b) => '~='.includes(cella(a, b))); base(c, ch, x, y, t); texture(c, ch, x, y, t); }
       else if (st === 'autunno' && !innevato() && rnd(x, y, 9)() < 0.05) sprite(c, 'v_ciuffo', x * t + t / 2, (y + 1) * t, t / 16, x, y);
     }
   }
@@ -568,7 +570,7 @@ const Mappa = (() => {
     if (o.tipo === 'cespuglio') fam = innevato() ? 'cespuglio_neve' : stagione() === 'autunno' ? 'cespuglio_autunno' : 'cespuglio';
     if (!fam || o.stato === 'rotto') return false;
     const lungo = LUNGHI.includes(o.tipo) && o.dir, cx = (o.x + (lungo && o.dir !== 'v' ? 1 : 0.5)) * t, basso = (o.y + (lungo && o.dir === 'v' ? 2 : 1)) * t;
-    return sprite(c, fam, cx, basso, t / 16, o.x, o.y, o.stato === 'bruciato' ? 'brightness(.35) sepia(.5)' : null);
+    return sprite(c, fam, cx, basso, t / 16, o.x, o.y, o.stato === 'bruciato' ? 'brightness(.35) sepia(.5)' : null, null, (lungo && o.dir !== 'v' ? 2 : 1) * t * 1.1);
   }
   const ED_PACCHETTI = [[/locanda|taverna|osteria/i, 'ed_taverna'], [/fabbr|armaiol|fucina/i, 'ed_fabbro'], [/gran mercato|mercato/i, 'ed_gran_mercato'], [/emporio|bottega|negozio|sarto/i, 'ed_emporio'], [/alchimist|erborist|guarit/i, 'ed_alchimista'], [/stalla|scuderia/i, 'ed_stalla'], [/bibliotec|archivio|scuola|municipio|palazzo/i, 'ed_biblioteca'], [/porto|molo|pescator/i, 'ed_porto'], [/teatro/i, 'ed_teatro'], [/tempio|cappella|chiesa|santuario/i, 'castello_cappella'], [/torre|mastio/i, 'castello_torretta'], [/caserma|guardia|gilda|officina/i, 'ed_officina'], [/panett|magazzin|granaio|dispensa/i, 'ed_dispensa'], [/barbier/i, 'ed_barbiere'], [/banca|tesor/i, 'ed_banca']];
   function edificioPacchetti(c, e, t) {
