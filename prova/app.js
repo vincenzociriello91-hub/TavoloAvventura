@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.0.0';
+const VERSION = '3.0.1';
 const CHANGELOG = [
+  { v: '3.0.1', data: '22/11/2026', voci: [
+    'Mappe all\'aperto: niente più quadrati neri, le rocce sono massi veri sul prato.',
+    'Ponti, viadotti e guadi hanno il fiume e il ponte sulla mappa; se il ponte è spezzato si passa dal guado.',
+    'Chi non ha ancora la scheda ha comunque una figura sulla mappa; i nomi sotto le figure si leggono (anche a mappa intera).',
+    'Il combattimento non parte più vuoto ("tocca a —"): serve almeno un personaggio o un nemico.',
+    'Ogni mappa si controlla da sola: se qualcosa non va, finisce nel rapporto.'
+  ] },
   { v: '3.0.0', data: '22/11/2026', voci: [
     'Tre avventure pronte nuove: il seguito della miniera ("L\'ombra della Torre di Corvonero") e due da una serata ("La notte della lanterna", "Il pedaggio dell\'ogre"). Finita un\'avventura si sceglie la prossima dallo schermo del master.',
     'Calendario delle serate: il master propone la data, ognuno risponde "ci sono" e mette il promemoria nel calendario del telefono (in Altro).',
@@ -329,7 +336,7 @@ function gestisci(m) {
       S.io = m.io; if (m.chiave) S.chiave = m.chiave; S.st = m.stato; S.viewPg = S.io;
       salvaCampagna({ codice: S.codice, io: S.io, chiave: S.chiave, nome: S.st.campagna.nome, ruolo: me()?.ruolo });
       Report.log('entrato', { ruolo: me()?.ruolo, admin: me()?.admin, regole: regole(), master: S.st.campagna.masterTipo });
-      mostraGioco(); renderTutto(); avviaVoce();
+      mostraGioco(); renderTutto(); avviaVoce(); controllaMappa();
       Mappa.pacchetti(`${SERVER_WS.replace(/^ws/, 'http')}/tavolo/${S.codice}/grafica/atlante`, S.io, S.chiave); // grafica comprata, solo per i membri
       // l'invito sparisce dalla barra degli indirizzi; resta il codice, così ricaricando si rientra da soli
       history.replaceState(null, '', `${location.pathname}?c=${S.codice}${document.body.classList.contains('tv') ? '&tv=1' : ''}`);
@@ -371,7 +378,7 @@ function gestisci(m) {
     case 'sogno': chiedi(`<h2>🌙 Un sogno</h2><p class="piccolo">Lo vedi solo tu: decidi tu se raccontarlo agli altri.</p><p class="storia-pg">${esc(m.testo)}</p>`, [{ testo: 'Mi sveglio', pieno: true }]); if (OPZ.narratore) Narratore.parla(m.testo); Report.log('sogno', {}); return;
     case 'memoriale': S.st.memoriale = m.memoriale; if (m.caduto) { delete S.st.pg[m.caduto]; renderSchedaSeServe(true); } renderDiarioExtra(); return;
     case 'bentornato': mostraBentornato(m.riepiloghi); return;
-    case 'luogo': S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; S.st.aree = []; renderMappa(); if (!$('#mondoBox').hidden) renderMappaMondo(); Report.log('luogo', { nome: m.luogo.nome, tipo: m.luogo.tipo }); return;
+    case 'luogo': S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; S.st.aree = []; renderMappa(); if (!$('#mondoBox').hidden) renderMappaMondo(); Report.log('luogo', { nome: m.luogo.nome, tipo: m.luogo.tipo }); controllaMappa(); return;
     case 'luogo_mod': S.st.luogo = m.luogo; renderMappa(); return;
     case 'segnalini': {
       const prima = S.st.segnalini || {};
@@ -584,7 +591,7 @@ Mappa.init($('#mappa'), {
   onCambio: () => { if (S.m3) S.m3.aggiorna(Mappa.dati3D()); },
   altezzaMax: () => largo() || document.body.classList.contains('tv') ? window.innerHeight - 200 : 9999,
   onEdificio: async ed => {
-    const puoEntrare = (capo() || masterAI()) && !['dungeon', 'grotta', 'taverna', 'interno'].includes(S.st.luogo?.tipo) && ed.stato !== 'distrutto' && !/pozzo|torre|radura/i.test(ed.nome);
+    const puoEntrare = (capo() || masterAI()) && !['dungeon', 'grotta', 'taverna', 'interno'].includes(S.st.luogo?.tipo) && ed.stato !== 'distrutto' && !/pozzo|torre|radura|ponte|viadotto|guado/i.test(ed.nome);
     if (me()?.ruolo !== 'master') { // lo stato degli edifici lo cambia solo il master (AI con gli eventi, umano da qui)
       if (!puoEntrare) { toast(`${ed.nome}${ed.stato !== 'integro' ? ' — ' + ed.stato : ''}`); return; }
       const i = await chiedi(`<h2>${esc(ed.nome)}</h2>${ed.stato !== 'integro' ? `<p>Stato: ${esc(ed.stato)}</p>` : ''}`, [{ testo: 'Entra', pieno: true }, { testo: 'Chiudi' }]);
@@ -617,6 +624,11 @@ function aggiornaExtraMappa() {
   const pg = mioPg();
   Mappa.setExtra({ aree: S.st?.aree || [], vedeTutto: capo(), movimento: ora && ora.id === S.io && pg ? { id: S.io, celle: Math.max(1, Math.floor((pg.vel || 9) / 1.5)) } : null });
 }
+// ogni mappa nuova si controlla da sola: se qualcosa non va finisce nel rapporto (e lo vedo senza che nessuno lo dica)
+function controllaMappa() {
+  clearTimeout(S.timerControllo);
+  S.timerControllo = setTimeout(async () => { if (!S.st?.luogo || document.hidden) return; try { const p = await Mappa.controllo(); S.problemiMappa = p; if (p.length) Report.log('problema-grafica', { luogo: S.st.luogo.nome, tipo: S.st.luogo.tipo, problemi: p }); } catch (e) { Report.log('problema-grafica', { errore: String(e).slice(0, 200) }); } }, 2500);
+}
 function renderCombat() {
   const c = S.st?.combattimento, box = $('#combat');
   $('#btnCombat').textContent = c?.attivo ? 'Fine combattimento' : 'Inizia combattimento';
@@ -624,8 +636,9 @@ function renderCombat() {
   aggiornaExtraMappa();
   if (!c?.attivo) return;
   const ora = c.ordine[c.turno];
+  if (!ora) Report.log('problema', { cosa: 'combattimento senza nessuno in ordine', round: c.round, ordine: c.ordine.length });
   const posso = ora && (ora.id === S.io || capo());
-  box.innerHTML = `<div class="testa"><span>Round ${c.round} · tocca a <strong>${esc(ora?.nome || '—')}</strong></span>${posso ? '<button id="btnFineTurno" class="pieno" type="button">Fine turno</button>' : ''}</div>
+  box.innerHTML = `<div class="testa"><span>Round ${c.round} · ${ora ? `tocca a <strong>${esc(ora.nome)}</strong>` : 'nessuno in ordine: chiudi e riapri il combattimento quando ci sono personaggi o nemici'}</span>${posso ? '<button id="btnFineTurno" class="pieno" type="button">Fine turno</button>' : ''}</div>
     <ol>${c.ordine.map((o, i) => `<li class="${i === c.turno ? 'ora' : ''} ${o.tipo === 'nemico' ? 'nemico' : ''}">${esc(o.nome)} <span class="piccolo">${o.iniz}</span></li>`).join('')}</ol>`;
   $('#btnFineTurno')?.addEventListener('click', () => invia({ t: 'combattimento', azione: 'prossimo' }));
 }

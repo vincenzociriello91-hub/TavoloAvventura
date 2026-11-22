@@ -132,7 +132,7 @@ const Mappa = (() => {
     const r = rnd(x, y), X = x * t, Y = y * t, v = r();
     const tipo = luogo.tipo;
     let col;
-    if (ch === '.' || ch === 'T') {
+    if (ch === '.' || ch === 'T' || (ch === 'R' && esterno())) { // all'aperto la roccia è un masso sul prato
       const st = stagione();
       col = innevato() ? hsl(210, 18, 86 + v * 6) : st === 'autunno' ? hsl(62 + v * 12, 32 + v * 8, tipo === 'foresta' ? 22 + v * 5 : 28 + v * 5) : st === 'inverno' ? hsl(85 + v * 12, 14 + v * 6, 30 + v * 5) : hsl(92 + v * 14, 30 + v * 8, tipo === 'foresta' ? 22 + v * 5 : 28 + v * 5);
     }
@@ -206,12 +206,12 @@ const Mappa = (() => {
       c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(X, Y, t, t * 0.08); c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(X, Y + t * 0.92, t, t * 0.08);
       if ((x + y) % 2 === 0) { c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(X + t * 0.3, Y + t * 0.3, t * 0.4, t * 0.4); }
       if (y + 1 < luogo.h && !muro(cella(x, y + 1))) faccia(c, x, y, t, 40, 6, 44);
-    } else if (ch === 'R' && y + 1 < luogo.h && !muro(cella(x, y + 1)) && cella(x, y + 1) !== '~') {
+    } else if (ch === 'R' && !esterno() && y + 1 < luogo.h && !muro(cella(x, y + 1)) && cella(x, y + 1) !== '~') {
       // parete di roccia vista di fronte
       const g = c.createLinearGradient(X, Y + t * 0.35, X, Y + t); g.addColorStop(0, '#5a4e42'); g.addColorStop(1, '#2a241e');
       c.fillStyle = g; c.beginPath(); c.moveTo(X, Y + t * 0.45); for (let k = 0; k <= 4; k++) c.lineTo(X + k * t / 4, Y + t * (0.3 + r() * 0.25)); c.lineTo(X + t, Y + t); c.lineTo(X, Y + t); c.closePath(); c.fill();
       c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1; for (let k = 0; k < 3; k++) { const px = X + r() * t; c.beginPath(); c.moveTo(px, Y + t * 0.5); c.lineTo(px + (r() - 0.5) * t * 0.2, Y + t); c.stroke(); }
-    } else if (ch === 'R') {
+    } else if (ch === 'R' && !esterno()) {
       for (let k = 0; k < 4; k++) { const v = r(); c.fillStyle = hsl(28, 8, 9 + v * 9); c.beginPath(); const cx = X + r() * t, cy = Y + r() * t, s = t * (0.25 + r() * 0.3); c.moveTo(cx - s, cy); c.lineTo(cx - s * 0.3, cy - s * 0.8); c.lineTo(cx + s * 0.7, cy - s * 0.5); c.lineTo(cx + s, cy + s * 0.3); c.lineTo(cx, cy + s * 0.8); c.closePath(); c.fill(); }
     } else if (ch === '#') {
       // muro: blocchi di pietra dove si affaccia su un pavimento, roccia piena altrove
@@ -549,13 +549,14 @@ const Mappa = (() => {
     const strada = ['citta', 'castello'].includes(luogo.tipo) ? 'mattoni' : 'strada';
     const eStrada = (x, y) => ',_'.includes(cella(x, y)), eAcqua = (x, y) => cella(x, y) === '~';
     for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) {
-      const ch = cella(x, y); if ('wR'.includes(ch)) continue;
+      const ch = cella(x, y); if (ch === 'w') continue;
       blob(c, prato, x, y, t, () => true);
       if (eStrada(x, y)) blob(c, strada, x, y, t, eStrada);
       else if (eAcqua(x, y)) blob(c, 'acqua', x, y, t, eAcqua);
       else if (st === 'autunno' && !innevato() && rnd(x, y, 9)() < 0.05) sprite(c, 'v_ciuffo', x * t + t / 2, (y + 1) * t, t / 16, x, y);
     }
   }
+  const rocciaPacchetto = () => !!(P && esterno() && varianti('roccia').length);
   function alberoPacchetti(c, x, y, t) {
     const st = stagione(), r = rnd(x, y, 3)(), pino = luogo.tipo === 'foresta' ? r < 0.4 : r < 0.15;
     const fam = innevato() ? (pino ? 'pino_neve' : 'albero_neve') : st === 'inverno' ? (pino ? 'pino' : 'albero_spoglio') : st === 'autunno' && !pino ? 'albero_autunno' : pino ? 'pino' : r < 0.6 ? 'albero_verde' : 'albero_chiaro';
@@ -671,18 +672,22 @@ const Mappa = (() => {
   const vedo = (x, y) => { const v = calcolaVista(); return !v || v[y * luogo.w + x] > 0; };
 
   /* ---------------- composizione dello strato fisso (in cache) ---------------- */
-  function strato() {
-    const t = tile, chiave = luogo.id + ':' + t + ':' + dpr + ':' + JSON.stringify(amb) + ':' + Math.floor(ora() * 2) + ':' + Object.entries(segnalini).filter(([id]) => torcia(id)).map(([id, sg]) => `${sg.x},${sg.y}`).join(';');
-    if (cache && cacheChiave === chiave) return cache;
-    const c0 = document.createElement('canvas'); c0.width = cv.width; c0.height = cv.height;
-    const c = c0.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.imageSmoothingEnabled = true;
+  // terreno, oggetti, edifici e alberi senza luci (serve anche al controllo automatico)
+  function fondo(c, t) {
     const tutte = (fn) => { for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) fn(c, cella(x, y), x, y, t); };
     tutte(base); if (P && esterno()) terrenoPacchetti(c, t); else tutte(texture); tutte(ombre); tutte(struttura); ombreSole(c, t);
     const ogg = (luogo.oggetti || []).filter(o => !(trascina?.ogg === o.id));
     ogg.filter(o => PIATTI.includes(o.tipo)).forEach(o => oggetto(c, o, t));
     for (const e of luogo.edifici) if (!(P && edificioPacchetti(c, e, t))) tetto(c, e, t);
     ogg.filter(o => !PIATTI.includes(o.tipo)).forEach(o => { if (!(P && oggettoPacchetti(c, o, t))) oggetto(c, o, t); });
-    tutte((cc, ch, x, y) => { if (ch === 'T' && !(P && esterno() && alberoPacchetti(cc, x, y, t))) albero(cc, x, y, t); });
+    tutte((cc, ch, x, y) => { if (ch === 'T' && !(P && esterno() && alberoPacchetti(cc, x, y, t))) albero(cc, x, y, t); if (ch === 'R' && esterno() && !(rocciaPacchetto() && sprite(cc, 'roccia', x * t + t / 2, (y + 1) * t, t / 16, x, y))) oggetto(cc, { id: 'r' + x + '_' + y, tipo: 'masso', x, y }, t); });
+  }
+  function strato() {
+    const t = tile, chiave = luogo.id + ':' + t + ':' + dpr + ':' + JSON.stringify(amb) + ':' + Math.floor(ora() * 2) + ':' + Object.entries(segnalini).filter(([id]) => torcia(id)).map(([id, sg]) => `${sg.x},${sg.y}`).join(';');
+    if (cache && cacheChiave === chiave) return cache;
+    const c0 = document.createElement('canvas'); c0.width = cv.width; c0.height = cv.height;
+    const c = c0.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.imageSmoothingEnabled = true;
+    fondo(c, t);
     // luce vera: buio secondo l'ora e il luogo, luci che proiettano le ombre dei muri; il bagliore si somma (e tremola) a parte
     const W = luogo.w * t, H = luogo.h * t;
     const ml = mappaLuce();
@@ -718,8 +723,8 @@ const Mappa = (() => {
   }
 
   /* ---------------- segnalini: personaggi con ritratto, nemici ---------------- */
-  function ritratto(id) {
-    const pg = opz.pg?.(id); if (!pg || typeof Ritratto === 'undefined') return null;
+  function ritratto(id, s) {
+    const pg = opz.pg?.(id) || (s && ['pg', 'alleato'].includes(s.tipo) ? { nome: s.nome || '?', razza: 'Umano', classe: 'Guerriero', livello: 1, equip: [] } : null); if (!pg || typeof Ritratto === 'undefined') return null;
     const svg = Ritratto.svg(pg, { dim: 64 }); let im = ritratti.get(id);
     if (!im || im.svg !== svg) { im = new Image(); im.svg = svg; im.onload = () => disegna(); im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.includes('xmlns=') ? svg : svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')); ritratti.set(id, im); }
     return im.complete && im.naturalWidth ? im : null;
@@ -763,7 +768,7 @@ const Mappa = (() => {
       ctx.fillStyle = '#d84b3c'; ctx.beginPath(); ctx.ellipse(bx, by, rx, ry, 0, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(20,17,15,.9)'; ctx.lineWidth = Math.max(1.5, t / 16); ctx.stroke();
       ctx.save(); ctx.translate(bx, 0); if (vicino && vicino.x < s.x) ctx.scale(-1, 1); ctx.drawImage(im, -W / 2, by - H + ry * 0.4, W, H); ctx.restore();
       if (s.pf !== undefined && extra.vedeTutto) { ctx.font = `700 ${Math.max(9, t * 0.3)}px Inter, sans-serif`; ctx.fillStyle = '#ffd6cc'; ctx.textAlign = 'center'; ctx.fillText(`PF ${s.pf}`, bx, by - H - 2); ctx.textAlign = 'start'; }
-      if (t >= 20 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome; while (nome.length > 3 && ctx.measureText(nome).width > t * 1.25) nome = nome.slice(0, -2) + '…'; const nw = ctx.measureText(nome).width; ctx.fillStyle = 'rgba(70,14,12,.85)'; rr(ctx, bx - nw / 2 - 4, by + ry + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(nome, bx - nw / 2, by + ry + t * 0.33); }
+      if (t >= 12 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome.split(/\s+/)[0]; while (nome.length > 3 && ctx.measureText(nome).width > Math.max(t * 2.2, 54)) nome = nome.slice(0, -2) + '…'; const nw = ctx.measureText(nome).width; ctx.fillStyle = 'rgba(70,14,12,.85)'; rr(ctx, bx - nw / 2 - 4, by + ry + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(nome, bx - nw / 2, by + ry + t * 0.33); }
       return;
     }
     if (s.tipo === 'nemico' && !figura(id, s)) {
@@ -799,11 +804,11 @@ const Mappa = (() => {
       if (cond.has('avvelenato')) for (let k = 0; k < 3; k++) { const f = ((performance.now() / 900) + k / 3) % 1; ovale(ctx, bx + (k - 1) * t * 0.2, by - F * 0.5 - f * t * 0.6, t * 0.05, t * 0.05, `rgba(120,220,80,${1 - f})`); }
       if (s.tipo === 'nemico' && s.pf !== undefined && extra.vedeTutto) { ctx.font = `700 ${Math.max(9, t * 0.3)}px Inter, sans-serif`; ctx.fillStyle = '#ffd6cc'; ctx.textAlign = 'center'; ctx.fillText(`PF ${s.pf}`, bx, by - F * 0.8); }
       ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
-      if (t >= 20 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome; while (nome.length > 3 && ctx.measureText(nome).width > t * 1.25) nome = nome.slice(0, -2) + '…'; const nw = ctx.measureText(nome).width; ctx.fillStyle = s.tipo === 'nemico' ? 'rgba(70,14,12,.85)' : 'rgba(20,17,15,.78)'; rr(ctx, bx - nw / 2 - 4, by + ry + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(nome, bx - nw / 2, by + ry + t * 0.33); }
+      if (t >= 12 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome.split(/\s+/)[0]; while (nome.length > 3 && ctx.measureText(nome).width > Math.max(t * 2.2, 54)) nome = nome.slice(0, -2) + '…'; const nw = ctx.measureText(nome).width; ctx.fillStyle = s.tipo === 'nemico' ? 'rgba(70,14,12,.85)' : 'rgba(20,17,15,.78)'; rr(ctx, bx - nw / 2 - 4, by + ry + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(nome, bx - nw / 2, by + ry + t * 0.33); }
       return;
-    } else if (s.tipo === 'pg' && ritratto(id)) {
+    } else if (['pg', 'alleato'].includes(s.tipo) && ritratto(id, s)) {
       // figura in piedi (HD-2D): basetta colorata a terra con i punti ferita, personaggio intero sopra
-      const im = ritratto(id), bx = cx, by = cy + t * 0.22, rx = R * 0.95, ry = R * 0.42;
+      const im = ritratto(id, s), bx = cx, by = cy + t * 0.22, rx = R * 0.95, ry = R * 0.42;
       ovale(ctx, bx + t * 0.05, by + t * 0.05, rx * 1.05, ry * 1.1, 'rgba(0,0,0,.5)');
       ctx.fillStyle = s.colore || '#e8b04b'; ctx.beginPath(); ctx.ellipse(bx, by, rx, ry, 0, 0, 7); ctx.fill();
       ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(bx, by, rx * 0.72, ry * 0.62, 0, 0, 7); ctx.fill();
@@ -813,7 +818,7 @@ const Mappa = (() => {
       const iw = t * 1.05, ih = iw * 44 / 36;
       ctx.imageSmoothingEnabled = false; ctx.drawImage(im, bx - iw / 2, by - ih + ry * 0.6, iw, ih); ctx.imageSmoothingEnabled = true;
       ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
-      if (t >= 20 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome; while (nome.length > 3 && ctx.measureText(nome).width > t * 1.25) nome = nome.slice(0, -2) + '…'; const nw = ctx.measureText(nome).width; ctx.fillStyle = 'rgba(20,17,15,.78)'; rr(ctx, bx - nw / 2 - 4, by + ry + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(nome, bx - nw / 2, by + ry + t * 0.33); }
+      if (t >= 12 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome.split(/\s+/)[0]; while (nome.length > 3 && ctx.measureText(nome).width > Math.max(t * 2.2, 54)) nome = nome.slice(0, -2) + '…'; const nw = ctx.measureText(nome).width; ctx.fillStyle = 'rgba(20,17,15,.78)'; rr(ctx, bx - nw / 2 - 4, by + ry + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(nome, bx - nw / 2, by + ry + t * 0.33); }
       return;
     } else {
       ctx.fillStyle = s.colore || '#e8b04b'; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
@@ -829,7 +834,7 @@ const Mappa = (() => {
       ctx.strokeStyle = id === opz.io() ? '#ffffff' : 'rgba(20,17,15,.9)'; ctx.lineWidth = Math.max(1.5, t / 16); ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
     }
     ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
-    if (t >= 20 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome; while (nome.length > 3 && ctx.measureText(nome).width > t * 1.25) nome = nome.slice(0, -2) + '…'; s = { ...s, nome }; const nw = ctx.measureText(s.nome).width; ctx.fillStyle = 'rgba(20,17,15,.78)'; rr(ctx, cx - nw / 2 - 4, cy + R + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(s.nome, cx - nw / 2, cy + R + t * 0.33); }
+    if (t >= 12 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome.split(/\s+/)[0]; while (nome.length > 3 && ctx.measureText(nome).width > Math.max(t * 2.2, 54)) nome = nome.slice(0, -2) + '…'; s = { ...s, nome }; const nw = ctx.measureText(s.nome).width; ctx.fillStyle = 'rgba(20,17,15,.78)'; rr(ctx, cx - nw / 2 - 4, cy + R + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(s.nome, cx - nw / 2, cy + R + t * 0.33); }
   }
 
   function disegna(animando) {
@@ -1022,5 +1027,28 @@ const Mappa = (() => {
     vaiA(opz.io(), x, y);
   }
   const casa3D = (x, y) => casaDi(x, y);
-  return { effettoTesto, effettoArea, sconfitto, attacco, init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, terreno3D, spriteOggetto, dati3D, azioneCasella, casa3D, figura: (id, s) => figura(id, s), mostro: s => mostro(s), grande: s => GRANDI.test(nomeMostro(s.nome)), puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea, percorso, zoom, pacchetti };
+  // controllo automatico della mappa disegnata: caselle nere sul prato, figure mancanti, nome che non c'entra col disegno
+  async function controllo() {
+    const prob = []; if (!luogo) return prob;
+    await new Promise(r => setTimeout(r, 400));
+    if (esterno()) {
+      const px = 24, c0 = document.createElement('canvas'); c0.width = luogo.w * px; c0.height = luogo.h * px;
+      const k = c0.getContext('2d'), salva = dpr; dpr = 1; try { fondo(k, px); } finally { dpr = salva; }
+      const scure = [];
+      const inEdificio = (x, y) => luogo.edifici.some(e => x >= e.x && x < e.x + e.w && y >= e.y && y < e.y + e.h);
+      for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) {
+        const ch = cella(x, y); if ('#w~'.includes(ch) || inEdificio(x, y)) continue;
+        const d = k.getImageData(Math.floor((x + 0.25) * px), Math.floor((y + 0.25) * px), Math.max(1, Math.floor(px / 2)), Math.max(1, Math.floor(px / 2))).data;
+        let l = 0; for (let i = 0; i < d.length; i += 4) l += (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; l /= d.length / 4;
+        if (l < 0.1) scure.push(`${x},${y} '${ch}'`);
+      }
+      if (scure.length) prob.push(`${scure.length} caselle nere sul terreno all'aperto (${scure.slice(0, 6).join('; ')})`);
+    }
+    for (const [id, s] of Object.entries(segnalini)) if (['pg', 'alleato'].includes(s.tipo) && !ritratto(id, s)) { await new Promise(r => setTimeout(r, 300)); if (!ritratto(id, s)) prob.push(`segnalino senza figura: ${s.nome || id}`); }
+    const n = (luogo.nome || '').toLowerCase();
+    if (/ponte|viadott|guado|fiume|torrente/.test(n) && !luogo.celle.some(r => r.includes('~'))) prob.push(`il nome "${luogo.nome}" parla d'acqua o di un ponte ma sulla mappa non ce n'è`);
+    if (/foresta|bosco|selva/.test(n) && luogo.tipo !== 'foresta') prob.push(`"${luogo.nome}" disegnato come ${luogo.tipo}`);
+    return prob;
+  }
+  return { controllo, effettoTesto, effettoArea, sconfitto, attacco, init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, terreno3D, spriteOggetto, dati3D, azioneCasella, casa3D, figura: (id, s) => figura(id, s), mostro: s => mostro(s), grande: s => GRANDI.test(nomeMostro(s.nome)), puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea, percorso, zoom, pacchetti };
 })();
