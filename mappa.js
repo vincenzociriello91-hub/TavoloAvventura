@@ -4,7 +4,7 @@
    bruciati o rotti restano così. Tocco breve = muovi il tuo segnalino, pressione lunga = edificio. */
 const Mappa = (() => {
   let cv, ctx, luogo = null, segnalini = {}, membri = {}, opz = {}, tile = 24, trascina = null, premi = null, dpr = 1, evidenzia = null;
-  let extra = { aree: [], vedeTutto: false, movimento: null }, attesaArea = null;
+  let extra = { aree: [], note: [], vedeTutto: false, movimento: null }, attesaArea = null;
   let cache = null, cacheChiave = '', bagliore = null, fiamme = [];
   // ambiente del gioco (dai Varchi): ora del giorno, meteo e stagione cambiano luce, ombre del sole, terreno e alberi
   let amb = { ora: null, meteo: '', stagione: '' };
@@ -860,6 +860,14 @@ const Mappa = (() => {
       for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) if (luogo.visto[y * luogo.w + x] === '0') ctx.fillRect(x * t, y * t, t + 0.5, t + 0.5);
     }
     disegnaVista(t);
+    // note dei giocatori: spilla gialla con il testo (solo sulle caselle già scoperte)
+    for (const n of extra.note || []) {
+      if (luogo.visto && !extra.vedeTutto && luogo.visto[n.y * luogo.w + n.x] === '0') continue;
+      const cx = (n.x + 0.5) * t, cy = (n.y + 0.35) * t, r = Math.max(3.5, t * 0.2);
+      ctx.strokeStyle = '#3a2a10'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + t * 0.45); ctx.stroke();
+      ctx.fillStyle = '#e8c86a'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill(); ctx.stroke();
+      if (t >= 14) { ctx.font = `600 ${Math.max(9, t * 0.36)}px Inter, system-ui, sans-serif`; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.75)'; ctx.strokeText(n.testo, cx + r + 2, cy + 3); ctx.fillStyle = '#fff3d0'; ctx.fillText(n.testo, cx + r + 2, cy + 3); }
+    }
     if (evidenzia) { const e = luogo.edifici.find(e => e.id === evidenzia); if (e) { ctx.strokeStyle = '#ffd25a'; ctx.lineWidth = 2; ctx.strokeRect(e.x * t + 1, e.y * t + 1, e.w * t - 2, e.h * t - 2); } }
     // segnalini dal fondo verso chi sta davanti, così le figure in piedi si sovrappongono come in HD-2D
     const adesso = performance.now(), dt = Math.min(0.1, (adesso - (ultimoPasso || adesso)) / 1000); ultimoPasso = adesso; inMovimento = false;

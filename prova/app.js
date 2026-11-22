@@ -1,6 +1,16 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.9.0';
+const VERSION = '3.0.0';
 const CHANGELOG = [
+  { v: '3.0.0', data: '22/11/2026', voci: [
+    'Tre avventure pronte nuove: il seguito della miniera ("L\'ombra della Torre di Corvonero") e due da una serata ("La notte della lanterna", "Il pedaggio dell\'ogre"). Finita un\'avventura si sceglie la prossima dallo schermo del master.',
+    'Calendario delle serate: il master propone la data, ognuno risponde "ci sono" e mette il promemoria nel calendario del telefono (in Altro).',
+    'Amici spettatori: un link apposta per guardare la partita senza giocare, con le reazioni che volano sulla mappa.',
+    'Traduzione automatica del master e della chat (inglese, spagnolo, francese, tedesco, italiano), da Altro.',
+    'Note sulla mappa: tocca 📌 Nota e scrivi "trappola", "porta chiusa"… restano sul luogo per tutti.',
+    'Giochi di taverna: dadi o carte con le monete della scheda, chi vince prende il piatto (nel Tesoro).',
+    'Cornici intorno al nome per chi viene alle serate (bronzo, argento, oro, leggenda), sfida della settimana da giocare da soli e guida "Come si gioca" per chi non ha mai giocato.',
+    'Illustrazioni più affidabili: un servizio di riserva in più quando le quote del giorno sono finite.'
+  ] },
   { v: '2.9.0', data: '22/11/2026', voci: [
     'Il mondo è vivo: bacheca delle missioni, nemesi che torna, minacce che crescono se le ignorate e scelte morali che cambiano il finale (nel Diario).',
     'Voto del gruppo: quando c\'è da decidere insieme ognuno vota dal telefono.',
@@ -271,7 +281,7 @@ function riepilogoStato() {
 }
 
 /* ============ STATO ============ */
-const S = { codice: null, io: null, chiave: null, st: null, ws: null, vista: 'vMappa', viewPg: null, undo: [], pendenti: {}, tentativi: 0, ultimoParlato: 0 };
+const S = { codice: null, io: null, chiave: null, st: null, ws: null, vista: 'vMappa', viewPg: null, undo: [], pendenti: {}, tentativi: 0, ultimoParlato: 0, trad: new Map(), attesaTrad: {} };
 const OPZ = Object.assign({ narratore: true, avvisi: true, master: true, grandi: false, suoni: false, volume: 0.5 }, leggi('ta_opzioni', {}));
 const me = () => S.st?.membri?.[S.io];
 const capo = () => !!(me() && (me().ruolo === 'master' || me().admin));
@@ -374,13 +384,19 @@ function gestisci(m) {
       }
       S.st.segnalini = m.segnalini; Mappa.aggiornaSegnalini(m.segnalini); return;
     }
-    case 'diario': S.st.diario = [...(S.st.diario || []), m.ev].slice(-200); renderDiario(); return;
+    case 'diario': S.st.diario = [...(S.st.diario || []), m.ev].slice(-200); renderDiario(); if (m.ev.tipo === 'chat' && m.ev.chi !== S.io) traduciTesto(m.ev.testo); return;
+    case 'serate': S.st.serate = m.serate; renderSerate(); return;
+    case 'reazione': reazioneVola(m.emoji, m.nome); return;
+    case 'traduzione': { const cb = S.attesaTrad?.[m.id]; if (cb) { delete S.attesaTrad[m.id]; cb(m); } return; }
+    case 'note_mappa': S.st.noteMappa = { luogo: m.luogo, note: m.note }; renderNoteMappa(); return;
+    case 'gioco_taverna': S.st.giocoTaverna = m.gioco; renderTesoro(); return;
+    case 'sfida': S.st.campagna.sfida = m.sfida; sfidaFinita(m.sfida); return;
     case 'narra': {
       const ev = { t: Date.now(), tipo: 'narrazione', testo: m.testo, chi: m.chi, png: m.png };
       S.st.diario = [...(S.st.diario || []), ev].slice(-200);
       if (S.ultimoParlato) { Report.log('master-risposta', { ms: Date.now() - S.ultimoParlato, modello: m.modello, parole: m.testo.split(' ').length }); S.ultimoParlato = 0; }
       Report.log('narrazione', { png: m.png || null, testo: m.testo, modello: m.modello || null, riassunto: !!m.riassunto });
-      mostraNarrazione(m.testo, m.png); renderDiario();
+      mostraNarrazione(m.testo, m.png); renderDiario(); traduciTesto(m.testo);
       if (OPZ.narratore && m.voce) { // la voce naturale arriva tra poco: si aspetta al massimo 12 secondi, poi voce del telefono
         S.vociAttese = S.vociAttese || {};
         S.vociAttese[m.voce] = { testo: m.testo, png: m.png || null, timer: setTimeout(() => { delete S.vociAttese[m.voce]; Narratore.parla(m.testo, { png: m.png || null }); Report.log('voce-master', { esito: 'scaduta' }); }, 12000) };
@@ -469,6 +485,30 @@ $('#listaMie').addEventListener('click', e => {
 });
 $$('input[name="cMaster"]').forEach(r => r.addEventListener('change', () => { $('#cMioRuoloBox').hidden = $('input[name="cMaster"]:checked').value !== 'umano'; }));
 $('#chipsAmb').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) $('#cAmbientazione').value = b.textContent; });
+// sfide settimanali in solitaria: una diversa ogni settimana, uguale per tutti
+const SFIDE = [
+  { titolo: 'Il ladro di campane', obiettivo: 'Qualcuno ha rubato la campana del tempio di Valfonda. Trova il ladro e riportala prima del tramonto, senza uccidere nessuno.' },
+  { titolo: 'La torre che crolla', obiettivo: 'Una torre di guardia sta crollando con tre soldati intrappolati dentro. Salvali tutti e tre prima che venga giù.' },
+  { titolo: 'Il drago di carta', obiettivo: 'Un giovane mago ha animato un drago di carta che sta incendiando i campi. Fermalo senza far del male al mago.' },
+  { titolo: 'La fiera dei bugiardi', obiettivo: 'Alla fiera di Borgo Rosso uno dei cinque mercanti è un mutaforma. Smaschera quello giusto: hai una sola accusa.' },
+  { titolo: 'Notte nella cripta', obiettivo: 'Sopravvivi fino all\'alba chiuso in una cripta piena di scheletri, e porta fuori il calice d\'oro.' },
+  { titolo: 'Il ponte di corda', obiettivo: 'Scorta una carovana di tre carri oltre un ponte di corda sorvegliato da banditi, perdendo al massimo un carro.' },
+  { titolo: 'Il lupo del villaggio', obiettivo: 'Nel villaggio di Pieve un lupo mannaro uccide le pecore. Scopri chi è prima della luna piena (tre giorni di gioco).' },
+  { titolo: 'Il tesoro dell\'annegato', obiettivo: 'Recupera lo scrigno di un capitano dal relitto nella baia prima che arrivino i pirati della Medusa.' }
+];
+function sfidaDellaSettimana() { const d = new Date(), inizio = new Date(d.getFullYear(), 0, 1), sett = Math.ceil(((d - inizio) / 86400000 + inizio.getDay() + 1) / 7); return { ...SFIDE[(d.getFullYear() * 53 + sett) % SFIDE.length], settimana: `${d.getFullYear()}-${sett}` }; }
+(() => { const sf = sfidaDellaSettimana(), vinte = leggi('ta_sfide_vinte', []); $('#sfidaTesto').innerHTML = `<strong>${esc(sf.titolo)}</strong>: ${esc(sf.obiettivo)}`; $('#sfidaVinte').textContent = vinte.length ? `Sfide vinte: ${vinte.length}${vinte.some(v => v.settimana === sf.settimana) ? ' (questa l\'hai già vinta!)' : ''}` : 'Ogni lunedì una sfida nuova: giochi da solo con il master AI e due compagni.'; })();
+$('#btnSfida').addEventListener('click', () => {
+  const mioNome = $('#cMioNome').value.trim() || leggi('ta_nome', '') || $('#eNome').value.trim();
+  if (!mioNome) { toast('Scrivi il tuo nome nella carta "Crea una campagna"', true); $('#cMioNome').focus(); return; }
+  scrivi('ta_nome', mioNome); const sf = sfidaDellaSettimana();
+  Voce.riattivaAudio(); Report.log('sfida', { settimana: sf.settimana });
+  connetti(codiceNuovo(), () => ({ t: 'crea', nome: 'Sfida: ' + sf.titolo, regole: $('input[name="cRegole"]:checked').value, ambientazione: 'Fantasy classico. ' + sf.obiettivo, masterTipo: 'ai', mioNome, solitaria: true, sfida: sf }));
+});
+function sfidaFinita(sf) {
+  if (sf?.esito === 'vinta') { const v = leggi('ta_sfide_vinte', []); if (!v.some(x => x.settimana === sf.settimana)) { v.push({ settimana: sf.settimana, titolo: sf.titolo }); scrivi('ta_sfide_vinte', v); } }
+  chiedi(sf?.esito === 'vinta' ? `<h2>🏆 Sfida vinta!</h2><p>${esc(sf.titolo)}: ce l'hai fatta. Lunedì arriva la prossima.</p>` : `<h2>Sfida persa</h2><p>${esc(sf?.titolo || '')}: non è andata. Puoi riprovarla quando vuoi fino a domenica.</p>`, [{ testo: 'Ok', pieno: true }]);
+}
 $('#btnCrea').addEventListener('click', () => {
   const mioNome = $('#cMioNome').value.trim();
   if (!mioNome) { toast('Scrivi il tuo nome', true); $('#cMioNome').focus(); return; }
@@ -503,7 +543,7 @@ function renderTutto() {
   $('#optMaster').closest('label').hidden = !masterAI();
   $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); }
   if (capo()) renderAvventura(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
-  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderMondo(); renderAltro();
+  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; renderMondo(); renderAltro();
 }
 function renderPresenza() {
   if (!S.st) return;
@@ -514,7 +554,7 @@ function renderPresenza() {
   const max = innerWidth < 480 ? 3 : 8;
   html += visibili.slice(0, max).map(([id, m]) => {
     const pg = S.st.pg[id];
-    return `<div class="av ${on.has(id) ? 'on' : ''}" id="av-${id}" style="background:${esc(m.colore)}" title="${esc(m.nome)}${pg ? ' — ' + esc(pg.nome) : ''}${m.ruolo === 'master' ? ' (master)' : ''}">${esc((m.nome || '?').charAt(0).toUpperCase())}${m.ruolo === 'master' ? '<span class="ruolo">M</span>' : ''}</div>`;
+    return `<div class="av ${on.has(id) ? 'on' : ''} ${cornice(m.presenze) ? 'cornice-' + cornice(m.presenze)[1] : ''}" id="av-${id}" style="background:${esc(m.colore)}" title="${esc(m.nome)}${pg ? ' — ' + esc(pg.nome) : ''}${m.ruolo === 'master' ? ' (master)' : ''}">${esc((m.nome || '?').charAt(0).toUpperCase())}${m.ruolo === 'master' ? '<span class="ruolo">M</span>' : ''}</div>`;
   }).join('') + (visibili.length > max ? `<div class="av altri" title="Altri ${visibili.length - max}">+${visibili.length - max}</div>` : '');
   $('#presenza').innerHTML = html;
 }
@@ -609,7 +649,15 @@ function renderTesoro() {
     <div class="riga"><span>Monete in comune: <strong>${g.oro}</strong></span>${gioca ? '<button type="button" data-tes="deposita">Metti monete</button><button type="button" data-tes="dividi">Dividi il bottino</button>' : ''}</div>
     <ul class="tesoro-ogg">${g.oggetti.map(o => `<li><span>${esc(o.nome)}${o.qta > 1 ? ' ×' + o.qta : ''}</span>${gioca ? `<button type="button" data-prendi="${esc(o.nome)}">Prendi</button>` : ''}</li>`).join('') || '<li class="piccolo">Nessun oggetto in comune</li>'}</ul>
     ${gioca ? '<form id="formTesoro" class="riga" autocomplete="off"><input id="tesOggetto" maxlength="60" placeholder="Metti un oggetto in comune"><button class="pieno">Metti</button></form>' : ''}
-    <p class="piccolo">A voce: "metti 20 monete nel tesoro comune", "dividi il bottino".</p>${cartaCasa(gioca)}`;
+    <p class="piccolo">A voce: "metti 20 monete nel tesoro comune", "dividi il bottino".</p>${cartaCasa(gioca)}${cartaGioco(gioca)}`;
+}
+// giochi di taverna: dadi o carte con le monete della scheda, chi vince prende il piatto
+function cartaGioco(gioca) {
+  const g = S.st?.giocoTaverna, nomeDi = id => S.st.pg?.[id]?.nome || S.st.membri?.[id]?.nome || '?';
+  if (!g) return gioca ? `<h3>Giochi di taverna</h3><form class="riga" id="formGioco" autocomplete="off"><select id="giocoTipo" aria-label="Gioco"><option value="dadi">Dadi: 2d6, vince il più alto</option><option value="carte">Carte: vince la più alta</option></select><input id="giocoPosta" type="number" min="1" max="100" value="5" inputmode="numeric" style="width:80px;flex:0 0 80px" aria-label="Posta in monete"><button>Apri il tavolo</button></form><p class="piccolo">Si gioca con le monete della scheda: chi vince prende tutto il piatto.</p>` : '';
+  const dentro = g.giocatori.includes(S.io), mio = g.da === S.io || capo();
+  return `<h3>Tavolo di ${g.tipo}: posta ${g.posta} mo</h3><p class="piccolo">Giocano: ${g.giocatori.map(id => esc(nomeDi(id))).join(', ')} · nel piatto ${g.posta * g.giocatori.length} mo</p>
+    <div class="riga">${gioca && !dentro ? `<button type="button" data-gioco="entra">Gioco anch'io (${g.posta} mo)</button>` : ''}${mio ? `<button type="button" class="pieno" data-gioco="via" ${g.giocatori.length < 2 ? 'disabled' : ''}>${g.tipo === 'dadi' ? 'Tirate i dadi!' : 'Girate le carte!'}</button><button type="button" data-gioco="annulla">Chiudi il tavolo</button>` : ''}</div>`;
 }
 // casa del gruppo: si compra e si arreda col tesoro comune, ogni stanza dà un vantaggio
 function cartaCasa(gioca) {
@@ -621,11 +669,12 @@ function cartaCasa(gioca) {
 $('#tesoro').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.prendi) invia({ t: 'gruppo', op: 'prendi', nome: b.dataset.prendi });
+  if (b.dataset.gioco) invia({ t: 'gioco_' + b.dataset.gioco });
   if (b.dataset.casa) { invia({ t: 'base', cosa: b.dataset.casa === 'casa' ? '' : b.dataset.casa }); Report.log('casa', { cosa: b.dataset.casa }); }
   if (b.dataset.tes === 'dividi') invia({ t: 'gruppo', op: 'dividi' });
   if (b.dataset.tes === 'deposita') { const v = parseInt(prompt('Quante monete metti nel tesoro comune?'), 10); if (v > 0) { if (mioPg()) modifica([{ op: 'oro', delta: -v }]); invia({ t: 'gruppo', op: 'oro', delta: v }); } }
 });
-$('#tesoro').addEventListener('submit', e => { e.preventDefault(); const n = $('#tesOggetto').value.trim(); if (n) invia({ t: 'gruppo', op: 'oggetto', nome: n, qta: 1 }); });
+$('#tesoro').addEventListener('submit', e => { e.preventDefault(); if (e.target.id === 'formGioco') { invia({ t: 'gioco_apri', tipo: $('#giocoTipo').value, posta: +$('#giocoPosta').value }); Report.log('gioco_taverna', {}); return; } const n = $('#tesOggetto').value.trim(); if (n) invia({ t: 'gruppo', op: 'oggetto', nome: n, qta: 1 }); });
 $('#btnEsciEd').addEventListener('click', () => invia({ t: 'esci_edificio' }));
 $('#formVai').addEventListener('submit', e => { e.preventDefault(); const n = $('#vaiNome').value.trim(); if (!n) return; invia({ t: 'vai', nome: n }); $('#vaiNome').value = ''; Report.log('vai', { nome: n }); });
 // volto del PNG: illustrato dall'AI quando è pronto, altrimenti quello in pixel art
@@ -884,7 +933,7 @@ function renderCreazione(box) {
   const anteprima = Regole.nuovo(r, bozza);
   const nAb = r === '5e' ? set.classi[bozza.classe]?.abilita || 2 : 0;
   box.innerHTML = `<div class="carta">
-    <h2>Crea il tuo personaggio</h2><p class="piccolo">${esc(set.nome)}: tutto il resto (PF, CA, tiri salvezza, abilità) si calcola da solo.</p>
+    <h2>Crea il tuo personaggio</h2><p class="piccolo">${esc(set.nome)}: tutto il resto (PF, CA, tiri salvezza, abilità) si calcola da solo. Prima volta? <button type="button" class="testo-btn" data-guida>Come si gioca</button></p>
     ${(() => { const c = (S.st.memoriale || []).filter(x => x.chi === S.io).pop(); return c && !bozza.erede ? `<div class="carta-mini"><strong>In ricordo di ${esc(c.nome)}</strong><p class="piccolo">Puoi creare un erede della sua famiglia: riceve ${esc(c.eredita?.nome || 'il suo ricordo')}.</p><button type="button" id="cpErede">Crea un erede</button></div>` : ''; })()}
     ${cartaSessioneZero()}
     <div class="pg-testa"><div class="ritratto" id="anteprima">${Ritratto.svg(anteprima, { dim: 120 })}</div>
@@ -1058,12 +1107,12 @@ function renderDiario() {
   const l = [...(S.st?.diario || [])].reverse().slice(0, 150);
   const ora = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
   $('#diario').innerHTML = l.map(d => {
-    if (d.tipo === 'narrazione') return `<li class="narrazione-ev"><span class="chi">${ora(d.t)} · ${esc(d.png || (d.chi === 'master' ? 'Master AI' : S.st.membri[d.chi]?.nome || 'Master'))}</span><p>${esc(d.testo)}</p></li>`;
+    if (d.tipo === 'narrazione') return `<li class="narrazione-ev"><span class="chi">${ora(d.t)} · ${esc(d.png || (d.chi === 'master' ? 'Master AI' : S.st.membri[d.chi]?.nome || 'Master'))}</span><p>${esc(d.testo)}</p>${tradotto(d.testo)}</li>`;
     if (d.tipo === 'riepilogo') return `<li class="illustrazione-ev"><span class="chi">${ora(d.t)} · Riepilogo della serata</span><p><button type="button" data-riepilogo="${d.riepilogo}">${esc(d.testo)}</button></p></li>`;
     if (d.tipo === 'illustrazione' && d.img) return `<li class="illustrazione-ev"><span class="chi">${ora(d.t)} · Illustrazione</span><img src="${urlMedia('img', d.img)}" alt="${esc(d.testo)}" loading="lazy" data-img="${esc(d.img)}" onerror="this.remove()"><p>${esc(d.testo)}</p></li>`;
     const cls = { scheda: 'scheda-ev', comando: 'comando' }[d.tipo] || d.tipo;
     const chi = d.tipo === 'chat' ? `<strong>${esc(S.st.membri[d.chi]?.nome || '?')}:</strong> ` : '';
-    return `<li class="${esc(cls)}"><span class="chi">${ora(d.t)}</span> ${chi}${esc(d.testo)}</li>`;
+    return `<li class="${esc(cls)}"><span class="chi">${ora(d.t)}</span> ${chi}${esc(d.testo)}${d.tipo === 'chat' ? tradotto(d.testo) : ''}</li>`;
   }).join('') || '<li class="piccolo">Il diario della campagna è vuoto: iniziate a giocare!</li>';
 }
 $('#formChat').addEventListener('submit', e => {
@@ -1078,7 +1127,7 @@ $('#formRegola').addEventListener('submit', e => { e.preventDefault(); const t =
 
 /* ============ VOCE ============ */
 async function avviaVoce() {
-  if (document.body.classList.contains('tv')) return;
+  if (document.body.classList.contains('tv') || me()?.ruolo === 'spettatore') return; // TV e amici spettatori: niente microfono, la voce dei giocatori resta tra loro
   try { const j = await fetch(SERVER_WS.replace(/^ws/, 'http') + '/turn').then(r => r.json()); Voce.impostaIce(j.iceServers); Report.log('voce-inoltro', { attivo: !!j.turn }); } catch {}
   Voce.avvia({
     io: S.io, invia, log: (t, d) => Report.log(t, d),
@@ -1163,6 +1212,16 @@ $('#btnParla').addEventListener('keyup', e => { if (e.key === ' ' || e.key === '
 $('#btnParla').addEventListener('contextmenu', e => e.preventDefault());
 
 /* ============ ALTRO ============ */
+$('#btnSpettatori').addEventListener('click', async () => {
+  const l = linkInvito() + '&s=1';
+  try { if (navigator.share) await navigator.share({ title: 'Guarda la nostra partita di D&D', url: l }); else { await navigator.clipboard.writeText(l); toast('Link per spettatori copiato'); } } catch {}
+  Report.log('link_spettatori', {});
+});
+$('#reazioni').addEventListener('click', e => { const b = e.target.closest('[data-reazione]'); if (b) invia({ t: 'reazione', emoji: b.dataset.reazione }); });
+function reazioneVola(emoji, nome) {
+  const el = document.createElement('div'); el.className = 'reazione-vola'; el.innerHTML = `${esc(emoji)}<small>${esc(nome || '')}</small>`;
+  el.style.left = (8 + Math.random() * 78) + '%'; $('#volano').appendChild(el); setTimeout(() => el.remove(), 2800);
+}
 function linkInvito() { const c = S.st?.campagna; return c?.invito ? `${location.origin}${location.pathname}?c=${S.codice}&i=${c.invito}` : ''; }
 function renderInvito() {
   const url = linkInvito();
@@ -1248,15 +1307,17 @@ $('#btnStatistiche').addEventListener('click', () => invia({ t: 'statistiche' })
 function renderAvventura() {
   const box = $('#smAvventura'); if (!box || !capo()) return;
   const a = S.st?.avventura;
-  if (!a) { box.innerHTML = `<div class="riga"><select id="smAvvId" aria-label="Avventura pronta"><option value="miniera">La miniera dei goblin (livelli 1-3)</option></select><button type="button" data-avv-inizia="1">Inizia l'avventura pronta</button></div>`; return; }
+  const scelta = `<div class="riga"><select id="smAvvId" aria-label="Avventura pronta">${(S.st.avventure || [{ id: 'miniera', titolo: 'La miniera dei goblin', livelli: '1-3' }]).filter(x => x.id !== a?.id).map(x => `<option value="${esc(x.id)}" ${x.seguito && x.seguito === a?.id ? 'selected' : ''}>${esc(x.titolo)} (livelli ${esc(x.livelli || '?')}${x.tipo === 'one-shot' ? ', una serata' : x.tipo === 'seguito' ? ', seguito' : ''})</option>`).join('')}</select><button type="button" data-avv-nuova="1">${a ? 'Inizia un\'altra avventura' : 'Inizia l\'avventura pronta'}</button></div>`;
+  if (!a) { box.innerHTML = scelta; return; }
   box.innerHTML = `<details ${a.iniziata ? '' : 'open'}><summary><strong>Avventura: ${esc(a.titolo)}</strong>${a.iniziata ? ` · scena ${a.scena + 1} di ${a.scene.length}` : ''}</summary>
     <p class="piccolo">${esc(a.sinossi)}</p>
     ${a.iniziata ? '' : '<button type="button" data-avv-inizia="1">Inizia adesso</button>'}
     <ol>${a.scene.map((sc, i) => `<li ${i === a.scena && a.iniziata ? 'style="color:#e8c86a"' : ''}><strong>${esc(sc.luogo)}</strong>: ${esc(sc.obiettivo)}<br><span class="piccolo">PNG: ${esc(sc.png)}. Indizi: ${esc(sc.indizi)}${sc.incontro ? `. Nemici: ${esc(sc.incontro.map(n => n.numero + ' ' + n.nome).join(', '))}` : ''}${sc.tesoro ? `. Tesoro: ${esc(sc.tesoro)}` : ''}</span>
       <div class="riga"><button type="button" data-avv-scena="${esc(sc.id)}">Vai a questa scena</button><button type="button" data-avv-leggi="${esc(sc.id)}">Leggi ad alta voce</button></div></li>`).join('')}</ol>
-    <p><strong>Segreti</strong></p><ul class="piccolo">${a.segreti.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="piccolo"><strong>Ricompensa:</strong> ${esc(a.ricompensa)}</p></details>`;
+    <p><strong>Segreti</strong></p><ul class="piccolo">${a.segreti.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="piccolo"><strong>Ricompensa:</strong> ${esc(a.ricompensa)}</p></details>${a.iniziata ? `<details><summary>Avventura finita? Scegli la prossima</summary>${scelta}</details>` : ''}`;
 }
 document.addEventListener('click', e => {
+  if (e.target.closest('[data-avv-nuova]')) { invia({ t: 'avventura_inizia', id: $('#smAvvId').value }); toast('L\'avventura comincia…'); Report.log('avventura', { id: $('#smAvvId').value }); }
   if (e.target.closest('[data-avv-inizia]')) { invia({ t: 'avventura_inizia', id: $('#smAvvId')?.value || S.st?.avventura?.id || 'miniera' }); toast('L\'avventura comincia…'); }
   const sc = e.target.closest('[data-avv-scena]'); if (sc) invia({ t: 'avventura_scena', scena: sc.dataset.avvScena });
   const lg = e.target.closest('[data-avv-leggi]'); if (lg) invia({ t: 'avventura_leggi', scena: lg.dataset.avvLeggi });
@@ -1327,6 +1388,8 @@ $('#optNarratore').addEventListener('change', e => { OPZ.narratore = e.target.ch
 $('#optAvvisi').addEventListener('change', e => { OPZ.avvisi = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optMaster').addEventListener('change', e => { OPZ.master = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optSuoni').addEventListener('change', e => { OPZ.suoni = e.target.checked; scrivi('ta_opzioni', OPZ); Suoni.attivo = OPZ.suoni; if (OPZ.suoni) aggiornaScenaSonora(); Report.log('suoni', { attivi: OPZ.suoni }); });
+$('#optLingua').value = OPZ.lingua || '';
+$('#optLingua').addEventListener('change', e => { OPZ.lingua = e.target.value; scrivi('ta_opzioni', OPZ); S.trad.clear(); renderDiario(); Report.log('lingua', { lingua: OPZ.lingua }); });
 $('#optSottotitoli').checked = OPZ.sottotitoli !== false;
 $('#optSottotitoli').addEventListener('change', e => { OPZ.sottotitoli = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optDadi3d').checked = OPZ.dadi3d !== false;
@@ -1482,8 +1545,82 @@ window.addEventListener('resize', () => { if (largo() && S.vista === 'vMappa') m
     $('#eCodice').value = codice; $('#eInvito').value = invito;
     if (document.body.classList.contains('tv')) { connetti(codice, () => ({ t: 'entra', invito, nome: 'TV del tavolo', ruolo: 'spettatore' })); return; }
     $('#cartaCrea').hidden = true; $('#eNome').focus();
+    if (q.get('s') === '1') { $('input[name="eRuolo"][value="spettatore"]').checked = true; $('#btnEntra').textContent = 'Guarda la partita'; }
   }
 })();
+
+/* ============ Traduzione automatica di master e chat ============ */
+function tradotto(t) { const x = OPZ.lingua && S.trad.get(t); return x ? `<p class="trad">🌐 ${esc(x)}</p>` : ''; }
+function traduciTesto(t) {
+  if (!OPZ.lingua || !t || S.trad.has(t)) return;
+  S.trad.set(t, null); const id = 'q' + Math.random().toString(36).slice(2, 9);
+  S.attesaTrad[id] = m => { if (m.errore) { S.trad.delete(t); return; } S.trad.set(t, m.testo); renderDiario(); if ($('#narrTesto').textContent === t) { $('#narrTrad')?.remove(); $('#narrTesto').insertAdjacentHTML('afterend', `<p class="trad" id="narrTrad">🌐 ${esc(m.testo)}</p>`); } };
+  invia({ t: 'traduci', id, testo: t, lingua: OPZ.lingua });
+}
+/* ============ Calendario delle serate ============ */
+function renderSerate() {
+  const box = $('#serate'); if (!box || !S.st) return;
+  const l = S.st.serate || [], nomeDi = id => S.st.membri?.[id]?.nome || '?';
+  const fmt = t => new Date(t).toLocaleString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  box.innerHTML = l.map(x => { const r = Object.entries(x.risposte || {}), si = r.filter(([, v]) => v).map(([id]) => esc(nomeDi(id))), no = r.filter(([, v]) => !v).map(([id]) => esc(nomeDi(id))), mia = x.risposte?.[S.io];
+    return `<div class="serata"><strong>${esc(fmt(x.t))}</strong>${x.nota ? ` <span class="piccolo">${esc(x.nota)}</span>` : ''}<p class="piccolo">Ci sono: ${si.join(', ') || 'nessuno'}${no.length ? ` · Non ci sono: ${no.join(', ')}` : ''}</p>
+      <div class="riga"><button type="button" data-serata="${x.id}" data-ci="1" class="${mia === true ? 'pieno' : ''}">Ci sono</button><button type="button" data-serata="${x.id}" data-ci="0" class="${mia === false ? 'pieno' : ''}">Non ci sono</button><button type="button" data-ics="${x.id}">📅 Promemoria</button>${capo() ? `<button type="button" class="testo-btn" data-serata-togli="${x.id}">Togli</button>` : ''}</div></div>`; }).join('') || '<p class="piccolo">Nessuna serata in programma.</p>';
+  if (capo()) box.insertAdjacentHTML('beforeend', `<form class="colonna" id="formSerata" autocomplete="off"><input type="datetime-local" id="serataQuando" aria-label="Data e ora della serata"><div class="riga"><input id="serataNota" maxlength="120" placeholder="Nota (es. da Marco, alle 21)"><button class="pieno">Proponi</button></div></form>`);
+}
+// promemoria: un file .ics che il calendario del telefono apre, con avviso il giorno prima e un'ora prima
+function scaricaIcs(x) {
+  const d = t => new Date(t).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''), pulito = v => String(v || '').replace(/[\\,;\n]/g, ' ');
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Tavolo d Avventura//IT', 'BEGIN:VEVENT', `UID:${x.id}-${S.codice}@tavoloavventura`, `DTSTAMP:${d(Date.now())}`, `DTSTART:${d(x.t)}`, `DTEND:${d(x.t + 3 * 3600000)}`, `SUMMARY:D&D: ${pulito(S.st.campagna.nome)}`, `DESCRIPTION:${pulito(x.nota)} ${location.origin}${location.pathname}?c=${S.codice}`, 'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', 'DESCRIPTION:Domani si gioca a D&D', 'END:VALARM', 'BEGIN:VALARM', 'TRIGGER:-PT1H', 'ACTION:DISPLAY', 'DESCRIPTION:Tra un\'ora si gioca a D&D', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([ics], { type: 'text/calendar' })), download: 'serata-dnd.ics' }); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+$('#serate').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.serata) invia({ t: 'serata_risposta', id: b.dataset.serata, ci: b.dataset.ci === '1' });
+  if (b.dataset.serataTogli) invia({ t: 'serata_togli', id: b.dataset.serataTogli });
+  if (b.dataset.ics) { const x = (S.st.serate || []).find(y => y.id === b.dataset.ics); if (x) { scaricaIcs(x); Report.log('promemoria', {}); } }
+});
+$('#serate').addEventListener('submit', e => { e.preventDefault(); const v = $('#serataQuando').value; if (!v) { toast('Scegli giorno e ora', true); return; } invia({ t: 'serata_nuova', quando: new Date(v).toISOString(), nota: $('#serataNota').value.trim() }); });
+/* ============ Ricompense per la presenza: cornici del ritratto ============ */
+const CORNICI = [[20, 'leggenda', 'Leggenda del tavolo'], [10, 'oro', 'Veterano d\'oro'], [6, 'argento', 'Compagno d\'argento'], [3, 'bronzo', 'Avventuriero di bronzo']];
+function cornice(n) { return CORNICI.find(c => (n || 0) >= c[0]) || null; }
+function renderPresenze() {
+  const box = $('#presenze'); if (!box || !S.st) return;
+  const n = me()?.presenze || 0, c = cornice(n), prossima = [...CORNICI].reverse().find(x => n < x[0]);
+  box.innerHTML = `<div class="riga"><div class="av on ${c ? 'cornice-' + c[1] : ''}" style="background:${esc(me()?.colore || '#888')}">${esc((me()?.nome || '?').charAt(0).toUpperCase())}</div><div><strong>${c ? esc(c[2]) : 'Nuovo arrivato'}</strong><div class="piccolo">Serate giocate in questa campagna: ${n}</div></div></div>
+    <p class="piccolo">${prossima ? `Ancora ${prossima[0] - n} ${prossima[0] - n === 1 ? 'serata' : 'serate'} per la cornice ${prossima[1]} (${esc(prossima[2])}).` : 'Hai la cornice più rara: sei una leggenda!'} Le cornici le vedono tutti intorno al tuo nome.</p>`;
+}
+/* ============ Note dei giocatori sulla mappa ============ */
+function renderNoteMappa() {
+  if (!S.st) return;
+  const note = S.st.luogo && S.st.noteMappa?.luogo === S.st.luogo.id ? S.st.noteMappa.note || [] : [];
+  if (S.st.luogo) Mappa.setExtra({ note });
+  $('#noteMappaBox').hidden = !note.length; $('#noteMappaConta').textContent = note.length;
+  $('#noteMappaLista').innerHTML = note.map(n => `<div class="mondo-riga"><span>📌 <strong>${esc(n.testo)}</strong> <span class="piccolo">${esc(n.nome)}</span></span>${n.chi === S.io || capo() ? `<button type="button" class="testo-btn" data-nota-togli="${esc(n.id)}">Togli</button>` : ''}</div>`).join('');
+}
+$('#noteMappaLista').addEventListener('click', e => { const b = e.target.closest('[data-nota-togli]'); if (b) invia({ t: 'nota_mappa', togli: b.dataset.notaTogli }); });
+$('#btnNota').addEventListener('click', () => {
+  if (!S.st?.luogo) { toast('Prima il gruppo deve essere in un luogo'); return; }
+  toast('Tocca la casella dove mettere la nota');
+  Mappa.chiediCasella((x, y) => { const t = prompt('Cosa scrivi sulla mappa? (es. trappola, porta chiusa, tesoro)'); if (t?.trim()) { invia({ t: 'nota_mappa', x, y, testo: t.trim().slice(0, 80) }); Report.log('nota_mappa', {}); } });
+});
+/* ============ Guida per chi non ha mai giocato ============ */
+const GUIDA = [
+  ['Cos\'è D&D', 'È una storia che costruite insieme. Ognuno interpreta un personaggio (un guerriero, una maga, un ladro…). Il master racconta il mondo e fa parlare tutti gli altri: mercanti, mostri, re. Non si vince contro gli altri: si gioca insieme.'],
+  ['Come si gioca', 'Il master descrive la scena. Tu dici cosa fa il tuo personaggio, come se fossi lì: "mi avvicino alla porta e ascolto", "chiedo all\'oste se ha visto qualcuno". Puoi parlare a voce, scrivere nel Diario o usare il microfono.'],
+  ['I dadi', 'Quando l\'esito è incerto si tira il dado a 20 facce (d20). Al numero si aggiunge un bonus della tua scheda: se il totale supera la difficoltà, ci riesci. 20 naturale è un successo straordinario, 1 un disastro. L\'app fa tutti i conti.'],
+  ['La tua scheda', 'Nella Scheda ci sono punti ferita (la vita), classe armatura (quanto è difficile colpirti), caratteristiche e oggetti. Si aggiorna da sola: puoi dire "subisco 7 danni" o "trovo 50 monete" e cambia tutto.'],
+  ['Il combattimento', 'Si gioca a turni, nell\'ordine di iniziativa. Nel tuo turno ti muovi sulla mappa e fai un\'azione: attacchi, lanci un incantesimo, aiuti un amico, bevi una pozione. L\'app ti avvisa quando tocca a te.'],
+  ['Un consiglio', 'Non esistono mosse sbagliate: le idee strane spesso sono le migliori. Fai domande al master, parla con i personaggi, aiuta gli altri. E se non sai una regola, chiedila nel Diario: risponde l\'app.']
+];
+async function guida() {
+  Report.log('guida', {});
+  for (let i = 0; i < GUIDA.length; i++) {
+    const r = await chiedi(`<p class="piccolo">${i + 1} di ${GUIDA.length}</p><h2>${esc(GUIDA[i][0])}</h2><p>${esc(GUIDA[i][1])}</p>`, i < GUIDA.length - 1 ? [{ testo: 'Avanti', pieno: true }, { testo: 'Chiudi' }] : [{ testo: 'Ho capito, giochiamo!', pieno: true }]);
+    if (r !== 0) return;
+  }
+}
+$('#btnGuida').addEventListener('click', guida);
+document.addEventListener('click', e => { if (e.target.closest('[data-guida]')) guida(); });
 
 /* ============ 20 NATURALE: momento epico ============ */
 function momentoEpico(tiro) {

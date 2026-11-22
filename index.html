@@ -71,7 +71,7 @@
           <label><input type="radio" name="cMaster" value="ai" checked><span>Intelligenza artificiale</span></label>
           <label><input type="radio" name="cMaster" value="umano"><span>Una persona</span></label>
         </fieldset>
-        <label>Avventura<select id="cAvventura"><option value="">Libera: la inventa il master</option><option value="miniera">Pronta: La miniera dei goblin (livelli 1-3, una serata)</option></select></label>
+        <label>Avventura<select id="cAvventura"><option value="">Libera: la inventa il master</option><option value="miniera">Pronta: La miniera dei goblin (livelli 1-3, una serata)</option><option value="lanterna">Una serata: La notte della lanterna (livelli 1-2)</option><option value="ponte">Una serata: Il pedaggio dell'ogre (livelli 2-3)</option><option value="torre">Seguito: L'ombra della Torre di Corvonero (livelli 2-4)</option></select></label>
         <label class="spunta"><input type="checkbox" id="cSolitaria"> Gioco da solo: il master AI gioca anche due compagni</label>
         <fieldset class="segmentato" id="cMioRuoloBox" hidden><legend>Tu sei</legend>
           <label><input type="radio" name="cMioRuolo" value="giocatore" checked><span>Giocatore</span></label>
@@ -80,6 +80,12 @@
         <label>Il tuo nome<input id="cMioNome" maxlength="30" autocomplete="nickname" placeholder="Es. Vincenzo"></label>
         <button id="btnCrea" class="pieno grande" type="button">Crea e invita gli amici</button>
       </div>
+    </div>
+    <div class="carta" id="cartaSfida">
+      <h2>Sfida della settimana</h2>
+      <p id="sfidaTesto" class="piccolo"></p>
+      <button id="btnSfida" type="button" class="largo">Gioca la sfida da solo</button>
+      <p id="sfidaVinte" class="piccolo"></p>
     </div>
     <div class="carta" id="cartaMie" hidden>
       <h2>Le tue campagne</h2>
@@ -103,12 +109,14 @@
         <div><strong id="luogoNome">Nessun luogo</strong> <span id="luogoTipo" class="piccolo"></span> <button id="btnEsciEd" type="button" class="testo-btn" hidden>Esci all'aperto</button></div>
         <form id="formVai" class="riga" autocomplete="off"><input id="vaiNome" placeholder="Vai a… (es. Taverna del Drago)" maxlength="60" aria-label="Nome del luogo"><button class="pieno" type="submit">Vai</button></form>
       </div>
-      <div class="mappa-box" id="mappaBox"><canvas id="mappa" aria-label="Mappa del luogo"></canvas>
+      <div class="mappa-box" id="mappaBox"><canvas id="mappa" aria-label="Mappa del luogo"></canvas><div class="volano" id="volano" aria-hidden="true"></div>
         <div class="vuoto" id="mappaVuota"><p>Il gruppo non è ancora in nessun luogo.</p><p class="piccolo" id="mappaVuotaSugg">Il master AI vi porterà nel primo luogo appena iniziate a giocare. Potete anche scrivere un luogo qui sopra.</p></div>
       </div>
+      <div class="reazioni" id="reazioni" hidden aria-label="Reazioni"><button type="button" data-reazione="👏">👏</button><button type="button" data-reazione="😂">😂</button><button type="button" data-reazione="😱">😱</button><button type="button" data-reazione="🔥">🔥</button><button type="button" data-reazione="❤️">❤️</button><button type="button" data-reazione="🎲">🎲</button></div>
+      <details class="carta-mini" id="noteMappaBox" hidden><summary>📌 Note sulla mappa (<span id="noteMappaConta">0</span>)</summary><div id="noteMappaLista"></div></details>
       <div class="mappa3d-box" id="mappa3dBox" hidden></div>
       <div class="mondo-box" id="mondoBox" hidden><canvas id="mondoCanvas" role="img" aria-label="Mappa del mondo illustrata: luoghi conosciuti e viaggi del gruppo"></canvas></div>
-      <div class="riga strumenti-mappa"><span class="zoom-mappa" id="zoomMappa"><button id="btnZoomMeno" type="button" aria-label="Allontana">−</button><button id="btnZoomPiu" type="button" aria-label="Avvicina">+</button><button id="btnZoomTutta" type="button" title="Mostra tutto ciò che il gruppo ha già scoperto">Tutta la mappa</button></span><button id="btnMondo" type="button">Mappa del mondo</button><button id="btn3d" type="button">Vista 3D</button><button id="btnArea" type="button">Area incantesimo</button><button id="btnPulisciAree" type="button" hidden>Togli le aree</button><button id="btnCombat" type="button" hidden>Inizia combattimento</button><button id="btnIllustra" type="button" hidden>Illustra la scena</button></div>
+      <div class="riga strumenti-mappa"><span class="zoom-mappa" id="zoomMappa"><button id="btnZoomMeno" type="button" aria-label="Allontana">−</button><button id="btnZoomPiu" type="button" aria-label="Avvicina">+</button><button id="btnZoomTutta" type="button" title="Mostra tutto ciò che il gruppo ha già scoperto">Tutta la mappa</button></span><button id="btnMondo" type="button">Mappa del mondo</button><button id="btn3d" type="button">Vista 3D</button><button id="btnArea" type="button">Area incantesimo</button><button id="btnNota" type="button">📌 Nota</button><button id="btnPulisciAree" type="button" hidden>Togli le aree</button><button id="btnCombat" type="button" hidden>Inizia combattimento</button><button id="btnIllustra" type="button" hidden>Illustra la scena</button></div>
       <p class="piccolo aiuto-mappa">Tocca una casella per muovere il tuo segnalino (o trascinalo): gira intorno ai muri da solo. Scorri col dito per spostare la vista, due dita per avvicinare o allontanare. Tieni premuto su un edificio per vederlo<span id="aiutoCapo" hidden> o cambiarne lo stato</span>.</p>
     </div>
 
@@ -168,9 +176,13 @@
         <div class="invito-box"><div id="qr" class="qr"></div>
           <div><p class="piccolo">Fai inquadrare il QR o manda il link. Il codice cambia a ogni sessione: i vecchi inviti smettono di funzionare.</p>
             <div class="riga"><button id="btnCondividi" class="pieno" type="button">Condividi link</button><button id="btnCopia" type="button">Copia</button></div>
+            <button id="btnSpettatori" class="testo-btn" type="button">Link per amici spettatori</button>
             <button id="btnNuovoInvito" class="testo-btn" type="button">Crea un nuovo codice</button>
           </div></div>
       </div>
+      <div class="carta" id="cartaSerate"><h2>Prossime serate</h2><div id="serate"></div></div>
+      <div class="carta" id="cartaPresenze"><h2>Le tue ricompense</h2><div id="presenze"></div></div>
+      <div class="carta"><h2>Prima volta a D&amp;D?</h2><p class="piccolo">In un minuto: cos'è, come si tirano i dadi, come si parla al master.</p><button id="btnGuida" type="button" class="largo">Come si gioca</button></div>
       <div class="carta" id="cartaCampagna" hidden>
         <h2>Campagna</h2>
         <label>Nome<input id="aNome" maxlength="60"></label>
@@ -212,6 +224,7 @@
         <label class="spunta"><input type="checkbox" id="optDadi3d" checked> Dadi 3D che rotolano</label>
         <label class="spunta"><input type="checkbox" id="optSottotitoli" checked> Sottotitoli grandi quando parla il master</label>
         <div class="riga dadi-stile"><label>I miei dadi<input type="color" id="optDadiColore" value="#b8433a"></label><label>Materiale<select id="optDadiMateriale"><option value="opaco">Opaco</option><option value="lucido" selected>Lucido</option><option value="metallo">Metallo</option><option value="gemma">Gemma</option></select></label><button type="button" id="btnProvaDadi">Prova</button></div>
+        <label>Traduci master e chat in<select id="optLingua"><option value="">nessuna lingua (originale)</option><option value="it">italiano</option><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option></select></label>
         <label>Volume<input type="range" id="optVolume" min="0" max="1" step="0.05" value="0.5"></label>
         <p class="piccolo">Comandi vocali: tieni premuto il tasto del microfono in basso mentre parli. Il tasto verde in alto attiva l'ascolto continuo, che su Android può non funzionare insieme alla chat vocale.</p>
         <label>Il tuo nome<input id="optNome" maxlength="30"></label>

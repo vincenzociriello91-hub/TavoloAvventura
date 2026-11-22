@@ -363,3 +363,22 @@ body.tv .strumenti-mappa, body.tv #vDadi h3:first-of-type, body.tv #rapidi { dis
 .segreto { border: 1px dashed var(--oro); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
 .segreto.fatto { border-style: solid; border-color: var(--verde); }
 button:disabled { opacity: .45; cursor: not-allowed; }
+/* spettatori: reazioni che volano sulla mappa */
+.mappa-box { position: relative; }
+.volano { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
+.reazione-vola { position: absolute; bottom: 8px; font-size: 2rem; display: flex; flex-direction: column; align-items: center; animation: vola 2.8s ease-out forwards; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.reazione-vola small { font-size: .7rem; color: #fff; background: rgba(0,0,0,.55); border-radius: 8px; padding: 0 6px; }
+@keyframes vola { 0% { transform: translateY(0) scale(.6); opacity: 0; } 15% { opacity: 1; transform: translateY(-20px) scale(1.1); } 100% { transform: translateY(-260px) scale(1); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .reazione-vola { animation-duration: 1.2s; } }
+.reazioni { display: flex; gap: 6px; justify-content: center; margin: 8px 0; flex-wrap: wrap; }
+.reazioni button { font-size: 1.4rem; min-width: 48px; }
+/* traduzioni, serate, cornici */
+.trad { color: var(--blu); font-style: italic; margin: 4px 0 0; }
+.serata { padding: 8px 0; border-top: 1px solid rgba(255,255,255,.08); }
+.serata:first-child { border-top: 0; }
+.av.cornice-bronzo { box-shadow: 0 0 0 3px #b07a43; }
+.av.cornice-argento { box-shadow: 0 0 0 3px #c9ced6; }
+.av.cornice-oro { box-shadow: 0 0 0 3px var(--oro2), 0 0 10px rgba(240,196,106,.6); }
+.av.cornice-leggenda { box-shadow: 0 0 0 3px #b48cff, 0 0 14px rgba(180,140,255,.8); animation: leggenda 3s ease-in-out infinite; }
+@keyframes leggenda { 50% { box-shadow: 0 0 0 3px var(--oro2), 0 0 16px rgba(240,196,106,.8); } }
+@media (prefers-reduced-motion: reduce) { .av.cornice-leggenda { animation: none; } }
