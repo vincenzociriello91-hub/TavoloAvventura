@@ -93,7 +93,7 @@ main { padding: 16px; padding-bottom: calc(var(--navh) + 24px + env(safe-area-in
 .luogo-testa { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .luogo-testa strong { font-family: Cinzel, serif; color: var(--oro2); font-size: 1.1rem; }
 #formVai { flex: 1 1 280px; max-width: 460px; }
-.mappa-box { position: relative; background: #0d0b0a; border: 1px solid var(--bordo); border-radius: var(--r); overflow: auto; min-height: 200px; overscroll-behavior: contain; }
+.mappa-box { position: relative; background: #0d0b0a; border: 1px solid var(--bordo); border-radius: var(--r); overflow: auto; min-height: 200px; max-height: max(75vh, calc(100vh - 180px)); overscroll-behavior: contain; }
 #mappa { display: block; margin: 0 auto; touch-action: none; image-rendering: pixelated; }
 .vuoto { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding: 24px; color: var(--tenue); }
 .aiuto-mappa { margin-top: 6px; }
@@ -191,7 +191,7 @@ body.tv #sottotitoli { font-size: 40px; bottom: 40px; }
 .esito-prova li { padding: 6px 0; border-bottom: 1px solid var(--bordo); }
 
 /* Avvisi */
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--navh) + 16px + env(safe-area-inset-bottom)); z-index: 40; background: #2f3b30; color: #eaf6ec; border: 1px solid var(--verde); padding: 12px 18px; border-radius: 14px; box-shadow: var(--ombra); max-width: min(92vw, 560px); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); top: calc(72px + env(safe-area-inset-top)); z-index: 60; /* in alto: in basso ci sono i sottotitoli del narratore */ background: #2f3b30; color: #eaf6ec; border: 1px solid var(--verde); padding: 12px 18px; border-radius: 14px; box-shadow: var(--ombra); max-width: min(92vw, 560px); }
 .toast.errore { background: #3b2622; border-color: var(--rosso); color: #ffe3dc; }
 .annulla-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--navh) + 76px + env(safe-area-inset-bottom)); z-index: 39; display: flex; gap: 12px; align-items: center; background: #26201a; border: 1px solid var(--oro); padding: 6px 6px 6px 16px; border-radius: 999px; box-shadow: var(--ombra); max-width: min(94vw, 600px); }
 .annulla-bar span { font-size: .88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -199,7 +199,7 @@ body.tv #sottotitoli { font-size: 40px; bottom: 40px; }
 .parziale { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 30; background: rgba(42,34,28,.95); border: 1px solid var(--bordo); color: var(--tenue); padding: 6px 14px; border-radius: 999px; font-size: .9rem; max-width: 92vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .statorete, .updatebar { position: sticky; top: 60px; z-index: 19; text-align: center; padding: 8px; background: #3b2622; color: #ffe3dc; display: flex; gap: 10px; justify-content: center; align-items: center; }
 .updatebar { background: #2a2a18; color: #f6efc8; }
-@media (min-width: 1100px) { .toast { bottom: 24px; } .annulla-bar { bottom: 84px; } }
+@media (min-width: 1100px) { .annulla-bar { bottom: 84px; } }
 .dlg { background: var(--superficie); color: var(--testo); border: 1px solid var(--bordo); border-radius: var(--r); max-width: min(92vw, 460px); padding: 16px; }
 .dlg::backdrop { background: rgba(0,0,0,.6); }
 .dlg-azioni { justify-content: flex-end; margin-top: 12px; }
@@ -233,7 +233,7 @@ body.tv .gioco > .vista:not(.vista-mappa):not(#vDadi) { display: none !important
 @media (max-width: 480px) { .btn-parla span { display: none; } .btn-parla { width: 64px; height: 64px; padding: 0; } }
 @media (min-width: 1100px) { .btn-parla { bottom: 24px; right: 470px; } }
 body.tv .btn-parla { display: none !important; }
-.toast { z-index: 41; }
+
 
 /* Combattimento, vignette dei PNG, tesoro */
 .combat { background: #2a1714; border: 1px solid #8a3a2f; border-radius: var(--r); padding: 10px 12px; margin-bottom: 10px; }
@@ -246,6 +246,8 @@ body.tv .btn-parla { display: none !important; }
 .narr-volto { flex: 0 0 auto; background: radial-gradient(circle, #3a2c20, #1a1410); border: 2px solid var(--oro); border-radius: 12px; padding: 2px; line-height: 0; }
 .strumenti-mappa { margin-top: 8px; }
 .strumenti-mappa button { min-height: 40px; }
+.zoom-mappa { display: inline-flex; gap: 6px; }
+.zoom-mappa button:not(#btnZoomTutta) { min-width: 44px; font-size: 1.2rem; font-weight: 700; }
 .tesoro-ogg { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
 .tesoro-ogg li { display: flex; align-items: center; gap: 8px; background: var(--superficie2); border: 1px solid var(--bordo); border-radius: 12px; padding: 6px 8px; }
 .tesoro-ogg li span { flex: 1; }

@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.3.0';
+const VERSION = '2.4.0';
 const CHANGELOG = [
+  { v: '2.4.0', data: '22/11/2026', voci: [
+    'Niente più muri attraversati: il personaggio cammina sul percorso vero e gira intorno a muri, case e mobili. Se un punto non si raggiunge, l\'app lo dice.',
+    'Le parti della mappa non ancora viste restano al buio: si scopre solo ciò che i personaggi vedono davvero (i muri bloccano la vista).',
+    'Zoom sulla mappa 2D e 3D: due dita, rotellina o i tasti − e +. "Tutta la mappa" mostra tutto ciò che il gruppo ha già scoperto. Col dito si sposta la vista.',
+    'Oggetti al loro posto e in proporzione: letti lunghi due caselle con la testiera al muro e il baule ai piedi, scaffali e rastrelliere contro le pareti, sedie girate verso i tavoli, misure vere in 3D (una casella è 1,5 m).',
+    'Mostri, PNG e compagni compaiono sempre su caselle libere, mai dentro un muro o un mobile.'
+  ] },
   { v: '2.3.0', data: '22/11/2026', voci: [
     'Avventura pronta "La miniera dei goblin" (livelli 1-3, una serata): luoghi, PNG, incontri, tesori e segreti già preparati. Si sceglie creando la campagna o dallo schermo del master; il master AI la segue, quello umano la trova nello schermo del master.',
     'Gioco da solo: il master AI interpreta anche due compagni (Mira la ranger e Fra\' Tobia il chierico), che sono sulla mappa e combattono con te.',
@@ -441,6 +448,8 @@ const largo = () => matchMedia('(min-width: 1100px)').matches;
 Mappa.init($('#mappa'), {
   io: () => S.io,
   puoMuovere: id => id === S.io || capo(),
+  capo: () => capo(),
+  onBloccato: () => toast('Non ci si arriva da qui: c\'è un muro o un ostacolo in mezzo', true),
   onMuovi: (id, x, y) => invia({ t: 'segnalino', id, x, y }),
   pg: id => S.st?.pg?.[id],
   puoMuovereOggetti: () => me()?.ruolo === 'master',
@@ -679,8 +688,13 @@ async function vista3D(attiva) {
   if (S.m3 && conLuogo) S.m3.aggiorna(Mappa.dati3D()); else Mappa.adatta();
 }
 $('#btn3d').addEventListener('click', () => vista3D(!OPZ.vista3d));
+// zoom della mappa del luogo (2D o 3D): 'tutta' inquadra solo ciò che il gruppo ha già scoperto
+function zoomMappa(z) { const in3d = S.m3 && !$('#mappa3dBox').hidden; if (z === 'tutta') return in3d ? S.m3.zoom('tutta') : Mappa.zoom('tutta'); if (in3d) S.m3.zoom(z > 0 ? 0.8 : 1.25); else Mappa.zoom(z > 0 ? 1.25 : 0.8); }
+$('#btnZoomPiu').addEventListener('click', () => zoomMappa(1));
+$('#btnZoomMeno').addEventListener('click', () => zoomMappa(-1));
+$('#btnZoomTutta').addEventListener('click', () => zoomMappa('tutta'));
 $('#diario').addEventListener('click', e => { const im = e.target.closest('img[data-img]'); if (im) window.open(im.src, '_blank'); const rb = e.target.closest('[data-riepilogo]'); if (rb) { S.apriRiepilogo = Number(rb.dataset.riepilogo); invia({ t: 'riepiloghi' }); } });
-$('#btnMondo').addEventListener('click', () => { const b = $('#mondoBox'); b.hidden = !b.hidden; $('#btnMondo').textContent = b.hidden ? 'Mappa del mondo' : 'Mappa del luogo'; $('#mappaBox').hidden = !b.hidden; if (!b.hidden) renderMappaMondo(); else Mappa.adatta(); });
+$('#btnMondo').addEventListener('click', () => { const b = $('#mondoBox'); b.hidden = !b.hidden; $('#btnMondo').textContent = b.hidden ? 'Mappa del mondo' : 'Mappa del luogo'; $('#mappaBox').hidden = !b.hidden; $('#zoomMappa').hidden = !b.hidden; if (!b.hidden) renderMappaMondo(); else Mappa.adatta(); });
 $('#mondoCanvas').addEventListener('click', e => { const nome = MappaMondo.luogoIn($('#mondoCanvas'), e); if (!nome) return; if (capo() || masterAI()) invia({ t: 'vai', nome }); else toast(nome); });
 function cartaMagia(pg, puo) {
   const max = Regole.slotMax(pg); const cd = Regole.cd(pg);

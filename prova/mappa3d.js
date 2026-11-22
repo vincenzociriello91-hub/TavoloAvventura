@@ -38,7 +38,7 @@ export function crea(contenitore, opz) {
   let mondo = new THREE.Group(); scena.add(mondo);
   let figure = new Map(), luci = [], meteoObj = null, chiaveCostruita = '', dati = null, nebbia = null, velo = null;
   // telecamera: guarda da sud, inclinata, si sposta col dito e si avvicina con due dita o la rotellina
-  const cam = { x: 16, z: 10, dist: 16, alto: 0.95 };
+  const cam = { x: 16, z: 10, dist: 16, alto: 0.95 }, DMIN = 5, DMAX = 70;
   function posizionaCamera() {
     if (dati) { const W = dati.luogo.w, H = dati.luogo.h, mezzo = Math.min(W / 2, cam.dist * camera.aspect * 0.32); cam.x = Math.max(mezzo, Math.min(W - mezzo, cam.x)); cam.z = Math.max(Math.min(H / 2, cam.dist * 0.22), Math.min(H - 1, cam.z)); }
     camera.position.set(cam.x, Math.sin(cam.alto) * cam.dist, cam.z + Math.cos(cam.alto) * cam.dist);
@@ -69,47 +69,60 @@ export function crea(contenitore, opz) {
   const sfera = (r, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), m); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; return o; };
 
   /* ---------- oggetti di scena in 3D ---------- */
+  // 1 casella = 1,5 m (5 piedi, come in D&D) e le figure sono alte circa 1,8 m: ogni oggetto ha le sue misure vere
+  const LUNGHI = ['letto', 'carretto', 'tronco', 'bancarella', 'barca'];
   function oggetto3D(o, L) {
     const g = new THREE.Group(), r = ((o.x * 73856093) ^ (o.y * 19349663)) >>> 0;
     const add = (...m) => m.forEach(x => g.add(x));
+    const lungo = LUNGHI.includes(o.tipo) && o.dir; // due caselle: si costruisce lungo X da -1 a +1, con la testa a ovest
+    const aMuro = () => { g.rotation.y = -(o.rot || 0) * Math.PI / 2; }; // il retro contro il muro (rot = lato del muro: 0 N, 1 E, 2 S, 3 O)
     switch (o.tipo) {
-      case 'tavolo': add(box(0.82, 0.07, 0.76, legno(), 0, 0.72, 0)); for (const [a, b] of [[-0.34, -0.3], [0.34, -0.3], [-0.34, 0.3], [0.34, 0.3]]) add(box(0.07, 0.7, 0.07, legnoScuro(), a, 0.35, b)); if (r % 3) add(cil(0.06, 0.05, 0.14, mat('boccale', () => std(0xc8b090)), -0.15, 0.82, -0.1)); break;
-      case 'sedia': { add(box(0.36, 0.05, 0.36, legno(), 0, 0.42, 0)); for (const [a, b] of [[-0.15, -0.15], [0.15, -0.15], [-0.15, 0.15], [0.15, 0.15]]) add(box(0.04, 0.42, 0.04, legnoScuro(), a, 0.21, b)); add(box(0.36, 0.45, 0.05, legno(), 0, 0.67, 0.16)); g.rotation.y = -(o.rot || 0) * Math.PI / 2; break; }
-      case 'sgabello': add(cil(0.18, 0.18, 0.06, legno(), 0, 0.45, 0), cil(0.03, 0.03, 0.45, legnoScuro(), 0, 0.22, 0, 6)); break;
-      case 'botte': add(cil(0.3, 0.3, 0.85, legno(), 0, 0.43, 0), cil(0.335, 0.335, 0.06, ferro(), 0, 0.15, 0), cil(0.335, 0.335, 0.06, ferro(), 0, 0.7, 0)); break;
-      case 'cassa': add(box(0.66, 0.6, 0.66, mat('cassa', () => std(0x8a6038)), 0, 0.3, 0)); g.rotation.y = (r % 7) * 0.1; break;
-      case 'baule': case 'forziere': { const oro = o.tipo === 'forziere'; add(box(0.78, 0.42, 0.5, legno(), 0, 0.21, 0), box(0.8, 0.06, 0.52, oro ? mat('oro', () => std(0xd4a838, { metalness: 0.8, roughness: 0.3 })) : ferro(), 0, 0.3, 0)); break; }
-      case 'letto': { const col = [0x8a2a2a, 0x2a4a7a, 0x4a6a2a, 0x6a4a7a][r % 4]; add(box(0.86, 0.32, 0.96, legnoScuro(), 0, 0.16, 0), box(0.78, 0.1, 0.62, std(col), 0, 0.36, 0.14), box(0.6, 0.1, 0.22, mat('cuscino', () => std(0xe8e2d4)), 0, 0.37, -0.3)); break; }
-      case 'scaffale': add(box(0.95, 1.6, 0.34, legnoScuro(), 0, 0.8, 0)); for (let k = 0; k < 4; k++) add(box(0.85, 0.22, 0.26, std([0x7a2a24, 0x2a4a6a, 0x3a6a3a, 0x8a7a4a][(r + k) % 4]), 0, 0.25 + k * 0.38, 0.02)); break;
-      case 'rastrelliera': add(box(0.9, 0.12, 0.2, legnoScuro(), 0, 0.5, 0)); for (let k = 0; k < 4; k++) add(box(0.04, 1.1, 0.04, ferro(), -0.3 + k * 0.2, 0.6, 0)); break;
-      case 'candelabro': add(cil(0.04, 0.12, 0.9, ferro(), 0, 0.45, 0, 8), sfera(0.07, fuoco(), 0, 0.95, 0)); break;
-      case 'torcia': { const m = [[0, -1], [0, 1], [-1, 0], [1, 0]].find(([dx, dy]) => '#wR'.includes(L.celle[o.y + dy]?.[o.x + dx])) || [0, -1]; const t = cil(0.03, 0.03, 0.4, legnoScuro(), m[0] * 0.38, 1.2, m[1] * 0.38, 6); t.rotation.set(m[1] * 0.4, 0, -m[0] * 0.4); add(t, sfera(0.08, fuoco(), m[0] * 0.3, 1.42, m[1] * 0.3)); break; }
-      case 'colonna': add(cil(0.38, 0.42, 2.4, sasso(), 0, 1.2, 0, 16), box(0.95, 0.15, 0.95, sasso(), 0, 0.07, 0), box(0.95, 0.15, 0.95, sasso(), 0, 2.4, 0)); break;
-      case 'statua': add(box(0.8, 0.4, 0.8, sasso(), 0, 0.2, 0), cil(0.18, 0.25, 0.9, mat('marmo', () => std(0xc8c4bc)), 0, 0.85, 0), sfera(0.16, mat('marmo', () => std(0xc8c4bc)), 0, 1.42, 0)); break;
+      case 'tavolo': add(box(0.86, 0.05, 0.78, legno(), 0, 0.5, 0)); for (const [a, b] of [[-0.36, -0.31], [0.36, -0.31], [-0.36, 0.31], [0.36, 0.31]]) add(box(0.06, 0.48, 0.06, legnoScuro(), a, 0.24, b)); if (r % 3) add(cil(0.045, 0.04, 0.1, mat('boccale', () => std(0xc8b090)), -0.15, 0.57, -0.1)); break;
+      case 'sedia': { add(box(0.3, 0.04, 0.3, legno(), 0, 0.3, 0)); for (const [a, b] of [[-0.12, -0.12], [0.12, -0.12], [-0.12, 0.12], [0.12, 0.12]]) add(box(0.035, 0.3, 0.035, legnoScuro(), a, 0.15, b)); add(box(0.3, 0.32, 0.04, legno(), 0, 0.46, 0.13)); g.rotation.y = -(o.rot || 0) * Math.PI / 2; break; }
+      case 'sgabello': add(cil(0.15, 0.15, 0.04, legno(), 0, 0.3, 0), cil(0.03, 0.03, 0.3, legnoScuro(), 0, 0.15, 0, 6)); break;
+      case 'botte': add(cil(0.26, 0.26, 0.6, legno(), 0, 0.3, 0), cil(0.29, 0.29, 0.05, ferro(), 0, 0.1, 0), cil(0.29, 0.29, 0.05, ferro(), 0, 0.5, 0)); break;
+      case 'cassa': add(box(0.5, 0.45, 0.5, mat('cassa', () => std(0x8a6038)), 0, 0.225, 0)); g.rotation.y = (r % 7) * 0.1; break;
+      case 'baule': case 'forziere': { const oro = o.tipo === 'forziere'; add(box(0.62, 0.3, 0.4, legno(), 0, 0.15, -0.25), box(0.64, 0.05, 0.42, oro ? mat('oro', () => std(0xd4a838, { metalness: 0.8, roughness: 0.3 })) : ferro(), 0, 0.31, -0.25)); aMuro(); break; }
+      case 'letto': { const col = [0x8a2a2a, 0x2a4a7a, 0x4a6a2a, 0x6a4a7a][r % 4];
+        if (lungo) add(box(1.9, 0.22, 0.9, legnoScuro(), 0, 0.11, 0), box(0.08, 0.55, 0.9, legnoScuro(), -0.94, 0.27, 0), box(1.3, 0.08, 0.8, std(col), 0.27, 0.26, 0), box(0.3, 0.08, 0.6, mat('cuscino', () => std(0xe8e2d4)), -0.68, 0.27, 0));
+        else add(box(0.86, 0.22, 0.96, legnoScuro(), 0, 0.11, 0), box(0.78, 0.08, 0.62, std(col), 0, 0.26, 0.14), box(0.6, 0.08, 0.22, mat('cuscino', () => std(0xe8e2d4)), 0, 0.27, -0.3));
+        break; }
+      case 'scaffale': add(box(0.9, 1.25, 0.3, legnoScuro(), 0, 0.625, -0.33)); for (let k = 0; k < 3; k++) add(box(0.8, 0.22, 0.22, std([0x7a2a24, 0x2a4a6a, 0x3a6a3a, 0x8a7a4a][(r + k) % 4]), 0, 0.22 + k * 0.38, -0.3)); aMuro(); break;
+      case 'rastrelliera': add(box(0.85, 0.1, 0.18, legnoScuro(), 0, 0.4, -0.35)); for (let k = 0; k < 4; k++) add(box(0.03, 0.95, 0.03, ferro(), -0.3 + k * 0.2, 0.5, -0.35)); aMuro(); break;
+      case 'candelabro': add(cil(0.03, 0.1, 0.7, ferro(), 0, 0.35, 0, 8), sfera(0.06, fuoco(), 0, 0.74, 0)); break;
+      case 'torcia': { const m = [[0, -1], [0, 1], [-1, 0], [1, 0]].find(([dx, dy]) => '#wR'.includes(L.celle[o.y + dy]?.[o.x + dx])) || [0, -1]; const t = cil(0.025, 0.025, 0.35, legnoScuro(), m[0] * 0.4, 1.0, m[1] * 0.4, 6); t.rotation.set(m[1] * 0.4, 0, -m[0] * 0.4); add(t, sfera(0.07, fuoco(), m[0] * 0.33, 1.2, m[1] * 0.33)); break; }
+      case 'colonna': add(cil(0.34, 0.38, 1.5, sasso(), 0, 0.75, 0, 16), box(0.9, 0.12, 0.9, sasso(), 0, 0.06, 0), box(0.9, 0.12, 0.9, sasso(), 0, 1.46, 0)); break;
+      case 'statua': add(box(0.7, 0.35, 0.7, sasso(), 0, 0.175, 0), cil(0.15, 0.2, 0.75, mat('marmo', () => std(0xc8c4bc)), 0, 0.72, 0), sfera(0.13, mat('marmo', () => std(0xc8c4bc)), 0, 1.2, 0)); break;
       case 'masso': { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42, 0), sasso()); m.position.y = 0.25; m.scale.set(1, 0.7, 0.9); m.rotation.y = r; m.castShadow = m.receiveShadow = true; add(m); break; }
       case 'stalagmite': { const m = new THREE.Mesh(new THREE.ConeGeometry(0.28, 1.3, 7), mat('stalag', () => std(0x8a7a62))); m.position.y = 0.65; m.castShadow = true; add(m); break; }
-      case 'carretto': { add(box(0.9, 0.12, 0.62, legno(), 0, 0.42, 0), box(0.9, 0.3, 0.05, legno(), 0, 0.6, 0.3), box(0.9, 0.3, 0.05, legno(), 0, 0.6, -0.3)); for (const z of [-0.36, 0.36]) { const w = cil(0.26, 0.26, 0.06, legnoScuro(), 0, 0.26, z, 12); w.rotation.x = Math.PI / 2; add(w); } break; }
+      case 'carretto': {
+        if (lungo) { add(box(1.5, 0.08, 0.76, legno(), -0.13, 0.45, 0), box(1.5, 0.25, 0.04, legno(), -0.13, 0.6, 0.38), box(1.5, 0.25, 0.04, legno(), -0.13, 0.6, -0.38), box(0.04, 0.25, 0.76, legno(), -0.86, 0.6, 0)); for (const z of [-0.43, 0.43]) { const w = cil(0.3, 0.3, 0.05, legnoScuro(), -0.15, 0.3, z, 12); w.rotation.x = Math.PI / 2; add(w); } for (const z of [-0.14, 0.14]) add(box(0.6, 0.04, 0.04, legnoScuro(), 0.85, 0.42, z)); }
+        else { add(box(0.8, 0.08, 0.56, legno(), 0, 0.4, 0), box(0.8, 0.22, 0.04, legno(), 0, 0.52, 0.27), box(0.8, 0.22, 0.04, legno(), 0, 0.52, -0.27)); for (const z of [-0.32, 0.32]) { const w = cil(0.24, 0.24, 0.05, legnoScuro(), 0, 0.24, z, 12); w.rotation.x = Math.PI / 2; add(w); } }
+        break; }
       case 'lampione': add(cil(0.05, 0.07, 2.1, ferro(), 0, 1.05, 0, 8), sfera(0.13, mat('lanterna', () => new THREE.MeshBasicMaterial({ color: 0xffe4a0 })), 0, 2.1, 0)); break;
-      case 'panca': add(box(0.95, 0.07, 0.3, legno(), 0, 0.4, 0), box(0.06, 0.4, 0.26, legnoScuro(), -0.4, 0.2, 0), box(0.06, 0.4, 0.26, legnoScuro(), 0.4, 0.2, 0)); break;
-      case 'fieno': { const f = cil(0.36, 0.36, 0.7, mat('fieno', () => std(0xc8a848)), 0, 0.36, 0); f.rotation.z = Math.PI / 2; add(f); break; }
-      case 'bancarella': { const col = [0xa82a24, 0x2a5a9a, 0x3a7a3a][r % 3]; add(box(0.9, 0.5, 0.45, legno(), 0, 0.25, 0.2)); for (const [a, b] of [[-0.44, -0.4], [0.44, -0.4], [-0.44, 0.4], [0.44, 0.4]]) add(box(0.04, 1.3, 0.04, legnoScuro(), a, 0.65, b)); const t = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.95), new THREE.MeshStandardMaterial({ map: tela(64, 64, (k) => { for (let i = 0; i < 8; i++) { k.fillStyle = i % 2 ? '#e8e0cc' : '#' + col.toString(16).padStart(6, '0'); k.fillRect(i * 8, 0, 8, 64); } }), side: THREE.DoubleSide })); t.rotation.x = -Math.PI / 2 + 0.25; t.position.y = 1.32; t.castShadow = true; add(t); break; }
-      case 'cespuglio': { const c = std(0x3a6a2a); add(sfera(0.32, c, 0, 0.28, 0), sfera(0.24, c, 0.2, 0.22, 0.12), sfera(0.22, c, -0.18, 0.2, -0.1)); break; }
-      case 'tronco': { const t = cil(0.2, 0.22, 1.6, mat('tronco', () => std(0x6a4a2a)), 0, 0.2, 0); t.rotation.z = Math.PI / 2; g.rotation.y = (o.rot || 0) * 0.6; add(t); break; }
-      case 'ceppo': add(cil(0.28, 0.32, 0.35, mat('tronco', () => std(0x6a4a2a)), 0, 0.17, 0)); break;
+      case 'panca': add(box(0.95, 0.05, 0.28, legno(), 0, 0.3, 0), box(0.05, 0.3, 0.24, legnoScuro(), -0.4, 0.15, 0), box(0.05, 0.3, 0.24, legnoScuro(), 0.4, 0.15, 0)); break;
+      case 'fieno': { const f = cil(0.3, 0.3, 0.6, mat('fieno', () => std(0xc8a848)), 0, 0.3, 0); f.rotation.z = Math.PI / 2; add(f); break; }
+      case 'bancarella': { const col = [0xa82a24, 0x2a5a9a, 0x3a7a3a][r % 3], lw = lungo ? 1.85 : 0.9;
+        add(box(lw, 0.6, 0.45, legno(), 0, 0.3, 0.2)); for (const [a, b] of [[-lw / 2, -0.4], [lw / 2, -0.4], [-lw / 2, 0.4], [lw / 2, 0.4]]) add(box(0.04, 1.4, 0.04, legnoScuro(), a, 0.7, b));
+        const t = new THREE.Mesh(new THREE.PlaneGeometry(lw + 0.1, 0.95), new THREE.MeshStandardMaterial({ map: tela(64, 64, (k) => { for (let i = 0; i < 8; i++) { k.fillStyle = i % 2 ? '#e8e0cc' : '#' + col.toString(16).padStart(6, '0'); k.fillRect(i * 8, 0, 8, 64); } }), side: THREE.DoubleSide })); t.rotation.x = -Math.PI / 2 + 0.25; t.position.y = 1.42; t.castShadow = true; add(t); break; }
+      case 'cespuglio': { const c = std(0x3a6a2a); add(sfera(0.3, c, 0, 0.26, 0), sfera(0.22, c, 0.2, 0.2, 0.12), sfera(0.2, c, -0.18, 0.18, -0.1)); break; }
+      case 'tronco': { const t = cil(0.2, 0.24, lungo ? 1.85 : 0.9, mat('tronco', () => std(0x6a4a2a)), 0, 0.22, 0); t.rotation.z = Math.PI / 2; if (!lungo) g.rotation.y = (o.rot || 0) * 0.6; add(t); break; }
+      case 'ceppo': add(cil(0.25, 0.28, 0.3, mat('tronco', () => std(0x6a4a2a)), 0, 0.15, 0)); break;
       case 'falo': { for (let k = 0; k < 9; k++) add(sfera(0.08, sasso(), Math.cos(k * 0.7) * 0.36, 0.05, Math.sin(k * 0.7) * 0.36)); const f = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.55, 8), fuoco()); f.position.y = 0.3; add(f); break; }
-      case 'barca': { const b = box(1.3, 0.3, 0.5, legno(), 0, 0.05, 0); b.scale.set(1, 1, 1); g.rotation.y = (o.rot || 0) * 0.4; add(b, box(1.1, 0.05, 0.4, legnoScuro(), 0, 0.21, 0)); break; }
-      case 'altare': add(box(0.95, 0.85, 0.65, sasso(), 0, 0.42, 0), box(0.4, 0.02, 0.67, mat('drappo', () => std(0x6a1e24)), 0, 0.86, 0), cil(0.04, 0.04, 0.2, mat('cera', () => std(0xe8e0c8)), -0.38, 0.95, 0, 6), cil(0.04, 0.04, 0.2, mat('cera', () => std(0xe8e0c8)), 0.38, 0.95, 0, 6), sfera(0.05, fuoco(), -0.38, 1.08, 0), sfera(0.05, fuoco(), 0.38, 1.08, 0)); break;
-      case 'stendardo': { add(cil(0.04, 0.04, 2.2, legnoScuro(), 0, 1.1, 0, 6)); const b = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.9), std([0x8a1e24, 0x1e3a7a, 0x2a5a2a][r % 3], { side: THREE.DoubleSide })); b.position.set(0.32, 1.65, 0); b.castShadow = true; add(b); break; }
-      case 'sacco': { const s = sfera(0.28, mat('sacco', () => std(0xa8936a)), 0, 0.24, 0); s.scale.set(1, 0.85, 0.9); add(s); break; }
-      case 'secchio': add(cil(0.17, 0.14, 0.3, ferro(), 0, 0.15, 0)); break;
+      case 'barca': { const lb = lungo ? 1.85 : 0.95; add(box(lb, 0.3, 0.6, legno(), 0, 0.05, 0), box(lb * 0.85, 0.05, 0.5, legnoScuro(), 0, 0.21, 0), box(0.1, 0.05, 0.55, legno(), 0, 0.24, 0)); if (!lungo) g.rotation.y = (o.rot || 0) * 0.4; break; }
+      case 'altare': add(box(0.95, 0.6, 0.6, sasso(), 0, 0.3, 0), box(0.4, 0.02, 0.62, mat('drappo', () => std(0x6a1e24)), 0, 0.61, 0), cil(0.035, 0.035, 0.16, mat('cera', () => std(0xe8e0c8)), -0.38, 0.7, 0, 6), cil(0.035, 0.035, 0.16, mat('cera', () => std(0xe8e0c8)), 0.38, 0.7, 0, 6), sfera(0.045, fuoco(), -0.38, 0.81, 0), sfera(0.045, fuoco(), 0.38, 0.81, 0)); break;
+      case 'stendardo': { add(cil(0.035, 0.035, 2.2, legnoScuro(), 0, 1.1, 0, 6)); const b = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.85), std([0x8a1e24, 0x1e3a7a, 0x2a5a2a][r % 3], { side: THREE.DoubleSide })); b.position.set(0.3, 1.7, 0); b.castShadow = true; add(b); break; }
+      case 'sacco': { const s = sfera(0.22, mat('sacco', () => std(0xa8936a)), 0, 0.19, 0); s.scale.set(1, 0.85, 0.9); add(s); break; }
+      case 'secchio': add(cil(0.14, 0.11, 0.25, ferro(), 0, 0.125, 0)); break;
       default: { // decalcomania vista dall'alto (tappeti, ossa, macerie...) o oggetto aggiunto dal master
         if (['tappeto', 'ragnatela', 'ossa', 'funghi', 'macerie'].includes(o.tipo)) return null; // già nel terreno
-        add(box(0.55, 0.55, 0.55, mat('generico', () => std(0x6a5a48)), 0, 0.28, 0));
+        add(box(0.45, 0.45, 0.45, mat('generico', () => std(0x6a5a48)), 0, 0.225, 0));
       }
     }
     if (o.stato === 'bruciato') g.traverse(m => { if (m.isMesh) m.material = mat('bruciato', () => std(0x1a1512)); });
     if (o.stato === 'rotto') { g.rotation.z = 0.35; g.position.y = -0.1; }
-    g.position.set(o.x + 0.5, 0, o.y + 0.5);
+    if (lungo) { const v = o.dir === 'v'; g.position.set(o.x + (v ? 0.5 : 1), 0, o.y + (v ? 1 : 0.5)); g.rotation.y = v ? (o.rot === 2 ? Math.PI / 2 : -Math.PI / 2) : (o.rot === 1 ? Math.PI : 0); }
+    else g.position.set(o.x + 0.5, 0, o.y + 0.5);
     return g;
   }
 
@@ -137,12 +150,12 @@ export function crea(contenitore, opz) {
       im.castShadow = im.receiveShadow = true; mondo.add(im);
     }
     // porte: legno nell'apertura
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (cella(x, y) === '+' && !Mappa.casa3D(x, y)) { const v = muro(cella(x, y - 1)) && muro(cella(x, y + 1)); mondo.add(box(v ? 0.12 : 0.9, 1.2, v ? 0.9 : 0.12, legno(), x + 0.5, 0.6, y + 0.5)); }
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (cella(x, y) === '+' && !Mappa.casa3D(x, y)) { const v = muro(cella(x, y - 1)) && muro(cella(x, y + 1)); mondo.add(box(v ? 0.12 : 0.9, 1.35, v ? 0.9 : 0.12, legno(), x + 0.5, 0.675, y + 0.5)); }
     // camino, bancone, scale
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const c = cella(x, y);
       if (c === 'f') { mondo.add(box(1, 1.1, 0.9, sasso(), x + 0.5, 0.55, y + 0.45)); mondo.add(box(0.6, 0.45, 0.2, mat('buio', () => new THREE.MeshBasicMaterial({ color: 0x150c08 })), x + 0.5, 0.3, y + 0.92)); const f = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.4, 8), fuoco()); f.position.set(x + 0.5, 0.25, y + 0.85); mondo.add(f); }
-      if (c === 'b') mondo.add(box(1.01, 1, 0.75, mat('bancone', () => std(0x5a361b)), x + 0.5, 0.5, y + 0.5));
+      if (c === 'b') mondo.add(box(1.01, 0.75, 0.75, mat('bancone', () => std(0x5a361b)), x + 0.5, 0.375, y + 0.5));
     }
     // edifici all'aperto: corpo intonacato e tetto a due falde con le tegole
     for (const e of L.edifici) {
@@ -242,7 +255,7 @@ export function crea(contenitore, opz) {
       if (!f) {
         const tela2 = document.createElement('canvas'); tela2.width = tela2.height = 64;
         const tx = new THREE.CanvasTexture(tela2); tx.colorSpace = THREE.SRGBColorSpace; tx.magFilter = THREE.NearestFilter; tx.minFilter = THREE.NearestFilter;
-        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, alphaTest: 0.4 })); sprite.center.set(0.5, 7 / 64); sprite.scale.set(1.9, 1.9, 1); sprite.castShadow = true;
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, alphaTest: 0.4 })); sprite.center.set(0.5, 7 / 64); sprite.scale.set(1.6, 1.6, 1); sprite.castShadow = true;
         const base = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.4, 0.06, 24), new THREE.MeshStandardMaterial({ color: sg.tipo === 'nemico' ? 0xd84b3c : sg.tipo === 'png' ? 0xbfae86 : new THREE.Color(sg.colore || '#e8b04b') }));
         base.position.y = 0.03; base.receiveShadow = true;
         const nome = testoSprite(sg.nome || '?', sg.tipo === 'nemico' ? 'rgba(70,14,12,.85)' : 'rgba(20,17,15,.8)'); nome.position.y = -0.05; nome.center.set(0.5, 1.2);
@@ -252,9 +265,12 @@ export function crea(contenitore, opz) {
       }
       visti.add(id);
       f.gruppo.visible = !nascosto;
-      const tx = sg.x + 0.5, tz = sg.y + 0.5, dx = tx - f.x, dz = tz - f.z, dist = Math.hypot(dx, dz);
-      if (dist > 12) { f.x = tx; f.z = tz; }
-      else if (dist > 0.01) { const v = Math.min(dist, dt * 4.5); f.x += dx / dist * v; f.z += dz / dist * v; f.dir = Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 3 : 1) : (dz > 0 ? 2 : 0); f.fase += dt * 9; f.cammina = true; }
+      // cammina sul percorso vero intorno ai muri (stesso calcolo della mappa 2D); se non c'è o è lunghissimo, salta lì
+      const meta = sg.x + ',' + sg.y;
+      if (f.meta !== meta) { f.meta = meta; const via = Math.hypot(sg.x + 0.5 - f.x, sg.y + 0.5 - f.z) > 0.01 ? Mappa.percorso({ x: Math.floor(f.x), y: Math.floor(f.z) }, sg) : null; f.via = via && via.length <= 30 ? via : null; if (!f.via) { f.x = sg.x + 0.5; f.z = sg.y + 0.5; } }
+      const tappa = f.via?.[0] || sg, tx = tappa.x + 0.5, tz = tappa.y + 0.5, dx = tx - f.x, dz = tz - f.z, dist = Math.hypot(dx, dz);
+      if (dist > 0.01) { const v = Math.min(dist, dt * 4.5); f.x += dx / dist * v; f.z += dz / dist * v; f.dir = Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 3 : 1) : (dz > 0 ? 2 : 0); f.fase += dt * 9; f.cammina = true; }
+      else if (f.via?.length) { f.x = tx; f.z = tz; f.via.shift(); }
       else { f.x = tx; f.z = tz; f.cammina = false; f.fase = 0; }
       f.gruppo.position.set(f.x, 0, f.z);
       // fotogramma: figura LPC se c'è, altrimenti segnalino tondo con l'iniziale
@@ -262,8 +278,8 @@ export function crea(contenitore, opz) {
       if (chiave !== f.chiave || sh !== f.sh) {
         k.clearRect(0, 0, 64, 64);
         if (sh) { k.imageSmoothingEnabled = false; k.drawImage(sh, col * 64, f.dir * 64, 64, 64, 0, 0, 64, 64); }
-        else if (Mappa.mostro(sg)) { const im = Mappa.mostro(sg), sc = Math.min(64 / im.width, 60 / im.height); k.imageSmoothingEnabled = false; k.drawImage(im, 32 - im.width * sc / 2, 57 - im.height * sc, im.width * sc, im.height * sc); if (Mappa.grande(sg)) f.sprite.scale.set(3, 3, 1); }
-        else { k.fillStyle = sg.tipo === 'nemico' ? '#7a1a16' : sg.colore || '#e8b04b'; k.beginPath(); k.arc(32, 40, 18, 0, 7); k.fill(); k.strokeStyle = '#1a1210'; k.lineWidth = 3; k.stroke(); k.fillStyle = '#fff'; k.font = '800 20px Inter, sans-serif'; k.textAlign = 'center'; k.fillText((sg.nome || '?').charAt(0).toUpperCase(), 32, 47); }
+        else if (Mappa.mostro(sg)) { const im = Mappa.mostro(sg), sc = Math.min(64 / im.width, 60 / im.height); k.imageSmoothingEnabled = false; k.drawImage(im, 32 - im.width * sc / 2, 57 - im.height * sc, im.width * sc, im.height * sc); if (Mappa.grande(sg)) f.sprite.scale.set(2.8, 2.8, 1); }
+        else { k.fillStyle = sg.tipo === 'nemico' ? '#7a1a16' : sg.colore || '#e8b04b'; k.beginPath(); k.arc(32, 44, 13, 0, 7); k.fill(); k.strokeStyle = '#1a1210'; k.lineWidth = 3; k.stroke(); k.fillStyle = '#fff'; k.font = '800 15px Inter, sans-serif'; k.textAlign = 'center'; k.fillText((sg.nome || '?').charAt(0).toUpperCase(), 32, 49); }
         f.tx.needsUpdate = true; f.chiave = chiave; f.sh = sh;
       }
     }
@@ -285,7 +301,7 @@ export function crea(contenitore, opz) {
   });
   el.addEventListener('pointermove', ev => {
     if (!punti.has(ev.pointerId)) return; punti.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-    if (gesto?.tipo === 'pizzico' && punti.size === 2) { const [a, b] = [...punti.values()]; cam.dist = Math.max(6, Math.min(34, gesto.dist0 * gesto.d0 / Math.max(20, Math.hypot(a.x - b.x, a.y - b.y)))); return; }
+    if (gesto?.tipo === 'pizzico' && punti.size === 2) { const [a, b] = [...punti.values()]; cam.dist = Math.max(DMIN, Math.min(DMAX, gesto.dist0 * gesto.d0 / Math.max(20, Math.hypot(a.x - b.x, a.y - b.y)))); return; }
     if (gesto?.tipo === 'trascina') { const q = casellaDa(ev); if (q) { gesto.x = q.x; gesto.y = q.y; } return; }
     if (gesto?.tipo === 'tocco' || gesto?.tipo === 'sposta') {
       const dx = ev.clientX - gesto.sx, dy = ev.clientY - gesto.sy;
@@ -300,7 +316,18 @@ export function crea(contenitore, opz) {
     else if (g.tipo === 'tocco' && g.q && Date.now() - g.t < 450) Mappa.azioneCasella(g.q.x, g.q.y, false);
   };
   el.addEventListener('pointerup', fine); el.addEventListener('pointercancel', ev => { punti.delete(ev.pointerId); gesto = null; });
-  el.addEventListener('wheel', ev => { ev.preventDefault(); cam.dist = Math.max(6, Math.min(34, cam.dist * (ev.deltaY > 0 ? 1.1 : 0.9))); }, { passive: false });
+  el.addEventListener('wheel', ev => { ev.preventDefault(); cam.dist = Math.max(DMIN, Math.min(DMAX, cam.dist * (ev.deltaY > 0 ? 1.1 : 0.9))); }, { passive: false });
+
+  // zoom dai pulsanti: f > 1 allontana; 'tutta' inquadra tutto ciò che è già stato scoperto
+  function zoom(f) {
+    if (f !== 'tutta') { cam.dist = Math.max(DMIN, Math.min(DMAX, cam.dist * f)); return; }
+    if (!dati) return;
+    const L = dati.luogo; let x0 = L.w, y0 = L.h, x1 = -1, y1 = -1;
+    for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) if (dati.extra.vedeTutto || !L.visto || L.visto[y * L.w + x] === '1') { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    if (x1 < 0) { x0 = 0; y0 = 0; x1 = L.w - 1; y1 = L.h - 1; }
+    cam.x = (x0 + x1 + 1) / 2; cam.z = (y0 + y1 + 1) / 2;
+    cam.dist = Math.max(DMIN, Math.min(DMAX, Math.max((x1 - x0 + 2) / (camera.aspect * 0.64), (y1 - y0 + 2) / 0.6)));
+  }
 
   /* ---------- ciclo ---------- */
   let ultimo = performance.now(), attivo = true, lampo = 0, idFrame = 0;
@@ -329,6 +356,7 @@ export function crea(contenitore, opz) {
       const chiave = d.luogo.id + '|' + d.chiave + '|' + (d.luogo.visto || '') + '|' + (d.vista ? d.vista.join('') : '');
       if (chiave !== chiaveCostruita) costruisci(d);
     },
+    zoom,
     centra() { const io = dati?.segnalini[opz.io()]; if (io) { cam.x = io.x + 0.5; cam.z = io.y - 1.5; } },
     chiudi() { attivo = false; cancelAnimationFrame(idFrame); renderer.dispose(); el.remove(); }
   };
