@@ -507,6 +507,78 @@ const Mappa = (() => {
     return { scuro: tela(scuro), luce: tela(luce), sorgenti: L };
   }
 
+  /* ---------------- pacchetti grafici comprati (privati: il server li dà solo ai membri della campagna) ---------------- */
+  // The Fan-tasy Tileset, Time Fantasy, pixelbean: terreni a 47 mattonelle, alberi, case, oggetti a 16 px per casella.
+  let P = null; const famiglie = {};
+  async function pacchetti(base, m, k) {
+    if (P || !base || !m || !k) return;
+    try {
+      const q = `?m=${encodeURIComponent(m)}&k=${encodeURIComponent(k)}`;
+      const [r, b] = await Promise.all([fetch(base + '.json' + q).then(x => x.ok ? x.json() : null), fetch(base + '.png' + q).then(x => x.ok ? x.blob() : null)]);
+      if (!r || !b) return;
+      P = { img: await createImageBitmap(b), r }; cacheChiave = ''; disegna(); cambiato();
+    } catch {}
+  }
+  // tutte le varianti di un oggetto (albero_verde_0, albero_verde_1...)
+  const varianti = radice => famiglie[radice] || (famiglie[radice] = Object.keys(P.r).filter(n => n === radice || (n.startsWith(radice + '_') && /^\d+$/.test(n.slice(radice.length + 1)))));
+  function sprite(c, radice, cx, basso, scala, x, y, filtro, altMax) {
+    const v = varianti(radice); if (!v.length) return false;
+    const [sx, sy, w, h] = P.r[v[Math.floor(rnd(x, y, 7)() * v.length)]];
+    if (altMax && h * scala > altMax) scala = altMax / h; // gli alberi non devono coprire i sentieri e le case vicine
+    if (filtro) c.filter = filtro;
+    c.drawImage(P.img, sx, sy, w, h, cx - w * scala / 2, basso - h * scala, w * scala, h * scala);
+    if (filtro) c.filter = 'none';
+    return true;
+  }
+  // autotile a 47 mattonelle: stesso ordine dei pacchetti (Tileset_Layout dell'autore, come in terreno.gd delle Cronache)
+  const DISPOSIZIONE = ['000010010 000011011 000111111 000110110 000111011 010110110', '010010010 011011011 111111111 110110110 011011010 110111000', '010010000 011011000 111111000 110110000 010011011 000111110', '000010000 000011000 000111000 000110000 011111000 110110010', '111111110 111111011 000011010 000110010 010111111 110111110', '110111111 011111111 010011000 010110000 011111011 111111010', '010111011 010111110 010111000 010011010 011111110 110111011', '011111010 110111010 010110010 000111010 010111010 000000000'];
+  const INDICE = {}; DISPOSIZIONE.join(' ').split(' ').forEach((m, i) => { INDICE[m] = i; });
+  function blob(c, nome, x, y, t, uguale) {
+    const r = P.r['blob_' + nome]; if (!r) return false;
+    const u = (dx, dy) => uguale(x + dx, y + dy) ? 1 : 0, n = u(0, -1), s2 = u(0, 1), w = u(-1, 0), e = u(1, 0);
+    const m = `${n && w ? u(-1, -1) : 0}${n}${n && e ? u(1, -1) : 0}${w}1${e}${s2 && w ? u(-1, 1) : 0}${s2}${s2 && e ? u(1, 1) : 0}`;
+    let i = INDICE[m] ?? 8;
+    const extra = Math.max(0, Math.floor(r[3] / 16) - 8) * 6; // varianti del centro sotto le 8 righe
+    if (i === 8 && extra) { const k = Math.floor(rnd(x, y, 8)() * (extra + 3)); if (k < extra) i = 48 + k; }
+    c.drawImage(P.img, r[0] + (i % 6) * 16, r[1] + Math.floor(i / 6) * 16, 16, 16, x * t, y * t, t + 0.5, t + 0.5);
+    return true;
+  }
+  // terreno all'aperto con le mattonelle disegnate: prato (o neve), strade, acqua
+  function terrenoPacchetti(c, t) {
+    const st = stagione(), prato = innevato() ? 'neve' : luogo.tipo === 'foresta' ? 'erba_scuro' : 'erba_chiaro';
+    const strada = ['citta', 'castello'].includes(luogo.tipo) ? 'mattoni' : 'strada';
+    const eStrada = (x, y) => ',_'.includes(cella(x, y)), eAcqua = (x, y) => cella(x, y) === '~';
+    for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) {
+      const ch = cella(x, y); if ('wR'.includes(ch)) continue;
+      blob(c, prato, x, y, t, () => true);
+      if (eStrada(x, y)) blob(c, strada, x, y, t, eStrada);
+      else if (eAcqua(x, y)) blob(c, 'acqua', x, y, t, eAcqua);
+      else if (st === 'autunno' && !innevato() && rnd(x, y, 9)() < 0.05) sprite(c, 'v_ciuffo', x * t + t / 2, (y + 1) * t, t / 16, x, y);
+    }
+  }
+  function alberoPacchetti(c, x, y, t) {
+    const st = stagione(), r = rnd(x, y, 3)(), pino = luogo.tipo === 'foresta' ? r < 0.4 : r < 0.15;
+    const fam = innevato() ? (pino ? 'pino_neve' : 'albero_neve') : st === 'inverno' ? (pino ? 'pino' : 'albero_spoglio') : st === 'autunno' && !pino ? 'albero_autunno' : pino ? 'pino' : r < 0.6 ? 'albero_verde' : 'albero_chiaro';
+    return sprite(c, fam, x * t + t / 2, (y + 1) * t, t / 16 * 0.85, x, y, null, t * (luogo.tipo === 'foresta' ? 1.9 : 2.3));
+  }
+  const OGG_PACCHETTI = { botte: 'barile', cassa: 'cassa', falo: 'falo', carretto: 'carro', bancarella: 'bancarella', fieno: 'covone', masso: 'roccia', ceppo: 'v_tronco', tronco: 'v_tronco', lampione: 'lampione', sacco: 'sacco', funghi: 'v_funghi', panca: 'panchina' };
+  function oggettoPacchetti(c, o, t) {
+    let fam = OGG_PACCHETTI[o.tipo];
+    if (o.tipo === 'cespuglio') fam = innevato() ? 'cespuglio_neve' : stagione() === 'autunno' ? 'cespuglio_autunno' : 'cespuglio';
+    if (!fam || o.stato === 'rotto') return false;
+    const lungo = LUNGHI.includes(o.tipo) && o.dir, cx = (o.x + (lungo && o.dir !== 'v' ? 1 : 0.5)) * t, basso = (o.y + (lungo && o.dir === 'v' ? 2 : 1)) * t;
+    return sprite(c, fam, cx, basso, t / 16, o.x, o.y, o.stato === 'bruciato' ? 'brightness(.35) sepia(.5)' : null);
+  }
+  const ED_PACCHETTI = [[/locanda|taverna|osteria/i, 'ed_taverna'], [/fabbr|armaiol|fucina/i, 'ed_fabbro'], [/gran mercato|mercato/i, 'ed_gran_mercato'], [/emporio|bottega|negozio|sarto/i, 'ed_emporio'], [/alchimist|erborist|guarit/i, 'ed_alchimista'], [/stalla|scuderia/i, 'ed_stalla'], [/bibliotec|archivio|scuola|municipio|palazzo/i, 'ed_biblioteca'], [/porto|molo|pescator/i, 'ed_porto'], [/teatro/i, 'ed_teatro'], [/tempio|cappella|chiesa|santuario/i, 'castello_cappella'], [/torre|mastio/i, 'castello_torretta'], [/caserma|guardia|gilda|officina/i, 'ed_officina'], [/panett|magazzin|granaio|dispensa/i, 'ed_dispensa'], [/barbier/i, 'ed_barbiere'], [/banca|tesor/i, 'ed_banca']];
+  function edificioPacchetti(c, e, t) {
+    if (!esterno() || e.id === 'pozzo' || luogo.celle[e.y]?.[e.x] !== '#' || e.stato === 'distrutto') return false;
+    const fam = ED_PACCHETTI.find(([re]) => re.test(e.nome || ''))?.[1] || 'casa_' + (1 + (e.x * 7 + e.y * 3) % 5);
+    const v = varianti(fam); if (!v.length) return false;
+    const [, , w, h] = P.r[v[0]], scala = Math.min(e.w * t * 1.08 / w, (e.h + 1.6) * t / h);
+    ovale(c, (e.x + e.w / 2) * t + t * 0.2, (e.y + e.h) * t - t * 0.1, e.w * t * 0.5, t * 0.35, 'rgba(0,0,0,.3)');
+    return sprite(c, fam, (e.x + e.w / 2) * t, (e.y + e.h) * t, scala, e.x, e.y, e.stato === 'bruciato' ? 'brightness(.35) sepia(.6)' : e.stato === 'danneggiato' ? 'brightness(.8) saturate(.7)' : null);
+  }
+
   /* ---------------- passaggi e percorsi (stesse regole del server: tavolo.js griglia/percorso) ---------------- */
   const celleOggetto = o => LUNGHI.includes(o.tipo) && o.dir ? [[o.x, o.y], o.dir === 'v' ? [o.x, o.y + 1] : [o.x + 1, o.y]] : [[o.x, o.y]];
   function bloccoPasso() {
@@ -605,12 +677,12 @@ const Mappa = (() => {
     const c0 = document.createElement('canvas'); c0.width = cv.width; c0.height = cv.height;
     const c = c0.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.imageSmoothingEnabled = true;
     const tutte = (fn) => { for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) fn(c, cella(x, y), x, y, t); };
-    tutte(base); tutte(texture); tutte(ombre); tutte(struttura); ombreSole(c, t);
+    tutte(base); if (P && esterno()) terrenoPacchetti(c, t); else tutte(texture); tutte(ombre); tutte(struttura); ombreSole(c, t);
     const ogg = (luogo.oggetti || []).filter(o => !(trascina?.ogg === o.id));
     ogg.filter(o => PIATTI.includes(o.tipo)).forEach(o => oggetto(c, o, t));
-    for (const e of luogo.edifici) tetto(c, e, t);
-    ogg.filter(o => !PIATTI.includes(o.tipo)).forEach(o => oggetto(c, o, t));
-    tutte((cc, ch, x, y) => { if (ch === 'T') albero(cc, x, y, t); });
+    for (const e of luogo.edifici) if (!(P && edificioPacchetti(c, e, t))) tetto(c, e, t);
+    ogg.filter(o => !PIATTI.includes(o.tipo)).forEach(o => { if (!(P && oggettoPacchetti(c, o, t))) oggetto(c, o, t); });
+    tutte((cc, ch, x, y) => { if (ch === 'T' && !(P && esterno() && alberoPacchetti(cc, x, y, t))) albero(cc, x, y, t); });
     // luce vera: buio secondo l'ora e il luogo, luci che proiettano le ombre dei muri; il bagliore si somma (e tremola) a parte
     const W = luogo.w * t, H = luogo.h * t;
     const ml = mappaLuce();
@@ -942,5 +1014,5 @@ const Mappa = (() => {
     vaiA(opz.io(), x, y);
   }
   const casa3D = (x, y) => casaDi(x, y);
-  return { effettoTesto, effettoArea, sconfitto, attacco, init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, terreno3D, spriteOggetto, dati3D, azioneCasella, casa3D, figura: (id, s) => figura(id, s), mostro: s => mostro(s), grande: s => GRANDI.test(nomeMostro(s.nome)), puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea, percorso, zoom };
+  return { effettoTesto, effettoArea, sconfitto, attacco, init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, terreno3D, spriteOggetto, dati3D, azioneCasella, casa3D, figura: (id, s) => figura(id, s), mostro: s => mostro(s), grande: s => GRANDI.test(nomeMostro(s.nome)), puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea, percorso, zoom, pacchetti };
 })();
