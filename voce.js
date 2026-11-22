@@ -65,9 +65,9 @@ const Voce = (() => {
       if (actx.state === 'suspended') actx.resume().catch(() => {});
       const src = actx.createMediaStreamSource(s); const an = actx.createAnalyser(); an.fftSize = 512; src.connect(an);
       const buf = new Uint8Array(an.fftSize); let parla = false, ultimo = 0;
-      analisi[id] = true;
+      const gettone = {}; analisi[id] = gettone;
       const giro = () => {
-        if (!analisi[id]) return;
+        if (analisi[id] !== gettone) return;
         an.getByteTimeDomainData(buf); let s2 = 0; for (const v of buf) { const d = (v - 128) / 128; s2 += d * d; }
         const rms = Math.sqrt(s2 / buf.length), ora = performance.now();
         if (rms > 0.035) ultimo = ora;
@@ -79,8 +79,21 @@ const Voce = (() => {
       giro();
     } catch {}
   }
+  // Android non lascia ascoltare i comandi mentre la chat vocale usa il microfono: lo libero e poi lo riprendo
+  let micInPausa = false;
+  function pausaMicrofono() { if (!stream || micInPausa) return; micInPausa = true; stream.getTracks().forEach(t => t.stop()); }
+  async function riprendiMicrofono() {
+    if (!micInPausa) return; micInPausa = false;
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      stream = s; s.getAudioTracks().forEach(t => t.enabled = !muto);
+      const tr = s.getAudioTracks()[0];
+      for (const p of Object.values(peers)) { const snd = p.pc.getSenders().find(x => x.track?.kind === 'audio' || x.track === null); if (snd) await snd.replaceTrack(tr).catch(() => {}); }
+      analizza(io, s);
+    } catch (e) { log('microfono', { ok: false, errore: e.name, dopo: 'pausa' }); onStato('Non riesco a riprendere il microfono della chat vocale'); }
+  }
   function riattivaAudio() { actx?.resume?.().catch(() => {}); Object.values(peers).forEach(p => p.audio?.play().catch(() => {})); }
-  return { avvia, collegaTutti, crea, segnale, chiudi, setMuto, stato, riattivaAudio, get muto() { return muto; }, get attivo() { return !!stream; }, analizza };
+  return { avvia, collegaTutti, crea, segnale, chiudi, setMuto, stato, riattivaAudio, pausaMicrofono, riprendiMicrofono, get muto() { return muto; }, get attivo() { return !!stream; }, get stream() { return micInPausa ? null : stream; }, analizza };
 })();
 
 /* Ascolto dei comandi e delle frasi per il master (riconoscimento vocale del browser, italiano). */
@@ -109,9 +122,24 @@ const Ascolto = (() => {
     rec.onend = () => { rec = null; onParziale(''); if (attivo && !inPausa) setTimeout(parti, 250); };
     try { rec.start(); onStato(); } catch { rec = null; setTimeout(parti, 1000); }
   }
+  // Tasto "tieni premuto": ascolta finché il tasto resta premuto, poi restituisce la frase
+  let recTasto = null;
+  function unaFrase(opz = {}) {
+    return new Promise(res => {
+      if (!SR) return res('');
+      const r = new SR(); r.lang = 'it-IT'; r.continuous = true; r.interimResults = true;
+      let fin = '';
+      r.onresult = e => { let par = ''; for (let i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) fin += e.results[i][0].transcript + ' '; else par += e.results[i][0].transcript; } opz.onParziale?.((fin + par).trim()); };
+      r.onerror = e => { if (e.error !== 'aborted' && e.error !== 'no-speech') (opz.log || log)('ascolto-errore', { errore: e.error, modo: 'tasto' }); };
+      r.onend = () => { recTasto = null; res(fin.trim()); };
+      recTasto = r;
+      try { r.start(); } catch { recTasto = null; res(''); }
+    });
+  }
+  function fineFrase() { try { recTasto?.stop(); } catch {} }
   function ferma() { attivo = false; try { rec?.stop(); } catch {} rec = null; onStato(); }
   function pausa(b) { inPausa = b; if (b) { try { rec?.abort(); } catch {} rec = null; } else parti(); }
-  return { supportato, avvia, ferma, pausa, get attivo() { return attivo; } };
+  return { supportato, avvia, ferma, pausa, unaFrase, fineFrase, get attivo() { return attivo; } };
 })();
 
 /* Narratore: legge ad alta voce il master e i PNG, ognuno con un timbro diverso; avvisi brevi in cuffia. */

@@ -1,6 +1,16 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const CHANGELOG = [
+  { v: '1.1.0', data: '22/11/2026', voci: [
+    'Tasto "Tieni premuto e parla": comandi vocali e azioni per il master anche con la chat vocale accesa (su Android il microfono si libera solo mentre parli).',
+    'Prova prima della partita: usa lo stesso microfono della chat vocale, niente più "Non ti sento" falso.',
+    'Bot di prova per l\'amministratore: gioca da solo una partita completa e manda il rapporto.',
+    'Tiri rapidi: ultimi tiri e preferiti a portata di dito.',
+    'Pannello dell\'uso dell\'AI per sessione (chiamate, token, modelli).',
+    'Si può lasciare una campagna; l\'amministratore può togliere un membro.',
+    'Le narrazioni del master e dei PNG finiscono nei rapporti.',
+    'Barra in alto più ordinata sul telefono.'
+  ] },
   { v: '1.0.0', data: '22/11/2026', voci: [
     'Prima versione: stanze online con codice e QR che cambia a ogni sessione.',
     'Chat vocale tra i giocatori e master che legge ad alta voce, con voci diverse per i PNG.',
@@ -155,8 +165,9 @@ function gestisci(m) {
     }
     case 'dado': {
       S.st.dadi = [...(S.st.dadi || []), m.tiro].slice(-60);
+      if (m.tiro.chi === S.io) { S.ultimoMio = m.tiro; $('#tiroAzioni').hidden = false; }
       if (m.tiro.chi === S.io || document.body.classList.contains('tv')) mostraTiro(m.tiro);
-      renderTiri(); return;
+      renderTiri(); renderRapidi(); return;
     }
     case 'luogo': S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; renderMappa(); return;
     case 'luogo_mod': S.st.luogo = m.luogo; renderMappa(); return;
@@ -166,6 +177,7 @@ function gestisci(m) {
       const ev = { t: Date.now(), tipo: 'narrazione', testo: m.testo, chi: m.chi, png: m.png };
       S.st.diario = [...(S.st.diario || []), ev].slice(-200);
       if (S.ultimoParlato) { Report.log('master-risposta', { ms: Date.now() - S.ultimoParlato, modello: m.modello, parole: m.testo.split(' ').length }); S.ultimoParlato = 0; }
+      Report.log('narrazione', { png: m.png || null, testo: m.testo, modello: m.modello || null, riassunto: !!m.riassunto });
       mostraNarrazione(m.testo, m.png); renderDiario();
       if (OPZ.narratore) Narratore.parla(m.testo, { png: m.png || null });
       return;
@@ -196,6 +208,7 @@ function gestisci(m) {
       return;
     }
     case 'ok': if (m.cosa === 'suggerimento') toast('Grazie! Suggerimento inviato'); return;
+    case 'costi': S.st.costi = m.costi; renderCosti(); return;
     case 'pong': S.latenza = Math.round(performance.now() - (S.ping || performance.now())); return;
   }
 }
@@ -249,17 +262,19 @@ function renderTutto() {
   $('#formVai').hidden = !(capo() || masterAI());
   $('#mappaVuotaSugg').textContent = masterAI() ? 'Il master AI vi porterà nel primo luogo appena iniziate a giocare: salutatelo o scrivete un luogo qui sopra.' : 'Il master sceglierà il primo luogo.';
   $('#optMaster').closest('label').hidden = !masterAI();
-  renderPresenza(); renderMappa(); renderSchedaSeServe(true); renderTiri(); renderDiario(); renderAltro();
+  renderPresenza(); renderMappa(); renderSchedaSeServe(true); renderTiri(); renderRapidi(); renderDiario(); renderAltro();
 }
 function renderPresenza() {
   if (!S.st) return;
   const on = new Set(S.st.online || []);
   const ordinati = Object.entries(S.st.membri).sort((a, b) => (b[1].ruolo === 'master') - (a[1].ruolo === 'master'));
   let html = masterAI() ? `<div class="av on ${Narratore.parlando ? 'parla' : ''}" id="av-master" style="background:#d9a441" title="Master AI">AI</div>` : '';
-  html += ordinati.filter(([, m]) => m.ruolo !== 'spettatore').map(([id, m]) => {
+  const visibili = ordinati.filter(([, m]) => m.ruolo !== 'spettatore').sort((a, b) => on.has(b[0]) - on.has(a[0]));
+  const max = innerWidth < 480 ? 3 : 8;
+  html += visibili.slice(0, max).map(([id, m]) => {
     const pg = S.st.pg[id];
     return `<div class="av ${on.has(id) ? 'on' : ''}" id="av-${id}" style="background:${esc(m.colore)}" title="${esc(m.nome)}${pg ? ' — ' + esc(pg.nome) : ''}${m.ruolo === 'master' ? ' (master)' : ''}">${esc((m.nome || '?').charAt(0).toUpperCase())}${m.ruolo === 'master' ? '<span class="ruolo">M</span>' : ''}</div>`;
-  }).join('');
+  }).join('') + (visibili.length > max ? `<div class="av altri" title="Altri ${visibili.length - max}">+${visibili.length - max}</div>` : '');
   $('#presenza').innerHTML = html;
 }
 function mostraVista(id) {
@@ -548,7 +563,8 @@ function avviaVoce() {
     onParlante: (id, p) => { const el = id === S.io ? $(`#av-${S.io}`) : $(`#av-${id}`); el?.classList.toggle('parla', p); },
     onStato: msg => { if (msg) toast(msg, true, 6000); }
   }).then(ok => { if (ok) Voce.collegaTutti(S.st.online || []); aggiornaBottoniVoce(); });
-  if (me()?.ruolo !== 'spettatore' && leggi('ta_ascolto', true)) attivaAscolto();
+  if (me()?.ruolo !== 'spettatore' && leggi('ta_ascolto', false)) attivaAscolto();
+  $('#btnParla').hidden = me()?.ruolo === 'spettatore' || !Ascolto.supportato();
 }
 function attivaAscolto() {
   const ok = Ascolto.avvia({
@@ -596,6 +612,32 @@ $('#btnAscolto').addEventListener('click', () => {
 });
 document.addEventListener('pointerdown', () => Voce.riattivaAudio(), { once: true });
 
+// Tieni premuto e parla: libera il microfono della chat, ascolta, poi lo restituisce
+let premuto = false;
+async function inizioParla(e) {
+  e?.preventDefault?.();
+  if (premuto || !S.st) return;
+  premuto = true; $('#btnParla').classList.add('on');
+  const t0 = Date.now();
+  Narratore.zitto();
+  const continuo = Ascolto.attivo; if (continuo) Ascolto.pausa(true);
+  Voce.pausaMicrofono();
+  const promessa = Ascolto.unaFrase({ log: (t, d) => Report.log(t, d), onParziale: p => { const el = $('#parziale'); el.hidden = !p; el.textContent = '🎙 ' + p; } });
+  if (!premuto) Ascolto.fineFrase();
+  const frase = await promessa;
+  $('#parziale').hidden = true;
+  await Voce.riprendiMicrofono();
+  if (continuo) Ascolto.pausa(false);
+  Report.log('tasto-parla', { ms: Date.now() - t0, capito: !!frase, parole: frase ? frase.split(' ').length : 0 });
+  if (frase) sentitaFrase(frase); else toast('Non ho sentito niente: tieni premuto mentre parli');
+}
+function fineParla() { if (!premuto) return; premuto = false; $('#btnParla').classList.remove('on'); setTimeout(() => Ascolto.fineFrase(), 250); }
+$('#btnParla').addEventListener('pointerdown', inizioParla);
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => $('#btnParla').addEventListener(ev, fineParla));
+$('#btnParla').addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) inizioParla(e); });
+$('#btnParla').addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') fineParla(); });
+$('#btnParla').addEventListener('contextmenu', e => e.preventDefault());
+
 /* ============ ALTRO ============ */
 function linkInvito() { const c = S.st?.campagna; return c?.invito ? `${location.origin}${location.pathname}?c=${S.codice}&i=${c.invito}` : ''; }
 function renderInvito() {
@@ -614,8 +656,10 @@ function renderAltro() {
     $('#aNome').value = c.nome; $('#aAmb').value = c.ambientazione;
     $$('input[name="aRegole"]').forEach(r => r.checked = r.value === c.regole);
     $$('input[name="aMaster"]').forEach(r => r.checked = r.value === c.masterTipo);
-    $('#ruoliBox').innerHTML = me()?.admin ? `<h3>Ruoli</h3>${Object.entries(S.st.membri).map(([id, m]) => `<label>${esc(m.nome)}${id === S.io ? ' (tu)' : ''}<select data-ruolo="${id}">${['giocatore', 'master', 'spettatore'].map(r => `<option ${r === m.ruolo ? 'selected' : ''}>${r}</option>`).join('')}</select></label>`).join('')}` : '';
+    $('#ruoliBox').innerHTML = me()?.admin ? `<h3>Ruoli</h3>${Object.entries(S.st.membri).map(([id, m]) => `<div class="riga"><label style="flex:1">${esc(m.nome)}${id === S.io ? ' (tu)' : ''}<select data-ruolo="${id}">${['giocatore', 'master', 'spettatore'].map(r => `<option ${r === m.ruolo ? 'selected' : ''}>${r}</option>`).join('')}</select></label>${id !== S.io ? `<button type="button" data-rimuovi="${id}">Togli</button>` : ''}</div>`).join('')}` : '';
   }
+  $('#cartaBot').hidden = !me()?.admin;
+  renderCosti();
   $('#optNome').value = me()?.nome || '';
   $('#optNarratore').checked = OPZ.narratore; $('#optAvvisi').checked = OPZ.avvisi; $('#optMaster').checked = OPZ.master; $('#optGrandi').checked = OPZ.grandi;
   const n = leggi('ta_rapporti', []).length, es = leggi('ta_report_esito', null);
@@ -650,11 +694,13 @@ $('#btnProva').addEventListener('click', async () => {
   riga(Ascolto.supportato(), Ascolto.supportato() ? 'Riconoscimento vocale disponibile' : 'Riconoscimento vocale non disponibile su questo browser');
   riga(!!window.RTCPeerConnection, window.RTCPeerConnection ? 'Chat vocale supportata' : 'Chat vocale non supportata');
   try {
-    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+    Voce.riattivaAudio();
+    const propria = !Voce.stream;
+    const s = Voce.stream || await navigator.mediaDevices.getUserMedia({ audio: true });
     riga(true, 'Microfono autorizzato. Parla per 4 secondi…');
     Voce.livelloProva = 0; Voce.analizza('__prova', s);
     await new Promise(r => setTimeout(r, 4000));
-    s.getTracks().forEach(t => t.stop());
+    if (propria) s.getTracks().forEach(t => t.stop());
     riga(Voce.livelloProva > 0.02 ? true : false, Voce.livelloProva > 0.02 ? 'Ti sento bene' : 'Non ti sento: controlla il microfono');
     const dev = await navigator.mediaDevices.enumerateDevices();
     const cuffie = dev.some(d => /cuffie|headphone|headset|buds|airpods|bluetooth|auricolar/i.test(d.label));
@@ -665,6 +711,66 @@ $('#btnProva').addEventListener('click', async () => {
   const st = Voce.stato(), n = Object.keys(st).length, ok = Object.values(st).filter(x => x === 'connected').length;
   riga(n ? ok === n : null, n ? `Voce collegata con ${ok} su ${n} giocatori` : 'Nessun altro giocatore collegato in voce per ora');
   Report.log('prova', { righe: [...ul.children].map(li => li.textContent) });
+});
+
+function renderCosti() {
+  const c = S.st?.costi;
+  $('#cartaCosti').hidden = !capo();
+  if (!capo()) return;
+  if (!c) { $('#costi').textContent = 'Nessuna chiamata all\'AI finora.'; return; }
+  const n = x => x.toLocaleString('it-IT');
+  $('#costi').innerHTML = `<p><strong>Sessione ${c.sessione.n}</strong>: ${n(c.sessione.chiamate)} chiamate, ${n(c.sessione.in)} token letti, ${n(c.sessione.out)} token scritti.</p>
+    <p><strong>Totale campagna</strong>: ${n(c.totale.chiamate)} chiamate, ${n(c.totale.in + c.totale.out)} token.</p>
+    <p>Modelli: ${Object.entries(c.modelli).map(([k, v]) => `${esc(k)} ×${v}`).join(', ')}. Compiti: ${Object.entries(c.compiti).map(([k, v]) => `${esc(k)} ×${v}`).join(', ')}.</p>
+    <p>Costo: 0 € finché si resta nel piano gratuito di Gemini.</p>`;
+}
+// Tiri rapidi: ultimi tiri tuoi e preferiti
+const chiavePref = () => 'ta_pref_' + S.codice;
+function renderRapidi() {
+  const pref = leggi(chiavePref(), []);
+  const visti = new Set(); const ultimi = [];
+  for (const t of [...(S.st?.dadi || [])].reverse()) { if (t.chi !== S.io) continue; const k = t.formula + '|' + (t.motivo || ''); if (visti.has(k) || pref.some(p => p.formula + '|' + p.motivo === k)) continue; visti.add(k); ultimi.push({ formula: t.formula, motivo: t.motivo || '', modo: t.modo }); if (ultimi.length >= 6) break; }
+  $('#rapidi').innerHTML = [...pref.map((p, i) => `<span class="riga" style="gap:2px"><button class="chip on" data-rap="p${i}">★ ${esc(p.motivo || p.formula)} ${esc(p.motivo ? p.formula : '')}</button><button class="chip" data-togli="${i}" aria-label="Togli dai preferiti">×</button></span>`), ...ultimi.map((u, i) => `<button class="chip" data-rap="u${i}">${esc(u.motivo || u.formula)} ${esc(u.motivo ? u.formula : '')}</button>`)].join('') || '<span class="piccolo">I tuoi tiri compariranno qui.</span>';
+  renderRapidi.ultimi = ultimi;
+}
+$('#rapidi').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const pref = leggi(chiavePref(), []);
+  if (b.dataset.togli !== undefined) { pref.splice(Number(b.dataset.togli), 1); scrivi(chiavePref(), pref); renderRapidi(); return; }
+  const k = b.dataset.rap; const t = k[0] === 'p' ? pref[Number(k.slice(1))] : renderRapidi.ultimi[Number(k.slice(1))];
+  if (t) tira(t.formula, t.motivo, t.modo);
+});
+$('#btnPreferito').addEventListener('click', () => {
+  const t = S.ultimoMio; if (!t) return;
+  const pref = leggi(chiavePref(), []);
+  if (!pref.some(p => p.formula === t.formula && p.motivo === (t.motivo || ''))) { pref.push({ formula: t.formula, motivo: t.motivo || '', modo: t.modo || null }); scrivi(chiavePref(), pref.slice(-12)); }
+  renderRapidi(); toast('Salvato nei preferiti');
+});
+// Bot di prova (solo amministratore)
+$('#btnBot').addEventListener('click', async () => {
+  if (BotProva.attivo) return;
+  const invito = S.st?.campagna?.invito; if (!invito) { toast('Serve il codice invito: crea un nuovo codice in Altro', true); return; }
+  const ul = $('#botLog'); ul.innerHTML = ''; $('#btnBot').disabled = true; $('#btnBot').textContent = 'Il bot sta giocando…';
+  const r = await BotProva.avvia({
+    url: `${SERVER_WS}/tavolo/${S.codice}/ws`, invito,
+    log: (t, d) => Report.log(t, d),
+    onPasso: t => ul.insertAdjacentHTML('beforeend', `<li>▶ ${esc(t)}</li>`),
+    onErr: m => ul.insertAdjacentHTML('beforeend', `<li>❌ ${esc(m)}</li>`)
+  });
+  ul.insertAdjacentHTML('beforeend', `<li>✅ Finito in ${r.durataS} s: comandi capiti ${r.comandi.capiti} (+${r.comandi.aiCapiti} dall'AI), non capiti ${r.comandi.nonCapiti.length}; risposte del master ${r.master.filter(x => x.png !== undefined && !/nessuna/.test(x.risposta)).length}/${r.master.length}${r.rispostaMedianaMasterMs ? ', tempo medio ' + Math.round(r.rispostaMedianaMasterMs / 100) / 10 + ' s' : ''}; mappe persistenti: ${r.persistenza === null ? '—' : r.persistenza ? 'sì' : 'NO'}.</li>`);
+  $('#btnBot').disabled = false; $('#btnBot').textContent = 'Avvia bot di prova';
+  await Report.chiudi('bot di prova'); toast('Rapporto del bot inviato');
+});
+$('#btnLascia').addEventListener('click', async () => {
+  const i = await chiedi('<h2>Lasciare la campagna?</h2><p>Il tuo personaggio e il tuo posto nella campagna vengono cancellati per sempre. Per tornare servirà un nuovo invito.</p>', [{ testo: 'Lascia', pieno: true }, { testo: 'Annulla' }]);
+  if (i !== 0) return;
+  invia({ t: 'esci' }); dimenticaCampagna(S.codice); setTimeout(() => $('#btnEsci').click(), 300);
+});
+$('#ruoliBox').addEventListener('click', async e => {
+  const b = e.target.closest('[data-rimuovi]'); if (!b) return;
+  const nome = S.st.membri[b.dataset.rimuovi]?.nome;
+  const i = await chiedi(`<h2>Togliere ${esc(nome)}?</h2><p>Il suo personaggio viene cancellato. Potrà rientrare solo con un nuovo invito.</p>`, [{ testo: 'Togli', pieno: true }, { testo: 'Annulla' }]);
+  if (i === 0) invia({ t: 'rimuovi', membro: b.dataset.rimuovi });
 });
 
 /* ============ AGGIORNAMENTI ============ */

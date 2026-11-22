@@ -21,7 +21,8 @@ a { color: var(--oro2); }
 .titolo { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 .titolo strong { font-family: Cinzel, serif; color: var(--oro2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .titolo span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.presenza { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; max-width: 45vw; scrollbar-width: none; }
+.presenza { display: flex; gap: 6px; flex: 0 0 auto; }
+.av.altri { background: var(--superficie2); color: var(--testo); opacity: 1; font-size: .8rem; }
 .av { position: relative; width: 36px; height: 36px; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #14110f; font-size: .9rem; border: 2px solid transparent; opacity: .45; transition: box-shadow .15s, opacity .2s; }
 .av.on { opacity: 1; }
 .av.parla { box-shadow: 0 0 0 3px #57b47a, 0 0 14px #57b47a; }
@@ -207,4 +208,12 @@ body.tv .narrazione p { font-size: 1.5rem; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 body.tv .gioco > .vista:not(.vista-mappa):not(#vDadi) { display: none !important; }
-@media (max-width: 480px) { .statini { grid-template-columns: repeat(2, minmax(0, 1fr)); } .presenza { max-width: 30vw; } }
+@media (max-width: 480px) { .statini { grid-template-columns: repeat(2, minmax(0, 1fr)); } .av { width: 32px; height: 32px; } .barra { gap: 8px; padding-left: 12px; padding-right: 12px; } }
+
+/* Tasto "tieni premuto e parla" */
+.parla { position: fixed; right: 16px; bottom: calc(var(--navh) + 16px + env(safe-area-inset-bottom)); z-index: 26; min-height: 60px; padding: 0 20px 0 16px; border-radius: 999px; background: var(--oro); color: #14110f; border: none; font-weight: 700; box-shadow: var(--ombra); user-select: none; -webkit-user-select: none; touch-action: none; }
+.parla.on { background: var(--verde); transform: scale(1.06); box-shadow: 0 0 0 6px rgba(87,180,122,.35), var(--ombra); }
+@media (max-width: 480px) { .parla span { display: none; } .parla { width: 64px; height: 64px; padding: 0; } }
+@media (min-width: 1100px) { .parla { bottom: 24px; right: 470px; } }
+body.tv .parla { display: none !important; }
+.toast { z-index: 41; }

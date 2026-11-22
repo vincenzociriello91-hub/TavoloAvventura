@@ -124,6 +124,9 @@
       </fieldset>
       <label class="spunta" id="dSegretoBox" hidden><input type="checkbox" id="dSegreto"> Tiro segreto (lo vedi solo tu)</label>
       <div class="ultimo-tiro" id="ultimoTiro" aria-live="polite"></div>
+      <div class="riga" id="tiroAzioni" hidden><button id="btnPreferito" type="button">☆ Salva nei preferiti</button></div>
+      <h3>Rapidi</h3>
+      <div class="chips" id="rapidi"></div>
       <h3>Tiri del tavolo</h3>
       <ul class="lista-tiri" id="listaTiri"></ul>
     </div>
@@ -178,9 +181,20 @@
         <label class="spunta"><input type="checkbox" id="optAvvisi" checked> Avvisi vocali in cuffia (tocca a te, poca vita)</label>
         <label class="spunta"><input type="checkbox" id="optMaster" checked> Il master AI ascolta quello che dico</label>
         <label class="spunta"><input type="checkbox" id="optGrandi"> Caratteri grandi</label>
+        <p class="piccolo">Comandi vocali: tieni premuto il tasto del microfono in basso mentre parli. Il tasto verde in alto attiva l'ascolto continuo, che su Android può non funzionare insieme alla chat vocale.</p>
         <label>Il tuo nome<input id="optNome" maxlength="30"></label>
         <a id="linkTv" class="bottone largo" href="#" target="_blank" rel="noopener">Apri il tavolo sulla TV</a>
         <p class="piccolo">Sulla TV o sulla Odin si vedono la mappa grande, le narrazioni e i dadi; ognuno usa il telefono per la scheda.</p>
+      </div>
+      <div class="carta" id="cartaCosti" hidden>
+        <h2>Uso dell'intelligenza artificiale</h2>
+        <div id="costi" class="piccolo"></div>
+      </div>
+      <div class="carta" id="cartaBot" hidden>
+        <h2>Bot di prova</h2>
+        <p class="piccolo">Entra come giocatore in più, gioca da solo una partita completa (master, comandi vocali, dadi, mappe, livelli) e poi esce. Tutto finisce nel rapporto.</p>
+        <button id="btnBot" type="button" class="largo">Avvia bot di prova</button>
+        <ul id="botLog" class="esito-prova"></ul>
       </div>
       <div class="carta">
         <h2>Prova prima della partita</h2>
@@ -198,12 +212,13 @@
         <p>Versione <strong id="ver"></strong></p>
         <div class="riga"><button id="btnCheck" type="button">Cerca aggiornamenti</button><button id="btnRapporto" type="button">Salva rapporto</button></div>
         <p id="repInfo" class="piccolo"></p>
-        <button id="btnEsci" type="button" class="testo-btn">Esci dalla stanza</button>
+        <div class="riga"><button id="btnEsci" type="button" class="testo-btn">Esci dalla stanza</button><button id="btnLascia" type="button" class="testo-btn">Lascia la campagna</button></div>
         <details><summary>Novità</summary><div id="changelog"></div></details>
         <p class="piccolo">Regole tratte dal System Reference Document di D&amp;D 5.1 (CC-BY-4.0) e 3.5 (OGL). Dungeons &amp; Dragons è un marchio di Wizards of the Coast: app non ufficiale, fatta da fan.</p>
       </div>
     </div>
 
+    <button id="btnParla" class="parla" type="button" aria-label="Tieni premuto e parla: comandi per la scheda o azioni per il master"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span>Tieni premuto e parla</span></button>
     <nav class="nav" id="nav" aria-label="Sezioni">
       <button type="button" data-v="vMappa" class="attivo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z M9 4v14M15 6v14" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/></svg><span>Mappa</span></button>
       <button type="button" data-v="vScheda"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6" stroke="currentColor" stroke-width="2" fill="none"/></svg><span>Scheda</span></button>
@@ -224,6 +239,7 @@
 <script src="ritratto.js"></script>
 <script src="mappa.js"></script>
 <script src="voce.js"></script>
+<script src="bot.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
