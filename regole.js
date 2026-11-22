@@ -274,7 +274,7 @@ const Regole = {
       regole, nome: dati.nome || 'Senza nome', razza, classe, livello: 1, px: 0,
       carBase: { ...dati.carBase }, carExtra: {}, car: {}, competenze: dati.competenze || [], gradi: dati.gradi || {},
       equip: (set.classi[classe].equip || []).map(n => ({ nome: n, qta: 1, indossato: !!(ARMATURE[n] || SCUDI[n] !== undefined || ARMI[n] || n === 'Mantello' || n === 'Amuleto') })),
-      oro: dati.oro ?? 15, condizioni: [], ferite: [], aspetto: dati.aspetto || {}, note: '', allineamento: dati.allineamento || 'Neutrale',
+      oro: dati.oro ?? 15, condizioni: [], ferite: [], aspetto: dati.aspetto || {}, note: dati.note || '', allineamento: dati.allineamento || 'Neutrale',
       puntiCar: 0, puntiAbilita: regole === '3.5' ? Math.max(1, (set.classi[classe].gradi + mod((dati.carBase?.int || 10) + (set.razze[razza].car.int || 0))) * 4 + (razza === 'Umano' ? 4 : 0)) : 0,
       creato: Date.now()
     };

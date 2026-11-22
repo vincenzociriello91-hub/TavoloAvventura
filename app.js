@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
 const CHANGELOG = [
+  { v: '2.2.0', data: '22/11/2026', voci: [
+    'Negozi: quando il master apre il banco di un mercante, nella Scheda comprate e vendete con le vostre monete (si vende a metà prezzo).',
+    'Inventario con le icone in pixel art: trascina l\'icona sul ritratto per indossare un oggetto.',
+    'Schermo del master (in Altro): PNG pronti, incontri bilanciati sul livello del gruppo da mettere sulla mappa, tesori casuali, negozi e note segrete.',
+    'Libro della campagna: riepiloghi, illustrazioni e cronaca completa in un libro da stampare o salvare in PDF.',
+    'Sessione zero: crea il personaggio con il master, che ti fa qualche domanda (anche a voce) e lo collega agli altri del gruppo.'
+  ] },
   { v: '2.1.0', data: '22/11/2026', voci: [
     'Battaglie spettacolari: i personaggi fanno la mossa vera quando attaccano (fendente, affondo, arco, incantesimo), i danni e le cure saltano fuori sopra le figure, i nemici sconfitti svaniscono, gli incantesimi ad area esplodono col loro colore.',
     'Condizioni visibili: a terra se K.O. o prono, verde se avvelenato, stelline se stordito, trasparente se invisibile.',
@@ -301,6 +308,11 @@ function gestisci(m) {
       return;
     }
     case 'avviso': toast(m.msg); return;
+    case 'negozio': { const prima = S.st.negozio; S.st.negozio = m.negozio; if (m.negozio && !prima) { toast(`È aperto il banco: ${m.negozio.nome}. Guarda nella Scheda.`); Report.log('negozio', { nome: m.negozio.nome, merci: m.negozio.merci.length }); } renderSchedaSeServe(); return; }
+    case 'strumento': mostraStrumento(m.tipo, m.ris); return;
+    case 'note_master': $('#smNote').value = m.testo || ''; return;
+    case 'libro': apriLibro(m); return;
+    case 'sessione_zero': szRisposta(m); return;
     case 'mostri': S.st.mostri = m.mostri; Mappa.disegna(); if (S.m3) S.m3.aggiorna(Mappa.dati3D()); return;
     case 'volti': S.st.volti = m.volti; { const png = $('#narrChi').dataset.png; if (png && m.volti[png]) mostraVolto(png); } return;
     case 'riepilogo': Report.log('riepilogo', { titolo: m.r.titolo, immagine: !!m.r.img }); mostraRiepilogo(m.r); return;
@@ -388,7 +400,7 @@ function renderTutto() {
   $('#formVai').hidden = !(capo() || masterAI());
   $('#mappaVuotaSugg').textContent = masterAI() ? 'Il master AI vi porterà nel primo luogo appena iniziate a giocare: salutatelo o scrivete un luogo qui sopra.' : 'Il master sceglierà il primo luogo.';
   $('#optMaster').closest('label').hidden = !masterAI();
-  $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
+  $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); } $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
   renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderMondo(); renderAltro();
 }
 function renderPresenza() {
@@ -540,7 +552,7 @@ function renderScheda() {
   const comp = pg.regole === '3.5' ? `<div class="stat"><b>${segno(Regole.bab('3.5', pg.classe, pg.livello, pg))}</b><span>BAB</span></div>` : `<div class="stat"><b>+${Regole.competenza(pg.livello)}</b><span>COMPETENZA</span></div>`;
   const ts = pg.regole === '3.5' ? [['tem', 'Tempra'], ['rif', 'Riflessi'], ['vol', 'Volontà']] : CAR.map(k => [k, CAR_SIGLE[k]]);
   const armi = (pg.equip || []).filter(e => e.indossato && (ARMI[e.nome] || tipoOggetto(e.nome) === 'arma'));
-  box.innerHTML = `
+  box.innerHTML = `${S.viewPg === S.io ? cartaNegozio(pg) : ''}
   <div class="carta">
     <div class="pg-testa">
       <div class="ritratto">${Ritratto.svg(pg, { dim: largo() ? 130 : 120 })}</div>
@@ -572,7 +584,7 @@ function renderScheda() {
     <ul class="lista-ab">${Object.keys(set.abilita).map(ab => `<li><span class="nome">${pg.regole === '5e' ? `<input type="checkbox" class="comp" data-comp="${esc(ab)}" ${(pg.competenze || []).includes(ab) ? 'checked' : ''} ${puo ? '' : 'disabled'} aria-label="Competenza in ${esc(ab)}"> ` : ''}${esc(ab)} <span class="piccolo">${CAR_SIGLE[set.abilita[ab]]}${pg.regole === '3.5' ? ' · gradi ' + (pg.gradi?.[ab] || 0) : ''}</span></span><b class="b">${segno(Regole.abilita(pg, ab))}</b>${pg.regole === '3.5' && puo && pg.puntiAbilita ? `<button data-grado="${esc(ab)}" aria-label="Aggiungi un grado a ${esc(ab)}">+</button>` : ''}<button data-prova="ab:${esc(ab)}" aria-label="Tira ${esc(ab)}">Tira</button></li>`).join('')}</ul>
   </div>
   <div class="carta"><h3 style="margin-top:0">Equipaggiamento</h3>
-    <ul class="equip">${(pg.equip || []).map((e, i) => `<li class="${e.indossato ? 'ind' : ''}"><span class="n">${esc(e.nome)}${e.bonus ? ' +' + e.bonus : ''}${e.qta > 1 ? ' ×' + e.qta : ''}${e.rarita ? ` <span class="piccolo" style="color:${COLORI_RARITA[e.rarita] || '#bcae96'}">${esc(e.rarita)}</span>` : ''}${e.indossato ? ' <span class="piccolo">· indossato</span>' : ''}</span>${puo ? `${tipoOggetto(e.nome) ? `<button data-ind="${i}">${e.indossato ? 'Riponi' : 'Indossa'}</button>` : ''}<button data-modogg="${i}" aria-label="Modifica ${esc(e.nome)}">✎</button><button data-tog="${i}" aria-label="Togli ${esc(e.nome)}">Togli</button>` : ''}</li>`).join('') || '<li class="piccolo">Zaino vuoto</li>'}</ul>
+    <ul class="equip">${(pg.equip || []).map((e, i) => `<li class="${e.indossato ? 'ind' : ''}"><span class="icona-ogg" ${puo && tipoOggetto(e.nome) ? `data-trascina="${i}" title="Trascina sul ritratto per indossarlo"` : ''}>${Ritratto.icona(e.nome, 26)}</span><span class="n">${esc(e.nome)}${e.bonus ? ' +' + e.bonus : ''}${e.qta > 1 ? ' ×' + e.qta : ''}${e.rarita ? ` <span class="piccolo" style="color:${COLORI_RARITA[e.rarita] || '#bcae96'}">${esc(e.rarita)}</span>` : ''}${e.indossato ? ' <span class="piccolo">· indossato</span>' : ''}</span>${puo ? `${tipoOggetto(e.nome) ? `<button data-ind="${i}">${e.indossato ? 'Riponi' : 'Indossa'}</button>` : ''}<button data-modogg="${i}" aria-label="Modifica ${esc(e.nome)}">✎</button><button data-tog="${i}" aria-label="Togli ${esc(e.nome)}">Togli</button>` : ''}</li>`).join('') || '<li class="piccolo">Zaino vuoto</li>'}</ul>
     <p class="piccolo">Capacità di carico: ${Regole.caricoMax(pg)} kg${pg.aspetto?.altezza ? ` · altezza ${esc(pg.aspetto.altezza)} cm` : ''}${pg.aspetto?.peso ? ` · peso ${esc(pg.aspetto.peso)} kg` : ''}</p>
     ${puo ? `<form id="formOggetto" class="riga" autocomplete="off" style="margin-top:8px"><input id="nuovoOggetto" maxlength="60" placeholder="Aggiungi oggetto (es. Pozione di guarigione)" list="listaOggetti"><button class="pieno">Aggiungi</button></form>
     <datalist id="listaOggetti">${[...Object.keys(ARMI), ...Object.keys(ARMATURE), ...Object.keys(SCUDI), ...ELMI, 'Mantello', 'Amuleto', 'Pozione di guarigione', 'Torcia', 'Corda (15 m)', 'Razioni'].map(n => `<option value="${esc(n)}">`).join('')}</datalist>` : ''}
@@ -693,6 +705,7 @@ function renderCreazione(box) {
   const nAb = r === '5e' ? set.classi[bozza.classe]?.abilita || 2 : 0;
   box.innerHTML = `<div class="carta">
     <h2>Crea il tuo personaggio</h2><p class="piccolo">${esc(set.nome)}: tutto il resto (PF, CA, tiri salvezza, abilità) si calcola da solo.</p>
+    ${cartaSessioneZero()}
     <div class="pg-testa"><div class="ritratto" id="anteprima">${Ritratto.svg(anteprima, { dim: 120 })}</div>
       <div class="pg-info"><label>Nome<input id="cpNome" maxlength="40" value="${esc(bozza.nome)}" placeholder="Es. Brann Barbaferro"></label>
       <div class="piccolo">PF ${anteprima.pfMax} · CA ${anteprima.ca} · velocità ${String(anteprima.vel).replace('.', ',')} m</div></div></div>
@@ -740,6 +753,11 @@ $('#scheda').addEventListener('click', async e => {
   if (b.id === 'cpAuto') { const ord = (PRIORITA[bozza.classe] || 'for des cos int sag car').split(' '); ord.forEach((k, i) => bozza.carBase[k] = Regole.arrayStandard[i]); renderScheda(); return; }
   if (b.id === 'cpTira') { const v = CAR.map(() => Regole.tira4d6()).sort((x, y) => y - x); (PRIORITA[bozza.classe] || 'for des cos int sag car').split(' ').forEach((k, i) => bozza.carBase[k] = v[i]); renderScheda(); toast('Tirati: ' + v.join(', ')); return; }
   if (b.dataset.cpab) { const s = new Set(bozza.competenze); const max = Regole.set(regole()).classi[bozza.classe].abilita; s.has(b.dataset.cpab) ? s.delete(b.dataset.cpab) : s.size < max ? s.add(b.dataset.cpab) : toast(`La classe ${bozza.classe} ne ha ${max}`); bozza.competenze = [...s]; renderScheda(); return; }
+  if (b.id === 'szInizia' || b.id === 'szInvia') { szInvia(b.id === 'szInizia' ? null : $('#szTesto').value); return; }
+  if (b.id === 'szParla') { b.disabled = true; Ascolto.unaFrase({ log: (t, d) => Report.log(t, d) }).then(f => { b.disabled = false; if (f) szInvia(f); }); setTimeout(() => Ascolto.fineFrase(), 9000); return; }
+  if (b.id === 'szUsa' && S.sz?.proposta) { const pr = S.sz.proposta; Object.assign(bozza, { nome: pr.nome || bozza.nome, razza: pr.razza, classe: pr.classe, allineamento: pr.allineamento || bozza.allineamento, aspetto: { ...bozza.aspetto, ...(pr.aspetto || {}) }, note: [pr.storia, pr.legami && 'Legami: ' + pr.legami].filter(Boolean).join('\n\n'), competenze: [] }); S.sz.usata = true; renderScheda(); toast('Proposta applicata: scegli le caratteristiche e crea il personaggio'); return; }
+  if (b.dataset.compra) { invia({ t: 'compra', merce: b.dataset.compra }); return; }
+  if (b.dataset.vendi !== undefined) { invia({ t: 'vendi', indice: Number(b.dataset.vendi) }); return; }
   if (b.id === 'cpCrea') {
     if (!bozza.nome.trim()) { toast('Dai un nome al personaggio', true); $('#cpNome').focus(); return; }
     const pg = Regole.nuovo(regole(), bozza);
@@ -996,6 +1014,86 @@ $('#btnSalvaCamp').addEventListener('click', () => {
 });
 $('#btnNuovaSessione').addEventListener('click', async () => { const i = await chiedi('<h2>Nuova sessione</h2><p>Si apre una nuova sessione e si crea un nuovo codice invito: i vecchi QR smettono di funzionare. La campagna, le schede e le mappe restano.</p>', [{ testo: 'Inizia', pieno: true }, { testo: 'Annulla' }]); if (i === 0) { invia({ t: 'impostazioni', nuovaSessione: true }); if (masterAI()) setTimeout(() => invia({ t: 'riassunto' }), 800); } });
 $('#btnRiepilogo').addEventListener('click', () => invia({ t: 'riepilogo' }));
+/* ---- negozio: compra e vendi con le monete della scheda ---- */
+function cartaNegozio(pg) {
+  const n = S.st?.negozio; if (!n) return '';
+  const vendibili = (pg.equip || []).map((e, i) => [e, i]).filter(([e]) => !e.indossato);
+  const prezzoVendita = e => Math.floor((n.merci.find(x => x.nome === e.nome)?.prezzo ?? (/pozione|pergamena/i.test(e.nome) ? 50 : /spada|ascia|martello|arco/i.test(e.nome) ? 10 : 2)) / 2);
+  return `<div class="carta"><h3 style="margin-top:0">Banco: ${esc(n.nome)} <span class="piccolo">· hai ${pg.oro || 0} mo</span></h3>
+    <ul class="equip negozio">${n.merci.map(x => `<li>${Ritratto.icona(x.nome, 26)}<span class="n">${esc(x.nome)}</span><span class="prezzo">${x.prezzo} mo</span><button data-compra="${esc(x.nome)}" ${(pg.oro || 0) < x.prezzo ? 'disabled' : ''}>Compra</button></li>`).join('')}</ul>
+    ${vendibili.length ? `<details><summary>Vendi i tuoi oggetti (metà prezzo)</summary><ul class="equip negozio">${vendibili.map(([e, i]) => `<li>${Ritratto.icona(e.nome, 26)}<span class="n">${esc(e.nome)}${e.qta > 1 ? ' ×' + e.qta : ''}</span><span class="prezzo">${prezzoVendita(e)} mo</span><button data-vendi="${i}">Vendi</button></li>`).join('')}</ul></details>` : ''}</div>`;
+}
+/* ---- inventario: trascina l'icona sul ritratto per indossare l'oggetto ---- */
+document.addEventListener('pointerdown', e => {
+  const ic = e.target.closest('[data-trascina]'); if (!ic) return;
+  e.preventDefault();
+  const i = Number(ic.dataset.trascina), fantasma = ic.cloneNode(true); fantasma.className = 'fantasma-ogg'; document.body.appendChild(fantasma);
+  const sposta = ev => { fantasma.style.left = ev.clientX + 'px'; fantasma.style.top = ev.clientY + 'px'; const sopra = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.ritratto'); document.querySelectorAll('.ritratto').forEach(r => r.classList.toggle('bersaglio', r === sopra)); };
+  const fine = ev => {
+    removeEventListener('pointermove', sposta); removeEventListener('pointerup', fine); fantasma.remove();
+    document.querySelectorAll('.ritratto.bersaglio').forEach(r => r.classList.remove('bersaglio'));
+    const pg = S.st?.pg?.[S.viewPg], it = pg?.equip?.[i];
+    if (it && document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.ritratto') && !it.indossato) { modifica([{ op: 'indossa', nome: it.nome }]); Report.log('trascina-equip', { oggetto: it.nome }); }
+  };
+  sposta(e); addEventListener('pointermove', sposta); addEventListener('pointerup', fine);
+});
+/* ---- schermo del master ---- */
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-strumento]'); if (b) { $('#smRisultato').textContent = 'Un momento…'; invia({ t: 'strumento', tipo: b.dataset.strumento, difficolta: $('#smDiff').value, gs: Number($('#smGs').value) }); }
+  const pz = e.target.closest('[data-piazza]'); if (pz && S.ultimoIncontro) { invia({ t: 'piazza_nemici', mostri: S.ultimoIncontro.mostri }); toast('Nemici sulla mappa'); }
+  const tg = e.target.closest('[data-tesoro]'); if (tg && S.ultimoTesoro) { invia({ t: 'gruppo', op: 'oro', delta: S.ultimoTesoro.oro }); S.ultimoTesoro.oggetti.forEach(o => invia({ t: 'gruppo', op: 'oggetto', nome: o, qta: 1 })); toast('Tesoro messo nel tesoro comune'); }
+});
+function mostraStrumento(tipo, r) {
+  const el = $('#smRisultato'); if (!r) { el.textContent = 'Non disponibile ora.'; return; }
+  if (tipo === 'png') el.innerHTML = `<p><strong>${esc(r.nome)}</strong> · ${esc(r.razza || '')} · ${esc(r.mestiere || '')}</p><p>${esc(r.aspetto || '')}. ${esc(r.tratto || '')}.</p><p>Segreto: ${esc(r.segreto || '')}</p><p><em>${esc(r.battuta || '')}</em></p>`;
+  if (tipo === 'incontro') { S.ultimoIncontro = r; el.innerHTML = `<p>Incontro ${esc(r.difficolta)} (budget ${r.budget} PX):</p><ul>${r.mostri.map(m => `<li>${m.numero} × ${esc(m.nome)} (GS ${esc(m.gs || '?')}, PF ${m.pf}, CA ${m.ca})</li>`).join('')}</ul>${r.tattica ? `<p>${esc(r.tattica)}</p>` : ''}<button type="button" data-piazza="1">Metti sulla mappa</button>`; }
+  if (tipo === 'tesoro') { S.ultimoTesoro = r; el.innerHTML = `<p>${r.oro} monete d'oro</p><ul>${r.oggetti.map(o => `<li>${esc(o)}</li>`).join('')}</ul><button type="button" data-tesoro="1">Metti nel tesoro comune</button>`; }
+}
+$('#smSalvaNote').addEventListener('click', () => { invia({ t: 'note_master', testo: $('#smNote').value }); toast('Note salvate'); });
+$('#smApriNeg').addEventListener('click', () => { invia({ t: 'apri_negozio', nome: $('#smNegozio').value || ({ emporio: 'Emporio', fabbro: 'Fabbro', alchimista: 'Alchimista', magia: 'Bottega arcana' })[$('#smTipoNeg').value], tipo: $('#smTipoNeg').value }); });
+$('#smChiudiNeg').addEventListener('click', () => invia({ t: 'chiudi_negozio' }));
+/* ---- libro della campagna: pagina da stampare o salvare in PDF ---- */
+$('#btnLibro').addEventListener('click', () => { invia({ t: 'libro' }); toast('Preparo il libro…'); });
+function apriLibro(m) {
+  const w = window.open('', '_blank'); if (!w) { toast('Consenti le finestre a comparsa per aprire il libro', true); return; }
+  const img = id => `<img src="${urlMedia('img', id)}" alt="">`;
+  const capitoli = m.riepiloghi.length ? m.riepiloghi.map(r => `<section class="cap"><h2>${esc(r.titolo)}</h2>${r.img ? img(r.img) : ''}<p>${esc(r.racconto).replace(/\n/g, '</p><p>')}</p>${r.stats?.nemici?.length ? `<p class="nota">Nemici sconfitti: ${esc(r.stats.nemici.join(', '))}</p>` : ''}</section>`).join('') : '';
+  const cronaca = m.diario.map(d => d.tipo === 'illustrazione' ? `<figure>${img(d.img)}<figcaption>${esc(d.testo)}</figcaption></figure>` : d.tipo === 'sistema' ? `<h3>${esc(d.testo)}</h3>` : d.tipo === 'luogo' ? `<p class="luogo">${esc(d.testo)}</p>` : d.tipo === 'narrazione' ? `<p>${esc(d.testo)}</p>` : d.tipo === 'combattimento' ? `<p class="nota">${esc(d.testo)}</p>` : '').join('');
+  const copertina = m.diario.find(d => d.tipo === 'illustrazione')?.img || m.riepiloghi.find(r => r.img)?.img;
+  w.document.write(`<!doctype html><html lang="it"><head><meta charset="utf-8"><title>${esc(m.campagna.nome)}</title><style>
+    body{font-family:Georgia,'Times New Roman',serif;color:#2a1e12;background:#f4ead6;margin:0;padding:24px;line-height:1.55;font-size:12pt}
+    h1{font-size:30pt;text-align:center;margin:30px 0 4px} .sotto{text-align:center;color:#6a5434} h2{font-size:18pt;border-bottom:2px solid #8a6a3a;margin-top:28px} h3{color:#7a4a1a}
+    img{width:100%;max-width:640px;display:block;margin:12px auto;border-radius:8px} figure{margin:16px 0;page-break-inside:avoid} figcaption{text-align:center;font-style:italic;color:#6a5434}
+    .luogo{font-variant:small-caps;color:#7a4a1a} .nota{font-size:10.5pt;color:#6a5434} .pg{display:flex;gap:14px;align-items:center;page-break-inside:avoid} .pg svg{width:80px;height:auto} .cap{page-break-before:always}
+    @media print{body{background:#fff;padding:0} .stampa{display:none}}</style></head><body>
+    <p class="stampa" style="text-align:center"><button onclick="print()" style="font-size:16px;padding:10px 18px">Stampa o salva in PDF</button></p>
+    <h1>${esc(m.campagna.nome)}</h1><p class="sotto">${esc(m.campagna.ambientazione || '')} · D&amp;D ${esc(m.campagna.regole)} · ${m.campagna.sessione || 1} sessioni</p>${copertina ? img(copertina) : ''}
+    <h2>I protagonisti</h2>${m.pg.map(p => `<div class="pg">${Ritratto.svg(p, { dim: 80 })}<div><strong>${esc(p.nome)}</strong><br>${esc(p.razza)} ${esc(p.classe)}, livello ${p.livello}${p.note ? `<br><span class="nota">${esc(p.note)}</span>` : ''}</div></div>`).join('')}
+    ${capitoli}<section class="cap"><h2>Cronaca completa</h2>${cronaca || '<p>Nessuna narrazione ancora.</p>'}</section></body></html>`);
+  w.document.close(); Report.log('libro', { capitoli: m.riepiloghi.length, voci: m.diario.length });
+}
+/* ---- sessione zero: il master aiuta a creare il personaggio ---- */
+function cartaSessioneZero() {
+  const z = S.sz;
+  if (!z) return `<div class="carta-mini"><strong>Non sai da dove cominciare?</strong><p class="piccolo">Il master ti fa qualche domanda e ti propone un personaggio legato agli altri del gruppo.</p><button type="button" id="szInizia">Crea il personaggio con il master</button></div>`;
+  return `<div class="carta-mini"><strong>Sessione zero con il master</strong><div class="sz-log">${z.storia.map(x => `<p class="${x.chi === 'io' ? 'io' : ''}">${esc(x.testo)}</p>`).join('')}${z.attesa ? '<p class="piccolo">Il master pensa…</p>' : ''}</div>
+    ${z.proposta ? `<p><strong>${esc(z.proposta.nome)}</strong> · ${esc(z.proposta.razza)} ${esc(z.proposta.classe)}</p><p class="piccolo">${esc(z.proposta.storia || '')}</p>${z.proposta.legami ? `<p class="piccolo">Legami: ${esc(z.proposta.legami)}</p>` : ''}<button type="button" class="pieno" id="szUsa">${z.usata ? 'Applicata ✓' : 'Usa questa proposta'}</button>`
+      : `<div class="riga"><input id="szTesto" maxlength="400" placeholder="Rispondi al master"><button type="button" id="szParla" aria-label="Rispondi a voce">🎙</button><button type="button" class="pieno" id="szInvia">Invia</button></div>`}</div>`;
+}
+function szInvia(testoR) {
+  S.sz = S.sz || { storia: [] };
+  if (testoR) S.sz.storia.push({ chi: 'io', testo: testoR });
+  S.sz.attesa = true; renderScheda();
+  const set = Regole.set(regole());
+  invia({ t: 'sessione_zero', storia: S.sz.storia, razze: Object.keys(set.razze), classi: Object.keys(set.classi) });
+}
+function szRisposta(m) {
+  if (!S.sz) return; S.sz.attesa = false;
+  if (m.errore) toast(m.errore, true);
+  if (m.domanda) { S.sz.storia.push({ chi: 'master', testo: m.domanda }); if (OPZ.narratore) Narratore.parla(m.domanda); }
+  if (m.proposta) { S.sz.proposta = m.proposta; Report.log('sessione-zero', { razza: m.proposta.razza, classe: m.proposta.classe, domande: S.sz.storia.length }); }
+  renderScheda();
+}
 // riepilogo della serata: racconto, immagine e numeri, da condividere nel gruppo
 async function mostraRiepilogo(r) {
   const s = r.stats || {}, img = r.img ? urlMedia('img', r.img) : null;

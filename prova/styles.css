@@ -163,6 +163,12 @@ details summary { cursor: pointer; color: var(--oro2); min-height: 44px; display
 .diario li.narrazione-ev { border-color: #5a4630; background: #231b14; }
 .diario li.narrazione-ev p { margin: 2px 0 0; font-style: italic; }
 .dadi3d { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 60; display: none; }
+.icona-ogg { display: inline-flex; vertical-align: middle; margin-right: 6px; cursor: grab; touch-action: none; }
+.fantasma-ogg { position: fixed; pointer-events: none; z-index: 70; transform: translate(-50%, -50%) scale(1.6); filter: drop-shadow(0 4px 6px rgba(0,0,0,.6)); }
+.ritratto.bersaglio { outline: 3px dashed #e8b04b; outline-offset: 4px; border-radius: 12px; }
+.negozio li { display: flex; align-items: center; gap: 8px; } .negozio .prezzo { margin-left: auto; color: #e8c86a; white-space: nowrap; }
+.sz-log { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.sz-log p { margin: 0; padding: 8px 10px; border-radius: 10px; background: #231b14; } .sz-log p.io { background: #1d2a1d; align-self: flex-end; }
 .volto-png { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; display: block; }
 .mappa3d-box { position: relative; width: 100%; border-radius: 14px; overflow: hidden; background: #0b0908; }
 .mappa3d-box canvas { display: block; width: 100%; touch-action: none; }

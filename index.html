@@ -181,10 +181,21 @@
         <div class="riga"><button id="btnSalvaCamp" class="pieno" type="button">Salva</button><button id="btnNuovaSessione" type="button">Inizia nuova sessione</button></div>
         <div id="ruoliBox"></div>
       </div>
+      <div class="carta" id="schermoMaster" hidden>
+        <h2>Schermo del master</h2>
+        <div class="riga"><button type="button" data-strumento="png">Genera un PNG</button>
+          <select id="smDiff" aria-label="Difficoltà"><option>facile</option><option selected>media</option><option>difficile</option><option>mortale</option></select><button type="button" data-strumento="incontro">Incontro bilanciato</button></div>
+        <div class="riga"><label>GS<input id="smGs" type="number" min="0" max="20" value="1" inputmode="numeric" style="width:70px"></label><button type="button" data-strumento="tesoro">Tesoro casuale</button></div>
+        <div class="riga"><input id="smNegozio" maxlength="60" placeholder="Nome del negozio (es. Fabbro Ulrico)"><select id="smTipoNeg" aria-label="Tipo di negozio"><option value="emporio">emporio</option><option value="fabbro">fabbro</option><option value="alchimista">alchimista</option><option value="magia">magia</option></select><button type="button" id="smApriNeg">Apri negozio</button><button type="button" id="smChiudiNeg">Chiudi</button></div>
+        <div id="smRisultato" class="piccolo"></div>
+        <label>Note segrete (le vedi solo tu)<textarea id="smNote" rows="4" maxlength="8000" placeholder="Trame, segreti dei PNG, idee per la prossima sessione"></textarea></label>
+        <button type="button" id="smSalvaNote">Salva le note</button>
+      </div>
       <div class="carta">
         <h2>Gioco</h2>
         <button id="btnRiassunto" type="button" class="largo">Nella puntata precedente…</button>
         <button id="btnRiepilogo" type="button" class="largo" hidden>Fine serata: riepilogo illustrato</button>
+        <button id="btnLibro" type="button" class="largo">Libro della campagna (PDF)</button>
         <label class="spunta"><input type="checkbox" id="optNarratore" checked> Leggi ad alta voce il master</label>
         <label class="spunta"><input type="checkbox" id="optAvvisi" checked> Avvisi vocali in cuffia (tocca a te, poca vita)</label>
         <label class="spunta"><input type="checkbox" id="optMaster" checked> Il master AI ascolta quello che dico</label>

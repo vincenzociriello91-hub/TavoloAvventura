@@ -14,6 +14,8 @@ D&D online con gli amici, dal browser di qualsiasi telefono, PC, Odin o TV. Nien
 - **Mappe persistenti**: ogni luogo ha sempre la stessa mappa; edifici e oggetti bruciati, rotti o spostati restano così.
 - **Mappe realistiche** (tecnologia delle Cronache dei Varchi): luci vere con le ombre, giorno e notte, ombre del sole, meteo animato, stagioni, oggetti di scena, vista del personaggio con scurovisione e torce, personaggi LPC animati; **vista 3D** stile HD-2D (three.js).
 - **Voce naturale del master** (Gemini TTS), **illustrazioni** delle scene (Workers AI) e **riepilogo illustrato** di fine serata da condividere.
+- **Battaglie spettacolari** (mosse LPC, danni e cure che saltano fuori, esplosioni degli incantesimi, condizioni visibili), **mostri disegnati** e **volti dei PNG** generati una volta per campagna, **dadi 3D**.
+- **Negozi** con compra e vendi, **inventario con icone** da trascinare sul ritratto, **schermo del master** (PNG, incontri bilanciati, tesori, note segrete), **libro della campagna** in PDF, **sessione zero** guidata.
 - **Dadi tirati dal server** (nessuno bara), vantaggio/svantaggio, tiri segreti del master.
 - **Modalità TV**, prova di microfono e connessione, domande sulle regole, suggerimenti, rapporti cifrati, aggiornamento dall'app.
 
