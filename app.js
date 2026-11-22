@@ -1,6 +1,10 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.4.1';
+const VERSION = '2.4.2';
 const CHANGELOG = [
+  { v: '2.4.2', data: '22/11/2026', voci: [
+    'Il d100 si tira come al tavolo: due dadi da dieci, uno per le decine (00-90) e uno per le unità (0-9). Prima il dado mostrava un numero diverso dal risultato.',
+    'Master AI più resistente: se un modello Gemini ha finito la quota gratuita o non esiste più, passa da solo ad altri modelli. Se la quota è finita per tutti, l\'app lo dice chiaramente.'
+  ] },
   { v: '2.4.1', data: '22/11/2026', voci: [
     'Controllo di qualità: quando il telefono si risveglia o torna la rete, l\'app si ricollega subito (e rifà una connessione rimasta muta).',
     'Vista 3D più leggera: quando vi muovete si aggiornano solo luci e buio, non tutto il luogo; edifici bruciati o distrutti si vedono subito anche in 3D.',

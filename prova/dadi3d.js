@@ -56,7 +56,7 @@ function numero(n) {
   if (n === 6 || n === 9) x.fillRect(20, 54, 24, 4);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return (cacheNumeri[n] = t);
 }
-function dado(facce, valore, i, n, critico, fallimento) {
+function dado(facce, valore, i, n, critico, fallimento, zero) {
   const g = geometria(facce), elenco = facceDi(g);
   const colore = critico ? 0xd4a838 : fallimento ? 0x6a1e1e : { 4: 0x3f7a4a, 6: 0xb8433a, 8: 0x2f5d9e, 10: 0x7a4fa0, 12: 0xa0602a, 20: 0x2a2a30, 100: 0x7a4fa0 }[facce] || 0x2a2a30;
   const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: colore, roughness: 0.35, metalness: 0.15, flatShading: true }));
@@ -64,13 +64,13 @@ function dado(facce, valore, i, n, critico, fallimento) {
   const dim = facce === 20 ? 0.34 : facce === 4 || facce === 12 ? 0.42 : 0.5;
   // d100: le facce valgono 10, 20 ... 90, 00
   const D6 = [3, 4, 1, 6, 2, 5]; // facce opposte che sommano 7, come un dado vero
-  const valoreFaccia = k => facce === 100 ? ((k + 1) * 10) % 100 : facce === 6 ? D6[k] : k + 1;
+  const valoreFaccia = k => facce === 100 ? ((k + 1) * 10) % 100 : facce === 6 ? D6[k] : zero ? (k + 1) % 10 : k + 1; // zero: d10 delle unità del d100 (0-9)
   elenco.forEach((f, k) => {
     const v = valoreFaccia(k), etichetta = new THREE.Mesh(new THREE.PlaneGeometry(dim, dim), new THREE.MeshBasicMaterial({ map: numero(facce === 100 && v === 0 ? '00' : v), transparent: true, depthWrite: false }));
     etichetta.position.copy(f.c).addScaledVector(f.n, 0.012); etichetta.lookAt(f.c.clone().addScaledVector(f.n, 2)); m.add(etichetta);
   });
   // orientamento finale: la faccia con [valore] guarda in alto, girata a caso sul piano
-  const idx = facce === 100 ? (Math.floor(valore / 10) + 9) % 10 : facce === 6 ? D6.indexOf(valore) : Math.min(elenco.length - 1, Math.max(0, valore - 1));
+  const idx = facce === 100 ? (Math.floor(valore / 10) + 9) % 10 : facce === 6 ? D6.indexOf(valore) : zero ? (valore + 9) % 10 : Math.min(elenco.length - 1, Math.max(0, valore - 1));
   const qFinale = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6.28).multiply(new THREE.Quaternion().setFromUnitVectors(elenco[idx].n, new THREE.Vector3(0, 1, 0)));
   const asse = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
   const arrivo = new THREE.Vector3((i - (n - 1) / 2) * 1.6, 0.85, (Math.random() - 0.5) * 0.8);
@@ -97,8 +97,9 @@ export function lancia(tiro) {
   const facce = Number(String(tiro.formula).match(/d(\d+)/)?.[1]) || 20;
   prepara();
   cancelAnimationFrame(idFrame); attivi.forEach(d => scena.remove(d.m)); attivi = [];
-  const valori = [...tiro.dadi, ...(tiro.scartati || [])].slice(0, 8), t0 = performance.now();
-  valori.forEach((v, i) => { const d = dado(facce, v, i, valori.length, tiro.critico && i === 0, tiro.fallimento && i === 0); d.t0 = t0 + i * 80; attivi.push(d); });
+  // d100 come al tavolo vero: due d10, decine (00-90) e unità (0-9); 100 = 00 + 0
+  const valori = [...tiro.dadi, ...(tiro.scartati || [])].slice(0, 8).flatMap(v => facce === 100 ? [{ f: 100, v: Math.floor((v % 100) / 10) * 10 }, { f: 10, v: v % 10, zero: true }] : [{ f: facce, v }]).slice(0, 8), t0 = performance.now();
+  valori.forEach(({ f, v, zero }, i) => { const d = dado(f, v, i, valori.length, tiro.critico && i === 0, tiro.fallimento && i === 0, zero); d.t0 = t0 + i * 80; attivi.push(d); });
   fine = t0 + 1500 + valori.length * 80 + 1300;
   tela.style.display = 'block'; tela.style.opacity = 1;
   ciclo();
