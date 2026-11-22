@@ -207,3 +207,4 @@ body.tv .narrazione p { font-size: 1.5rem; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 body.tv .gioco > .vista:not(.vista-mappa):not(#vDadi) { display: none !important; }
+@media (max-width: 480px) { .statini { grid-template-columns: repeat(2, minmax(0, 1fr)); } .presenza { max-width: 30vw; } }
