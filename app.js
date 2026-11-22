@@ -1,6 +1,15 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.3.0';
+const VERSION = '3.4.0';
 const CHANGELOG = [
+  { v: '3.4.0', data: '22/11/2026', voci: [
+    'Promemoria delle serate come notifica sul telefono, il giorno prima e un\'ora prima (in Altro → Prossime serate → «Avvisami sul telefono»).',
+    'Quando le immagini gratuite del server finiscono, il telefono disegna anche volti dei personaggi, mostri e il riepilogo di fine serata, non solo le scene.',
+    'Gli animali compagni compaiono sulla mappa accanto al loro personaggio: li muove il loro giocatore e combattono nel suo ordine.',
+    'Nei villaggi e nelle città le zone illuminate (lampioni, falò, case) si vedono anche da lontano.',
+    'Chi gioca in un\'altra lingua sente il master leggere la traduzione nella sua lingua.',
+    'Copia della campagna: chi l\'ha creata la può scaricare in un file e ripristinare (in Altro → Campagna).',
+    'A chi entra per la prima volta compare un piccolo invito alla guida «Come si gioca», che non blocca niente.'
+  ] },
   { v: '3.3.0', data: '22/11/2026', voci: [
     'App più semplice, senza togliere niente: le sezioni lunghe di Scheda e Altro si aprono e chiudono toccando il titolo (l\'app si ricorda come le hai lasciate); quelle che si usano meno partono chiuse.',
     'Strumenti della mappa più compatti: tutti i bottoni restano, ma occupano metà spazio. Le istruzioni della mappa si aprono con «Come si usa la mappa».'
@@ -425,6 +434,9 @@ function gestisci(m) {
     }
     case 'diario': S.st.diario = [...(S.st.diario || []), m.ev].slice(-200); renderDiario(); if (m.ev.tipo === 'chat' && m.ev.chi !== S.io) traduciTesto(m.ev.testo); return;
     case 'serate': S.st.serate = m.serate; renderSerate(); return;
+    case 'esportazione': { const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([JSON.stringify({ app: 'TavoloAvventura', versione: VERSION, salvata: new Date().toISOString(), codice: S.codice, dati: m.dati })], { type: 'application/json' })), download: `campagna-${(S.st.campagna.nome || 'tavolo').replace(/[^\w]+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.json` }); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('Copia della campagna scaricata'); Report.log('copia', { voci: Object.keys(m.dati).length }); return; }
+    case 'push_chiave': attivaNotifiche(m.pub); return;
+    case 'push_ok': scrivi('ta_push', true); toast('Avvisi attivi: ti arriva una notifica il giorno prima e un\'ora prima di ogni serata'); renderSerate(); Report.log('notifiche', { esito: 'ok' }); return;
     case 'disegna_tu': disegnaDalTelefono(m); return;
     case 'reazione': reazioneVola(m.emoji, m.nome); return;
     case 'traduzione': { const cb = S.attesaTrad?.[m.id]; if (cb) { delete S.attesaTrad[m.id]; cb(m); } return; }
@@ -437,7 +449,8 @@ function gestisci(m) {
       if (S.ultimoParlato) { Report.log('master-risposta', { ms: Date.now() - S.ultimoParlato, modello: m.modello, parole: m.testo.split(' ').length }); S.ultimoParlato = 0; }
       Report.log('narrazione', { png: m.png || null, testo: m.testo, modello: m.modello || null, riassunto: !!m.riassunto, riserva: !!m.riserva }); // ogni battuta parola per parola, come nei Varchi
       mostraNarrazione(m.testo, m.png); renderDiario(); traduciTesto(m.testo);
-      if (OPZ.narratore && m.voce) { // la voce naturale arriva tra poco: si aspetta al massimo 12 secondi, poi voce del telefono
+      if (OPZ.narratore && altraLingua()) { S.daLeggere = m.testo; } // si legge la traduzione, appena arriva
+      else if (OPZ.narratore && m.voce) { // la voce naturale arriva tra poco: si aspetta al massimo 12 secondi, poi voce del telefono
         S.vociAttese = S.vociAttese || {};
         S.vociAttese[m.voce] = { testo: m.testo, png: m.png || null, timer: setTimeout(() => { delete S.vociAttese[m.voce]; Narratore.parla(m.testo, { png: m.png || null }); Report.log('voce-master', { esito: 'scaduta' }); }, 12000) };
       } else if (OPZ.narratore) Narratore.parla(m.testo, { png: m.png || null });
@@ -583,7 +596,7 @@ function renderTutto() {
   $('#optMaster').closest('label').hidden = !masterAI();
   $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); }
   if (capo()) renderAvventura(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
-  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro();
+  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#copiaBox').hidden = !me()?.admin; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro();
 }
 function renderPresenza() {
   if (!S.st) return;
@@ -612,7 +625,7 @@ $('#nav').addEventListener('click', e => { const b = e.target.closest('button');
 const largo = () => matchMedia('(min-width: 1100px)').matches;
 Mappa.init($('#mappa'), {
   io: () => S.io,
-  puoMuovere: id => id === S.io || capo(),
+  puoMuovere: id => id === S.io || capo() || S.st?.segnalini?.[id]?.padrone === S.io, // anche il proprio animale
   capo: () => capo(),
   vediTutto: () => document.body.classList.contains('tv'), // sulla TV la mappa inquadra sempre tutta la parte scoperta
   onBloccato: () => toast('Non ci si arriva da qui: c\'è un muro o un ostacolo in mezzo', true),
@@ -1309,6 +1322,17 @@ $('#btnSalvaCamp').addEventListener('click', () => {
 });
 $('#btnNuovaSessione').addEventListener('click', async () => { const i = await chiedi('<h2>Nuova sessione</h2><p>Si apre una nuova sessione e si crea un nuovo codice invito: i vecchi QR smettono di funzionare. La campagna, le schede e le mappe restano.</p>', [{ testo: 'Inizia', pieno: true }, { testo: 'Annulla' }]); if (i === 0) { invia({ t: 'impostazioni', nuovaSessione: true }); if (masterAI()) setTimeout(() => invia({ t: 'riassunto' }), 800); } });
 $('#btnRiepilogo').addEventListener('click', () => invia({ t: 'riepilogo' }));
+// copia della campagna: si scarica in un file e si può ripristinare (solo chi l'ha creata)
+$('#btnEsporta').addEventListener('click', () => invia({ t: 'esporta' }));
+$('#fileImporta').addEventListener('change', async e => {
+  const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text()); if (j.app !== 'TavoloAvventura' || !j.dati) throw new Error('non è una copia di Tavolo d\'Avventura');
+    const corpo = JSON.stringify({ t: 'importa', dati: j.dati }); if (corpo.length > 390000) throw new Error('la copia è troppo grande per essere ripristinata da qui');
+    const i = await chiedi(`<h2>Ripristinare la campagna?</h2><p>Copia del ${new Date(j.salvata).toLocaleString('it-IT')}. Schede, mappe, diario e mondo tornano come erano allora: quello che è successo dopo si perde.</p>`, [{ testo: 'Ripristina', pieno: true }, { testo: 'Annulla' }]);
+    if (i === 0) { invia({ t: 'importa', dati: j.dati }); toast('Campagna ripristinata'); Report.log('ripristino', { voci: Object.keys(j.dati).length }); }
+  } catch (err) { toast('Ripristino non riuscito: ' + err.message, true, 6000); }
+});
 /* ---- negozio: compra e vendi con le monete della scheda ---- */
 // la reputazione del gruppo nel luogo cambia i prezzi (come sul server: fino al 25%)
 function fattorePrezzo() { const l = S.st?.luogo, nome = l?.genitore ? S.st.luoghi?.[l.genitore]?.nome : l?.nome, r = Math.max(-100, Math.min(100, S.st?.reputazioneLuoghi?.[nome] || 0)); return 1 - r / 400; }
@@ -1603,15 +1627,23 @@ async function disegnaDalTelefono(m) {
   // la disegna un solo telefono: il primo (in ordine) tra i giocatori collegati; TV e spettatori no
   const chi = (S.st.online || []).filter(id => S.st.membri?.[id] && S.st.membri[id].ruolo !== 'spettatore' && !/^TV /.test(S.st.membri[id].nome)).sort()[0];
   if (chi !== S.io || document.body.classList.contains('tv')) return;
-  toast('Disegno la scena con il servizio di riserva…');
-  try {
-    const r = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(m.prompt.slice(0, 900))}?width=768&height=432&nologo=true&model=flux&seed=${Math.floor(Math.random() * 1e6)}`, { signal: AbortSignal.timeout(90000) });
-    if (!r.ok || !/^image\//.test(r.headers.get('content-type') || '')) throw new Error('HTTP ' + r.status);
-    const bmp = await createImageBitmap(await r.blob()), c = Object.assign(document.createElement('canvas'), { width: Math.min(768, bmp.width), height: Math.round(Math.min(768, bmp.width) * bmp.height / bmp.width) });
-    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-    const dati = c.toDataURL('image/jpeg', 0.82).split(',')[1];
-    invia({ t: 'immagine_esterna', id: m.id, dati }); Report.log('illustrazione-riserva', { esito: 'ok', kb: Math.round(dati.length * 0.75 / 1024) });
-  } catch (e) { Report.log('illustrazione-riserva', { esito: 'errore', errore: String(e?.message || e).slice(0, 200) }); toast("Immagini gratuite finite per oggi: tornano dopo l'una di notte.", true, 6000); }
+  // il servizio gratuito accetta un disegno ogni 45 secondi circa: le richieste fanno la fila
+  S.codaDisegni = S.codaDisegni || []; S.codaDisegni.push(m); if (S.disegnoInCorso) return;
+  S.disegnoInCorso = true;
+  while (S.codaDisegni.length) {
+    const d = S.codaDisegni.shift(), lato = d.piccola ? [512, 512] : [768, 432];
+    if (!d.piccola) toast('Disegno la scena con il servizio di riserva…');
+    try {
+      const r = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(d.prompt.slice(0, 900))}?width=${lato[0]}&height=${lato[1]}&nologo=true&model=flux&seed=${Math.floor(Math.random() * 1e6)}`, { signal: AbortSignal.timeout(90000) });
+      if (!r.ok || !/^image\//.test(r.headers.get('content-type') || '')) throw new Error('HTTP ' + r.status);
+      const bmp = await createImageBitmap(await r.blob()), w = Math.min(lato[0], bmp.width), c = Object.assign(document.createElement('canvas'), { width: w, height: Math.round(w * bmp.height / bmp.width) });
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const dati = c.toDataURL('image/jpeg', 0.82).split(',')[1];
+      invia({ t: 'immagine_esterna', id: d.id, dati }); Report.log('illustrazione-riserva', { esito: 'ok', piccola: !!d.piccola, kb: Math.round(dati.length * 0.75 / 1024) });
+    } catch (e) { Report.log('illustrazione-riserva', { esito: 'errore', errore: String(e?.message || e).slice(0, 200) }); if (!d.piccola) toast("Immagini gratuite finite per oggi: tornano dopo l'una di notte.", true, 6000); }
+    if (S.codaDisegni.length) await new Promise(r => setTimeout(r, 46000));
+  }
+  S.disegnoInCorso = false;
 }
 /* ============ Meteo vero nella partita (come nei Varchi): Open-Meteo, posizione arrotondata a ~10 km che non lascia il telefono ============ */
 async function meteoVero() {
@@ -1646,11 +1678,15 @@ document.addEventListener('keydown', e => { const h = e.target.closest?.('.testa
 function apriSezione(sel) { const c = document.querySelector(sel)?.closest('.piegabile'); const h = c?.querySelector(':scope > .testa-piega'); if (h && c.classList.contains('chiusa')) piega(h, true); }
 applicaPieghe();
 /* ============ Traduzione automatica di master e chat ============ */
+// chi gioca in un'altra lingua sente il master nella sua lingua (voce del telefono)
+const VOCI_LINGUA = { en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', it: 'it-IT' };
+const altraLingua = () => OPZ.lingua && OPZ.lingua !== 'it';
+function leggiTradotto(t) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = VOCI_LINGUA[OPZ.lingua] || 'en-US'; const v = speechSynthesis.getVoices().find(x => x.lang?.startsWith(OPZ.lingua)); if (v) u.voice = v; speechSynthesis.speak(u); Report.log('voce-tradotta', { lingua: OPZ.lingua }); } catch (e) { Report.log('voce-tradotta', { errore: String(e).slice(0, 100) }); } }
 function tradotto(t) { const x = OPZ.lingua && S.trad.get(t); return x ? `<p class="trad">🌐 ${esc(x)}</p>` : ''; }
 function traduciTesto(t) {
   if (!OPZ.lingua || !t || S.trad.has(t)) return;
   S.trad.set(t, null); const id = 'q' + Math.random().toString(36).slice(2, 9);
-  S.attesaTrad[id] = m => { if (m.errore) { S.trad.delete(t); return; } S.trad.set(t, m.testo); renderDiario(); if ($('#narrTesto').textContent === t) { $('#narrTrad')?.remove(); $('#narrTesto').insertAdjacentHTML('afterend', `<p class="trad" id="narrTrad">🌐 ${esc(m.testo)}</p>`); } };
+  S.attesaTrad[id] = m => { if (m.errore) { S.trad.delete(t); if (S.daLeggere === t) { S.daLeggere = null; Narratore.parla(t); } return; } S.trad.set(t, m.testo); renderDiario(); if (S.daLeggere === t) { S.daLeggere = null; leggiTradotto(m.testo); } if ($('#narrTesto').textContent === t) { $('#narrTrad')?.remove(); $('#narrTesto').insertAdjacentHTML('afterend', `<p class="trad" id="narrTrad">🌐 ${esc(m.testo)}</p>`); } };
   invia({ t: 'traduci', id, testo: t, lingua: OPZ.lingua });
 }
 /* ============ Calendario delle serate ============ */
@@ -1661,6 +1697,7 @@ function renderSerate() {
   box.innerHTML = l.map(x => { const r = Object.entries(x.risposte || {}), si = r.filter(([, v]) => v).map(([id]) => esc(nomeDi(id))), no = r.filter(([, v]) => !v).map(([id]) => esc(nomeDi(id))), mia = x.risposte?.[S.io];
     return `<div class="serata"><strong>${esc(fmt(x.t))}</strong>${x.nota ? ` <span class="piccolo">${esc(x.nota)}</span>` : ''}<p class="piccolo">Ci sono: ${si.join(', ') || 'nessuno'}${no.length ? ` · Non ci sono: ${no.join(', ')}` : ''}</p>
       <div class="riga"><button type="button" data-serata="${x.id}" data-ci="1" class="${mia === true ? 'pieno' : ''}">Ci sono</button><button type="button" data-serata="${x.id}" data-ci="0" class="${mia === false ? 'pieno' : ''}">Non ci sono</button><button type="button" data-ics="${x.id}">📅 Promemoria</button>${capo() ? `<button type="button" class="testo-btn" data-serata-togli="${x.id}">Togli</button>` : ''}</div></div>`; }).join('') || '<p class="piccolo">Nessuna serata in programma.</p>';
+  if ('PushManager' in window && me()?.ruolo !== 'spettatore') box.insertAdjacentHTML('beforeend', leggi('ta_push', false) ? '<p class="piccolo">🔔 Avvisi sul telefono attivi.</p>' : '<button type="button" id="btnAvvisi" class="largo">🔔 Avvisami sul telefono prima delle serate</button>');
   if (capo()) box.insertAdjacentHTML('beforeend', `<form class="colonna" id="formSerata" autocomplete="off"><input type="datetime-local" id="serataQuando" aria-label="Data e ora della serata"><div class="riga"><input id="serataNota" maxlength="120" placeholder="Nota (es. da Marco, alle 21)"><button class="pieno">Proponi</button></div></form>`);
 }
 // promemoria: un file .ics che il calendario del telefono apre, con avviso il giorno prima e un'ora prima
@@ -1671,11 +1708,21 @@ function scaricaIcs(x) {
 }
 $('#serate').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'btnAvvisi') { invia({ t: 'push_chiave' }); return; }
   if (b.dataset.serata) invia({ t: 'serata_risposta', id: b.dataset.serata, ci: b.dataset.ci === '1' });
   if (b.dataset.serataTogli) invia({ t: 'serata_togli', id: b.dataset.serataTogli });
   if (b.dataset.ics) { const x = (S.st.serate || []).find(y => y.id === b.dataset.ics); if (x) { scaricaIcs(x); Report.log('promemoria', {}); } }
 });
 $('#serate').addEventListener('submit', e => { e.preventDefault(); const v = $('#serataQuando').value; if (!v) { toast('Scegli giorno e ora', true); return; } invia({ t: 'serata_nuova', quando: new Date(v).toISOString(), nota: $('#serataNota').value.trim() }); });
+async function attivaNotifiche(pub) {
+  try {
+    if (!pub) throw new Error('chiave mancante');
+    if (await Notification.requestPermission() !== 'granted') { toast('Senza il permesso alle notifiche gli avvisi non possono arrivare', true); return; }
+    const reg = await navigator.serviceWorker.ready, b = atob(pub.replace(/-/g, '+').replace(/_/g, '/')), chiave = Uint8Array.from(b, c => c.charCodeAt(0));
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chiave });
+    invia({ t: 'push_iscrivi', endpoint: sub.endpoint });
+  } catch (e) { Report.log('notifiche', { esito: 'errore', errore: String(e?.message || e).slice(0, 160) }); toast('Le notifiche non funzionano su questo telefono: usa il 📅 Promemoria', true); }
+}
 /* ============ Ricompense per la presenza: cornici del ritratto ============ */
 const CORNICI = [[20, 'leggenda', 'Leggenda del tavolo'], [10, 'oro', 'Veterano d\'oro'], [6, 'argento', 'Compagno d\'argento'], [3, 'bronzo', 'Avventuriero di bronzo']];
 function cornice(n) { return CORNICI.find(c => (n || 0) >= c[0]) || null; }
