@@ -60,7 +60,7 @@ const BotProva = (() => {
     bot.push(A, B, C, D);
     try {
       await prova('Campagna nuova con il master AI', async () => {
-        if (!await A.apri({ t: 'crea', nome: `Partita bot ${new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`, regole, ambientazione: caso(AMBIENTI), masterTipo: 'ai', ruolo: 'giocatore', mioNome: 'Bot ' + nomi[0] })) throw new Error('il server non crea la campagna');
+        if (!await A.apri({ t: 'crea', nome: `Partita bot ${new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`, regole, ambientazione: caso(AMBIENTI), masterTipo: 'ai', ruolo: 'giocatore', mioNome: 'Bot ' + nomi[0], prova: true })) throw new Error('il server non crea la campagna');
         return { codice, regole, ambientazione: A.stato.campagna.ambientazione };
       });
       if (!A.io) throw new Error('campagna non creata');
