@@ -1,6 +1,12 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.6.3';
+const VERSION = '1.7.0';
 const CHANGELOG = [
+  { v: '1.7.0', data: '22/11/2026', voci: [
+    'Mappe nuove in stile battle map di D&D, molto più realistiche: pavimenti in legno e pietra, ciottoli, erba, acqua con le rive, tetti con le tegole, ombre dei muri, luce di camini, torce e candele.',
+    'Oggetti di scena sulla mappa: tavoli, sedie, botti, casse, bauli, letti, scaffali, forzieri, altari, colonne, carretti, bancarelle, tronchi, massi e altro. Restano al loro posto quando tornate.',
+    'Il master AI sposta, rompe, brucia, toglie o aggiunge oggetti in base a quello che succede; il master umano può trascinare quelli movibili. Se un edificio brucia, bruciano anche gli oggetti dentro.',
+    'I personaggi sulla mappa hanno il loro ritratto e un anello che mostra i punti ferita.'
+  ] },
   { v: '1.6.3', data: '22/11/2026', voci: [
     'Lo stato degli edifici (danneggiato, bruciato, distrutto) lo cambia solo il master: quello AI in automatico in base a ciò che succede in gioco, quello umano a mano.'
   ] },
@@ -359,6 +365,9 @@ Mappa.init($('#mappa'), {
   io: () => S.io,
   puoMuovere: id => id === S.io || capo(),
   onMuovi: (id, x, y) => invia({ t: 'segnalino', id, x, y }),
+  pg: id => S.st?.pg?.[id],
+  puoMuovereOggetti: () => me()?.ruolo === 'master',
+  onMuoviOggetto: (id, x, y) => invia({ t: 'scena', azione: 'sposta', oggetto: id, x, y }),
   altezzaMax: () => largo() || document.body.classList.contains('tv') ? window.innerHeight - 200 : 9999,
   onEdificio: async ed => {
     const puoEntrare = (capo() || masterAI()) && !['dungeon', 'grotta', 'taverna', 'interno'].includes(S.st.luogo?.tipo) && ed.stato !== 'distrutto' && !/pozzo|torre|radura/i.test(ed.nome);

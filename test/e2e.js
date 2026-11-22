@@ -128,7 +128,7 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
     const l = S.st.luogo, s0 = S.st.segnalini[S.io], occ = Object.values(S.st.segnalini);
     for (let r = 1; r < 8; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       const x = s0.x + dx, y = s0.y + dy, ch = l.celle[y]?.[x];
-      if (ch && !'#wRT~'.includes(ch) && !occ.some(s => s.x === x && s.y === y)) return { x, y };
+      if (ch && !'#wRT~'.includes(ch) && !occ.some(s => s.x === x && s.y === y) && !(l.oggetti || []).some(o => o.x === x && o.y === y)) return { x, y };
     }
   });
   await tocca(cellaLibera.x, cellaLibera.y, 60);

@@ -69,6 +69,9 @@ verifica(await B.aspetta(m => m.t === 'luogo_mod', 1500).then(() => false, () =>
 A.invia({ t: 'vai', nome: 'Taverna del Drago Ubriaco' });
 B.coda.length = 0; const t1 = await B.aspetta(m => m.t === 'luogo' && m.luogo.nome.startsWith('Taverna'));
 verifica(t1.luogo.tipo === 'taverna', 'taverna generata');
+verifica(t1.luogo.oggetti?.filter(o => o.tipo === 'tavolo').length >= 3 && t1.luogo.oggetti.some(o => o.tipo === 'botte') && !t1.luogo.celle.join('').includes('t'), `oggetti di scena nella taverna (${t1.luogo.oggetti?.length})`);
+A.invia({ t: 'scena', azione: 'sposta', oggetto: t1.luogo.oggetti.find(o => o.movibile).id, x: 5, y: 5 });
+verifica(await A.aspetta(m => m.t === 'luogo_mod', 1500).then(() => false, () => true), 'con il master AI i giocatori non spostano a mano gli oggetti di scena');
 console.log(t1.luogo.celle.join('\n'));
 A.invia({ t: 'vai', nome: 'città di argentea' });
 const lA2 = await B.aspetta(m => m.t === 'luogo' && m.luogo.nome === 'Città di Argentea');
