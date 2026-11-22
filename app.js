@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.0.5';
+const VERSION = '3.1.0';
 const CHANGELOG = [
+  { v: '3.1.0', data: '22/11/2026', voci: [
+    'Il master AI impara: tiene un manuale di esperienza comune a tutte le partite (regole sbagliate, correzioni dei giocatori, errori) e lo rilegge prima di ogni turno, per non ripetere due volte lo stesso errore.',
+    'Master proattivo: se il tavolo tace per qualche minuto fa succedere qualcosa di piccolo (al massimo due volte di fila).',
+    'I personaggi del mondo vivono anche senza di voi: tra una sessione e l\'altra fanno cose e stringono legami (amici, rivali, mentore e allievo…), visibili nella galleria dei personaggi incontrati.',
+    'Racconti di fine serata, storie dei personaggi e notizie dal mondo scritti dal modello più bravo; le cose veloci restano al modello leggero.',
+    'I problemi trovati dai telefoni e dalla partita bot finiscono nel manuale, così vengono corretti.'
+  ] },
   { v: '3.0.5', data: '22/11/2026', voci: [
     'Illustrazioni anche quando le immagini gratuite del server sono finite: la scena la disegna uno dei vostri telefoni con un servizio di riserva gratuito e la manda a tutti.'
   ] },
@@ -643,7 +650,7 @@ function aggiornaExtraMappa() {
 // ogni mappa nuova si controlla da sola: se qualcosa non va finisce nel rapporto (e lo vedo senza che nessuno lo dica)
 function controllaMappa() {
   clearTimeout(S.timerControllo);
-  S.timerControllo = setTimeout(async () => { if (!S.st?.luogo || document.hidden) return; try { const p = await Mappa.controllo(); S.problemiMappa = p; if (p.length) Report.log('problema-grafica', { luogo: S.st.luogo.nome, tipo: S.st.luogo.tipo, problemi: p }); } catch (e) { Report.log('problema-grafica', { errore: String(e).slice(0, 200) }); } }, 2500);
+  S.timerControllo = setTimeout(async () => { if (!S.st?.luogo || document.hidden) return; try { const p = await Mappa.controllo(); S.problemiMappa = p; if (p.length) { Report.log('problema-grafica', { luogo: S.st.luogo.nome, tipo: S.st.luogo.tipo, problemi: p }); invia({ t: 'segnala_problema', testo: `Mappa ${S.st.luogo.tipo}: ${p.join(' | ')}` }); } } catch (e) { Report.log('problema-grafica', { errore: String(e).slice(0, 200) }); } }, 2500);
 }
 function renderCombat() {
   const c = S.st?.combattimento, box = $('#combat');
@@ -652,7 +659,7 @@ function renderCombat() {
   aggiornaExtraMappa();
   if (!c?.attivo) return;
   const ora = c.ordine[c.turno];
-  if (!ora) Report.log('problema', { cosa: 'combattimento senza nessuno in ordine', round: c.round, ordine: c.ordine.length });
+  if (!ora) { Report.log('problema', { cosa: 'combattimento senza nessuno in ordine', round: c.round, ordine: c.ordine.length }); invia({ t: 'segnala_problema', testo: 'Combattimento attivo senza nessuno in ordine di iniziativa' }); }
   const posso = ora && (ora.id === S.io || capo());
   box.innerHTML = `<div class="testa"><span>Round ${c.round} · ${ora ? `tocca a <strong>${esc(ora.nome)}</strong>` : 'nessuno in ordine: chiudi e riapri il combattimento quando ci sono personaggi o nemici'}</span>${posso ? '<button id="btnFineTurno" class="pieno" type="button">Fine turno</button>' : ''}</div>
     <ol>${c.ordine.map((o, i) => `<li class="${i === c.turno ? 'ora' : ''} ${o.tipo === 'nemico' ? 'nemico' : ''}">${esc(o.nome)} <span class="piccolo">${o.iniz}</span></li>`).join('')}</ol>`;
@@ -1717,7 +1724,7 @@ const Pad = (() => {
 function renderDiarioExtra() {
   const png = Object.entries(S.st?.png || {}).sort((a, b) => (b[1].t || 0) - (a[1].t || 0));
   const g = $('#galleriaPng'); if (g) { g.hidden = !png.length; $('#galleriaPngLista').innerHTML = png.map(([nome, p]) => { const v = S.st.volti?.[nome];
-    return `<div class="carta-png">${v ? `<img src="${urlMedia('img', v)}" alt="" class="volto-png" onerror="this.outerHTML=Ritratto.volto(${esc(JSON.stringify(nome))}, 64)">` : Ritratto.volto(nome, 64)}<div><strong>${esc(nome)}</strong>${p.luogo ? `<div class="piccolo">Incontrato a ${esc(p.luogo)}</div>` : ''}${(p.note || []).map(n => `<div class="piccolo">• ${esc(n)}</div>`).join('')}</div></div>`; }).join(''); $('#galleriaPngConta').textContent = png.length; }
+    return `<div class="carta-png">${v ? `<img src="${urlMedia('img', v)}" alt="" class="volto-png" onerror="this.outerHTML=Ritratto.volto(${esc(JSON.stringify(nome))}, 64)">` : Ritratto.volto(nome, 64)}<div><strong>${esc(nome)}</strong>${p.luogo ? `<div class="piccolo">Incontrato a ${esc(p.luogo)}</div>` : ''}${(p.legami || []).length ? `<div class="piccolo">🔗 ${p.legami.map(l => `${esc(l.tipo)} di ${esc(l.con)}`).join(', ')}</div>` : ''}${p.novita ? `<div class="piccolo">🕯️ Nel frattempo: ${esc(p.novita)}</div>` : ''}${(p.note || []).map(n => `<div class="piccolo">• ${esc(n)}</div>`).join('')}</div></div>`; }).join(''); $('#galleriaPngConta').textContent = png.length; }
   const mem = S.st?.memoriale || [], mm = $('#memoriale'); if (mm) { mm.hidden = !mem.length; $('#memorialeLista').innerHTML = [...mem].reverse().map(c => `<div class="caduto"><strong>✝ ${esc(c.nome)}</strong> <span class="piccolo">${esc(c.razza || '')} ${esc(c.classe || '')}, livello ${c.livello || 1} · ${new Date(c.t).toLocaleDateString('it-IT')}</span>${c.motivo ? `<p class="piccolo">${esc(c.motivo)}</p>` : ''}${(c.imprese || []).length ? `<ul class="piccolo">${c.imprese.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}</div>`).join(''); }
 }
 /* ============ Bentornato: cosa ti sei perso ============ */
