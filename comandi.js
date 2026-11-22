@@ -23,6 +23,7 @@ function primoNumero(f) {
 const RIF_ARTICOLI = /^(il|lo|la|l'|i|gli|le|un|una|uno|un'|del|della|dello|dei|degli|delle|mio|mia|miei|mie)\s+/;
 const pulisciNome = s => { let n = s.trim(); for (let k = 0; k < 3; k++) n = n.replace(RIF_ARTICOLI, ''); n = n.replace(/\s+(nello|nell'|nella|all'|allo|alla|nel)\s+(zaino|inventario).*$/, '').replace(/\s+(per favore|grazie)$/, '').trim(); return n.charAt(0).toUpperCase() + n.slice(1); };
 
+const ALTRA_EDIZIONE = { 'furtivit': 'Muoversi silenziosamente', 'percezione': 'Osservare', 'intuizione': 'Percepire intenzioni', 'inganno': 'Raggirare', 'persuasione': 'Diplomazia', 'indagare': 'Cercare', 'medicina': 'Guarire', 'arcano': 'Sapienza magica', 'atletica': 'Scalare', 'muoversi silenziosamente': 'Furtività', 'nascondersi': 'Furtività', 'osservare': 'Percezione', 'ascoltare': 'Percezione', 'cercare': 'Indagare', 'raggirare': 'Inganno', 'diplomazia': 'Persuasione', 'percepire intenzioni': 'Intuizione', 'scalare': 'Atletica', 'nuotare': 'Atletica', 'saltare': 'Atletica', 'equilibrio': 'Acrobazia', 'artista della fuga': 'Acrobazia', 'guarire': 'Medicina', 'sapienza magica': 'Arcano', 'scassinare': 'Rapidità di mano', 'disattivare congegni': 'Rapidità di mano' };
 const Comandi = {
   interpreta(frase, pg, regole, mondo) {
     const f = pulisci(frase);
@@ -65,6 +66,8 @@ const Comandi = {
       if (/colpire|attacco|attacc/.test(f)) { const arma = trovaOggetto(pg, f) || (pg.equip || []).find(e => e.indossato && ARMI[e.nome]); const a = Regole.attacco(pg, arma); return { dado: { formula: 'd20' + fm(a.colpire), modo, motivo: 'Attacco' + (arma ? ' con ' + arma.nome : '') } }; }
       if (/\bdanni\b|\bdanno\b/.test(f)) { const arma = trovaOggetto(pg, f) || (pg.equip || []).find(e => e.indossato && ARMI[e.nome]); const a = Regole.attacco(pg, arma); return { dado: { formula: a.danno.replace(/^1d/, 'd'), motivo: 'Danni' + (arma ? ' ' + arma.nome : '') } }; }
       for (const ab of Object.keys(set.abilita)) if (f.includes(pulisci(ab))) return { dado: { formula: 'd20' + fm(Regole.abilita(pg, ab)), modo, motivo: ab } };
+      // nomi dell'altra edizione detti a voce (es. "furtività" in 3.5 = Muoversi silenziosamente)
+      for (const [parola, ab] of Object.entries(ALTRA_EDIZIONE)) if (f.includes(parola) && set.abilita[ab] !== undefined) return { dado: { formula: 'd20' + fm(Regole.abilita(pg, ab)), modo, motivo: ab } };
       for (const [p, k] of Object.entries(CAR_PAROLE)) if (f.includes(p)) return { dado: { formula: 'd20' + fm(mod(pg.car[k])), modo, motivo: 'Prova di ' + CAR_NOMI[k] } };
     }
 
