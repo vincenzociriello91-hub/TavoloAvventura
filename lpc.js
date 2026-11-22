@@ -33,18 +33,20 @@ const Lpc = (() => {
     k.putImageData(d, 0, 0);
     return c;
   }
-  // foglio della camminata già composto (canvas 576x256) oppure null finché i pezzi non sono scaricati
-  function foglio(desc) {
+  // foglio già composto oppure null finché i pezzi non sono scaricati: camminata (576x256, 9x4 da 64) o mossa di
+  // battaglia [anim] (slash, thrust, shoot, spellcast: una riga verso destra, fotogrammi da 192 con la figura al centro)
+  function foglio(desc, anim = 'walk') {
     if (!desc) return null;
-    const chiave = JSON.stringify(desc);
+    const chiave = anim + JSON.stringify(desc);
     if (fogli.has(chiave)) return fogli.get(chiave);
     if (!catalogo) { carica(); return null; }
     const strati = [];
-    for (const s of desc.strati) for (const v of catalogo[s.pezzo] || []) { const f = v.file[desc.corpo] || v.file.male; if (f) strati.push({ z: v.z, f, mat: v.mat }); }
+    for (const s of desc.strati) for (const v of catalogo[s.pezzo] || []) { const f = (v.file[desc.corpo] || v.file.male)?.[anim]; if (f) strati.push({ z: v.z, f, mat: v.mat }); }
+    if (!strati.length) return null;
     const pronte = strati.map(s => immagine(s.f));
     if (pronte.some(x => !x)) return null;
     strati.forEach((s, i) => { s.im = pronte[i]; });
-    const c = document.createElement('canvas'); c.width = 576; c.height = 256;
+    const c = document.createElement('canvas'); c.width = Math.max(...pronte.map(i => i.naturalWidth)); c.height = Math.max(...pronte.map(i => i.naturalHeight));
     const k = c.getContext('2d');
     strati.sort((a, b) => a.z - b.z).forEach(s => k.drawImage(s.mat.length ? ricolora(s.im, s.mat, desc.colori) : s.im, 0, 0));
     fogli.set(chiave, c);
@@ -107,5 +109,13 @@ const Lpc = (() => {
     }
     return { corpo: /nano|halfling|gnomo|bambin/.test(n) ? 'teen' : donna ? 'female' : 'male', colori: { body: orco ? pick(['green', 'dark_green', 'pale_green'], 7) : pick(['light', 'amber', 'olive', 'taupe', 'bronze', 'brown'], 7), hair: pick(['black', 'dark_brown', 'chestnut', 'blonde', 'redhead', 'gray', 'white'], 8), cloth: tipo === 'nemico' ? pick(['maroon', 'black', 'charcoal', 'red'], 9) : pick(['brown', 'tan', 'forest', 'navy', 'maroon', 'slate', 'leather', 'walnut'], 9), metal: pick(['iron', 'steel', 'bronze'], 10), eye: 'brown' }, strati: s.map(pezzo => ({ pezzo })) };
   }
-  return { carica, foglio, daPg, daNome, set suPronto(f) { suPronto = f; }, get pronto() { return !!catalogo; } };
+  // mossa di attacco secondo l'arma della figura
+  function mossa(desc) {
+    const p = new Set((desc?.strati || []).map(s => s.pezzo));
+    if (p.has('arco_corto') || p.has('arco_lungo') || p.has('balestra')) return 'shoot';
+    if (p.has('bastone') || p.has('verga') || p.has('cappello_mago')) return 'spellcast';
+    if (p.has('pugnale') || p.has('stocco')) return 'thrust';
+    return 'slash';
+  }
+  return { carica, foglio, daPg, daNome, mossa, set suPronto(f) { suPronto = f; }, get pronto() { return !!catalogo; } };
 })();

@@ -258,10 +258,11 @@ export function crea(contenitore, opz) {
       else { f.x = tx; f.z = tz; f.cammina = false; f.fase = 0; }
       f.gruppo.position.set(f.x, 0, f.z);
       // fotogramma: figura LPC se c'è, altrimenti segnalino tondo con l'iniziale
-      const sh = Mappa.figura(id, sg), k = f.tela.getContext('2d'), col = f.cammina ? 1 + Math.floor(f.fase) % 8 : 0, chiave = sh ? `${col}|${f.dir}|${sh.width}` : 'tondo';
+      const sh = Mappa.figura(id, sg), k = f.tela.getContext('2d'), col = f.cammina ? 1 + Math.floor(f.fase) % 8 : 0, chiave = sh ? `${col}|${f.dir}|${sh.width}` : Mappa.mostro(sg) ? 'mostro' : 'tondo';
       if (chiave !== f.chiave || sh !== f.sh) {
         k.clearRect(0, 0, 64, 64);
         if (sh) { k.imageSmoothingEnabled = false; k.drawImage(sh, col * 64, f.dir * 64, 64, 64, 0, 0, 64, 64); }
+        else if (Mappa.mostro(sg)) { const im = Mappa.mostro(sg), sc = Math.min(64 / im.width, 60 / im.height); k.imageSmoothingEnabled = false; k.drawImage(im, 32 - im.width * sc / 2, 57 - im.height * sc, im.width * sc, im.height * sc); if (Mappa.grande(sg)) f.sprite.scale.set(3, 3, 1); }
         else { k.fillStyle = sg.tipo === 'nemico' ? '#7a1a16' : sg.colore || '#e8b04b'; k.beginPath(); k.arc(32, 40, 18, 0, 7); k.fill(); k.strokeStyle = '#1a1210'; k.lineWidth = 3; k.stroke(); k.fillStyle = '#fff'; k.font = '800 20px Inter, sans-serif'; k.textAlign = 'center'; k.fillText((sg.nome || '?').charAt(0).toUpperCase(), 32, 47); }
         f.tx.needsUpdate = true; f.chiave = chiave; f.sh = sh;
       }
