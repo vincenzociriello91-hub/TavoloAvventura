@@ -26,6 +26,10 @@ const ill = await A.aspetta(m => m.t === 'diario' && m.ev.tipo === 'illustrazion
 v(ill?.ev.img, 'illustrazione della taverna appena scoperta nel diario');
 const img = ill ? await fetch(`http://localhost:8787/tavolo/${codice}/media/img/${ill.ev.img}`) : null;
 v(img?.ok && img.headers.get('content-type') === 'image/jpeg', 'illustrazione scaricabile');
+const mo = await A.aspetta(m => m.t === 'mostri', 8000).catch(() => null);
+v(mo?.mostri['lupo crudele'] && !mo.mostri.goblin, 'mostro disegnato una volta (il goblin usa la figura LPC)');
+const vo = await A.aspetta(m => m.t === 'volti', 8000).catch(() => null);
+v(vo?.volti['Oste Bruno'], 'volto illustrato del PNG che parla');
 const coda = A.coda;
 v(coda.some(m => m.t === 'luogo' && m.luogo.tipo === 'taverna'), 'il master porta il gruppo in un luogo (taverna generata)');
 const sch = coda.filter(m => m.t === 'scheda' && m.da === 'master').map(m => m.pg).pop();

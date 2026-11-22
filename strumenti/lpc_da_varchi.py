@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Copia nell'app le figure Universal LPC già preparate per Le Cronache dei Varchi (solo la camminata 9x4 da 64x64:
-righe su, sinistra, giù, destra). Licenze LPC libere (OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0): i crediti vanno in
+"""Copia nell'app le figure Universal LPC già preparate per Le Cronache dei Varchi (camminata 9x4 da 64x64, righe su, sinistra,
+giù, destra; mosse di battaglia: fendente, affondo, tiro, magia). Licenze LPC libere (OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0): i crediti vanno in
 lpc/crediti.json e l'app li mostra. Nessun pacchetto comprato: solo grafica LPC.
 Uso: python3 strumenti/lpc_da_varchi.py <cartella CronacheDeiVarchi>"""
 import json, shutil, sys
@@ -10,14 +10,16 @@ src = Path(sys.argv[1]) / 'grafica' / 'lpc'
 dst = Path(__file__).resolve().parent.parent / 'lpc'
 dst.mkdir(exist_ok=True)
 cat = json.loads((src / 'catalogo.json').read_text())
+# camminata (9x4 da 64) e mosse di battaglia (riga destra, fotogrammi da 192 con la figura al centro)
+ANIM = ('walk', 'slash', 'thrust', 'shoot', 'spellcast')
 out = {}
 for pezzo, varianti in cat.items():
     if pezzo.startswith('coda_2_'):
         continue
     vv = []
     for v in varianti:
-        file = {corpo: a['walk'] for corpo, a in v['file'].items() if a.get('walk')}
-        for f in set(file.values()):
+        file = {corpo: {k: a[k] for k in ANIM if a.get(k)} for corpo, a in v['file'].items() if a.get('walk')}
+        for f in {x for d in file.values() for x in d.values()}:
             shutil.copy(src / f, dst / f)
         if file:
             vv.append({'z': v['z'], 'mat': v['mat'], 'file': file})

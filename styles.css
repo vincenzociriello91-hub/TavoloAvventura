@@ -162,6 +162,8 @@ details summary { cursor: pointer; color: var(--oro2); min-height: 44px; display
 .diario li .chi { color: var(--tenue); font-size: .78rem; }
 .diario li.narrazione-ev { border-color: #5a4630; background: #231b14; }
 .diario li.narrazione-ev p { margin: 2px 0 0; font-style: italic; }
+.dadi3d { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 60; display: none; }
+.volto-png { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; display: block; }
 .mappa3d-box { position: relative; width: 100%; border-radius: 14px; overflow: hidden; background: #0b0908; }
 .mappa3d-box canvas { display: block; width: 100%; touch-action: none; }
 .diario li.illustrazione-ev { border-color: #5a4630; background: #1d1712; }

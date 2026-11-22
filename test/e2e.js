@@ -218,7 +218,7 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   v(true, 'tesoro comune: monete a voce, oggetto messo e preso');
   await A.evaluate(() => invia({ t: 'combattimento', azione: 'fine' }));
   await A.evaluate(() => mostraNarrazione('Benvenuti nella mia locanda, forestieri.', 'Oste Bruno'));
-  v(await A.locator('#narrVolto svg').count() === 1, 'volto del PNG nella vignetta');
+  v(await A.locator('#narrVolto svg, #narrVolto img.volto-png').count() === 1, 'volto del PNG nella vignetta (illustrato o in pixel art)');
   await B.click('#nav button[data-v="vMappa"]').catch(() => {});
   await B.screenshot({ path: OUT + '/9-combat-desktop.png' });
   // 1.3.0: incantesimi, talenti, multiclasse, oggetti magici

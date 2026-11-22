@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
 const CHANGELOG = [
+  { v: '2.1.0', data: '22/11/2026', voci: [
+    'Battaglie spettacolari: i personaggi fanno la mossa vera quando attaccano (fendente, affondo, arco, incantesimo), i danni e le cure saltano fuori sopra le figure, i nemici sconfitti svaniscono, gli incantesimi ad area esplodono col loro colore.',
+    'Condizioni visibili: a terra se K.O. o prono, verde se avvelenato, stelline se stordito, trasparente se invisibile.',
+    'Mostri disegnati: draghi, lupi, scheletri e gli altri mostri vengono disegnati una volta sola e restano per tutta la campagna.',
+    'Volti dei PNG: quando un personaggio del master parla compare il suo volto illustrato.',
+    'Dadi 3D che rotolano e si fermano sul numero uscito (si possono spegnere in Altro).'
+  ] },
   { v: '2.0.0', data: '22/11/2026', voci: [
     'Vista 3D in stile HD-2D (pulsante "Vista 3D" sotto la mappa): muri, case e tetti in rilievo, oggetti di scena in 3D, personaggi in piedi che camminano, sole e luci vere con le ombre, pioggia e neve, bagliore delle luci e sfocatura di profondità.',
     'Nella vista 3D: trascina per spostare l\'inquadratura, due dita per avvicinarti, tocca una casella per muoverti, tieni premuto su un edificio. La scelta resta salvata; su telefoni poco potenti conviene la vista 2D.'
@@ -232,6 +239,7 @@ function gestisci(m) {
     case 'scheda': {
       const prima = S.st.pg[m.per];
       S.st.pg[m.per] = m.pg;
+      if (prima && m.pg && prima.pf !== m.pg.pf && S.st.segnalini?.[m.per]) { const d = m.pg.pf - prima.pf; Mappa.effettoTesto(m.per, (d > 0 ? '+' : '') + d, d > 0 ? '#7dff8a' : '#ff6a5a'); if (d < 0 && m.da === 'master') { const me_ = S.st.segnalini[m.per], nem = Object.entries(S.st.segnalini).filter(([, v]) => v.tipo === 'nemico').sort(([, a], [, b]) => Math.hypot(a.x - me_.x, a.y - me_.y) - Math.hypot(b.x - me_.x, b.y - me_.y))[0]; if (nem && Math.hypot(nem[1].x - me_.x, nem[1].y - me_.y) < 8) Mappa.attacco(nem[0]); } }
       if (m.per === S.io && m.da !== S.io) {
         if (OPZ.avvisi && prima && prima.pf > prima.pfMax / 2 && m.pg.pf <= m.pg.pfMax / 2 && m.pg.pf > 0) Narratore.avviso('Attenzione: sei sotto metà dei punti ferita');
         if (OPZ.avvisi && prima && prima.pf > 0 && m.pg.pf <= 0) Narratore.avviso('Sei a terra, privo di sensi');
@@ -242,13 +250,24 @@ function gestisci(m) {
     }
     case 'dado': {
       S.st.dadi = [...(S.st.dadi || []), m.tiro].slice(-60);
+      if (/attacc|colp|fendent|affond|spada|ascia|mazza|martell|pugnal|arco|frecci|balestr|incantesim|dardo|palla di fuoco|raggio|per colpire|tiro per colpire/i.test(m.tiro.motivo || '')) Mappa.attacco(m.tiro.chi);
       if (m.tiro.chi === S.io) { S.ultimoMio = m.tiro; $('#tiroAzioni').hidden = false; Suoni.effetto(m.tiro.critico ? 'critico' : m.tiro.fallimento ? 'fallimento' : 'dado'); }
       if (m.tiro.chi === S.io || document.body.classList.contains('tv')) mostraTiro(m.tiro);
+      if (OPZ.dadi3d !== false && (m.tiro.chi === S.io || S.vista === 'vMappa' || document.body.classList.contains('tv'))) import('./dadi3d.js').then(d => d.lancia(m.tiro)).catch(e => Report.log('dadi-3d', { errore: String(e?.message || e) }));
       renderTiri(); renderRapidi(); return;
     }
     case 'luogo': S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; S.st.aree = []; renderMappa(); if (!$('#mondoBox').hidden) renderMappaMondo(); Report.log('luogo', { nome: m.luogo.nome, tipo: m.luogo.tipo }); return;
     case 'luogo_mod': S.st.luogo = m.luogo; renderMappa(); return;
-    case 'segnalini': S.st.segnalini = m.segnalini; Mappa.aggiornaSegnalini(m.segnalini); return;
+    case 'segnalini': {
+      const prima = S.st.segnalini || {};
+      for (const [id, v] of Object.entries(prima)) {
+        if (v.tipo !== 'nemico') continue;
+        const ora = m.segnalini[id];
+        if (!ora) { Mappa.effettoTesto(id, 'Sconfitto!', '#ffd25a', v); Mappa.sconfitto(v); }
+        else if (v.pf !== undefined && ora.pf !== undefined && ora.pf !== v.pf) Mappa.effettoTesto(id, (ora.pf > v.pf ? '+' : '') + (ora.pf - v.pf), ora.pf > v.pf ? '#7dff8a' : '#ff6a5a');
+      }
+      S.st.segnalini = m.segnalini; Mappa.aggiornaSegnalini(m.segnalini); return;
+    }
     case 'diario': S.st.diario = [...(S.st.diario || []), m.ev].slice(-200); renderDiario(); return;
     case 'narra': {
       const ev = { t: Date.now(), tipo: 'narrazione', testo: m.testo, chi: m.chi, png: m.png };
@@ -282,6 +301,8 @@ function gestisci(m) {
       return;
     }
     case 'avviso': toast(m.msg); return;
+    case 'mostri': S.st.mostri = m.mostri; Mappa.disegna(); if (S.m3) S.m3.aggiorna(Mappa.dati3D()); return;
+    case 'volti': S.st.volti = m.volti; { const png = $('#narrChi').dataset.png; if (png && m.volti[png]) mostraVolto(png); } return;
     case 'riepilogo': Report.log('riepilogo', { titolo: m.r.titolo, immagine: !!m.r.img }); mostraRiepilogo(m.r); return;
     case 'riepiloghi': { const r = m.elenco.find(x => x.t === S.apriRiepilogo); if (r) mostraRiepilogo(r); return; }
     case 'rtc': Voce.segnale(m.da, m.dati); return;
@@ -308,7 +329,7 @@ function gestisci(m) {
       Report.log('combattimento', { attivo: c?.attivo, round: c?.round, turno: ora?.nome });
       return;
     }
-    case 'aree': S.st.aree = m.aree; aggiornaExtraMappa(); return;
+    case 'aree': { const nuove = (m.aree || []).filter(a => !(S.st.aree || []).some(b => b.x === a.x && b.y === a.y && b.nome === a.nome)); S.st.aree = m.aree; aggiornaExtraMappa(); nuove.forEach(a => Mappa.effettoArea(a)); return; }
     case 'nebbia': if (S.st.luogo?.id === m.id) { S.st.luogo.visto = m.visto; Mappa.setVisto(m.id, m.visto); } return;
     case 'gruppo': S.st.gruppo = m.gruppo; renderTesoro(); return;
     case 'mondo': S.st.mondo = m.mondo; renderMondo(); Mappa.setAmbiente(m.mondo?.calendario); if (!$('#mondoBox').hidden) renderMappaMondo(); return;
@@ -403,6 +424,7 @@ Mappa.init($('#mappa'), {
   puoMuovereOggetti: () => me()?.ruolo === 'master',
   onMuoviOggetto: (id, x, y) => invia({ t: 'scena', azione: 'sposta', oggetto: id, x, y }),
   onLampo: () => Suoni.effetto('tuono'),
+  urlMostro: n => S.st?.mostri?.[n] ? urlMedia('img', S.st.mostri[n]) : null,
   onCambio: () => { if (S.m3) S.m3.aggiorna(Mappa.dati3D()); },
   altezzaMax: () => largo() || document.body.classList.contains('tv') ? window.innerHeight - 200 : 9999,
   onEdificio: async ed => {
@@ -481,7 +503,9 @@ $('#tesoro').addEventListener('click', e => {
 $('#tesoro').addEventListener('submit', e => { e.preventDefault(); const n = $('#tesOggetto').value.trim(); if (n) invia({ t: 'gruppo', op: 'oggetto', nome: n, qta: 1 }); });
 $('#btnEsciEd').addEventListener('click', () => invia({ t: 'esci_edificio' }));
 $('#formVai').addEventListener('submit', e => { e.preventDefault(); const n = $('#vaiNome').value.trim(); if (!n) return; invia({ t: 'vai', nome: n }); $('#vaiNome').value = ''; Report.log('vai', { nome: n }); });
-function mostraNarrazione(testo, png) { const n = $('#narrazione'); n.hidden = false; n.classList.remove('pensa'); $('#narrChi').textContent = png ? `${png} (dal master)` : 'Il master'; $('#narrTesto').textContent = testo; $('#narrVolto').hidden = !png; if (png) $('#narrVolto').innerHTML = Ritratto.volto(png, 64); }
+// volto del PNG: illustrato dall'AI quando è pronto, altrimenti quello in pixel art
+function mostraVolto(png) { const id = S.st?.volti?.[png]; $('#narrVolto').innerHTML = id ? `<img src="${urlMedia('img', id)}" alt="${esc(png)}" class="volto-png">` : Ritratto.volto(png, 64); }
+function mostraNarrazione(testo, png) { const n = $('#narrazione'); n.hidden = false; n.classList.remove('pensa'); $('#narrChi').textContent = png ? `${png} (dal master)` : 'Il master'; $('#narrChi').dataset.png = png || ''; $('#narrTesto').textContent = testo; $('#narrVolto').hidden = !png; if (png) mostraVolto(png); }
 $('#btnZitto').addEventListener('click', () => { Narratore.zitto(); $('#narrazione').hidden = true; });
 Narratore.onInizio = () => { Ascolto.pausa(true); $('#av-master')?.classList.add('parla'); };
 Narratore.onFine = () => { Ascolto.pausa(false); $('#av-master')?.classList.remove('parla'); };
@@ -991,6 +1015,8 @@ $('#optNarratore').addEventListener('change', e => { OPZ.narratore = e.target.ch
 $('#optAvvisi').addEventListener('change', e => { OPZ.avvisi = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optMaster').addEventListener('change', e => { OPZ.master = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optSuoni').addEventListener('change', e => { OPZ.suoni = e.target.checked; scrivi('ta_opzioni', OPZ); Suoni.attivo = OPZ.suoni; if (OPZ.suoni) aggiornaScenaSonora(); Report.log('suoni', { attivi: OPZ.suoni }); });
+$('#optDadi3d').checked = OPZ.dadi3d !== false;
+$('#optDadi3d').addEventListener('change', e => { OPZ.dadi3d = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optVolume').addEventListener('input', e => { OPZ.volume = Number(e.target.value); Suoni.volume = OPZ.volume; scrivi('ta_opzioni', OPZ); });
 $('#optGrandi').addEventListener('change', e => { OPZ.grandi = e.target.checked; scrivi('ta_opzioni', OPZ); applicaGrandi(); });
 $('#optNome').addEventListener('change', e => { const v = e.target.value.trim(); if (v) { invia({ t: 'impostazioni', mioNome: v }); scrivi('ta_nome', v); } });
