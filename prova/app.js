@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.6.0';
+const VERSION = '1.6.1';
 const CHANGELOG = [
+  { v: '1.6.1', data: '22/11/2026', voci: [
+    'Il master AI ricorda i PNG già incontrati: lo stesso personaggio non cambia più nome da un turno all\'altro.',
+    'Inizi d\'avventura più originali e narrazione meno ripetitiva.',
+    'Master più rapido con i modelli Gemini più recenti (ragionamento minimo invece di quello pieno).',
+    'Nuove frasi vocali: "togli la pozione", "bevo la pozione", "elimino la corda".',
+    'Se l\'app si apre a metà di un aggiornamento, si ricarica da sola una volta invece di bloccarsi.'
+  ] },
   { v: '1.6.0', data: '22/11/2026', voci: [
     'Maestro e allievo: il master usa il modello migliore (Claude, se attivato, oppure Gemini Flash), i compiti leggeri usano Gemini Flash-Lite, più veloce.',
     'Server di inoltro per la voce: se attivato, la chat vocale funziona anche fra reti mobili diverse.',
@@ -124,7 +131,11 @@ const Report = {
     this.log('ripresa', {});
   }
 };
-window.addEventListener('error', e => Report.log('errore', { msg: e.message, file: e.filename, riga: e.lineno, col: e.colno }));
+window.addEventListener('error', e => {
+  Report.log('errore', { msg: e.message, file: e.filename, riga: e.lineno, col: e.colno });
+  // subito dopo un aggiornamento GitHub Pages può servire index.html vecchio con app.js nuovo: si ricarica una volta sola
+  if (performance.now() < 5000 && /null/.test(e.message)) { try { if (!sessionStorage.getItem('ta_ricaricata')) { sessionStorage.setItem('ta_ricaricata', '1'); location.reload(); } } catch {} }
+});
 window.addEventListener('unhandledrejection', e => Report.log('errore-promise', { msg: String(e.reason?.message || e.reason), stack: String(e.reason?.stack || '').slice(0, 500) }));
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') Report.chiudi('app in background o chiusa'); else { Report.log('ripresa', {}); Report.invia(); Voce.riattivaAudio(); } });
 window.addEventListener('pagehide', () => Report.chiudi('chiusura'));
