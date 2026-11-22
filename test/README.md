@@ -12,6 +12,10 @@ Servono: Node 20+, `npm i ws playwright wrangler@4`, il repository `rapporti-vin
    - `node test/prova-server.mjs` e `node test/prova-master.mjs` (server e master AI)
    - `node test/e2e.js` (app intera nel browser: due giocatori, TV, voce, bot di prova)
 
+   - `node test/push.test.mjs` (firma delle notifiche) e `sh test/controllo-codice.sh` (nomi non definiti e doppioni in app e server; serve `npm i eslint@9 globals`)
+
 Devono passare tutte prima di pubblicare.
+
+Sull'app pubblicata: `node test/giro-schermate.js <cartella>` apre tutte le schermate (telefono, computer, spettatore, TV, master umano) e salva le foto: vanno guardate una per una.
 
 Partita bot sul server vero (4 bot + master AI, rapporti cifrati in TavoloAvventura-rapporti): workflow "Partita bot" su GitHub, a mano o con `[partita-bot]` nel messaggio del commit. In locale: `APP=http://localhost:8765/ node test/partita-bot.js`.

@@ -1,17 +1,8 @@
 // Prova delle mappe generate dal server (senza avviarlo): oggetti dentro le stanze e non nei muri,
 // ogni casella libera raggiungibile a piedi dall'ingresso, percorsi che non attraversano muri né tagliano gli angoli,
 // vista bloccata dai muri. Uso: node test/mappe.test.mjs (con il repository rapporti-vincenzo accanto a questo).
-import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-
-const qui = dirname(fileURLToPath(import.meta.url));
-const sorgente = readFileSync(join(qui, '../../rapporti-vincenzo/src/tavolo.js'), 'utf8')
-  .replace("import { DurableObject } from 'cloudflare:workers';", 'class DurableObject {}');
-const file = join(mkdtempSync(join(tmpdir(), 'mappe-')), 'tavolo.mjs');
-writeFileSync(file, sorgente);
-const { generaLuogo, griglia, percorso, vede, celleOggetto } = await import(pathToFileURL(file));
+import server from './server-moduli.mjs';
+const { generaLuogo, griglia, percorso, vede, celleOggetto } = server;
 
 const TIPI = ['taverna', 'dungeon', 'grotta', 'foresta', 'villaggio', 'citta', 'castello', 'porto', 'interno', 'strada'];
 let prove = 0;

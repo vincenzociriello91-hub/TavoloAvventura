@@ -257,8 +257,27 @@ verifica(await A.aspetta(m => (m.t === 'luogo' && m.luogo.nome === 'Posto del fu
 for (let i = 0; i < 60; i++) S2.invia({ t: 'stato' });
 verifica(/Troppi messaggi/.test((await S2.aspetta(m => m.t === 'errore', 4000)).msg), 'freno ai messaggi a raffica');
 
-D.invia({ t: 'scheda', pg: { nome: 'Lira', razza: 'Elfo', classe: 'Ranger', livello: '<img src=x onerror=alert(1)>', pf: 10, pfMax: 10, ca: 14, car: { for: 10, des: 16, cos: 12, int: 10, sag: 14, car: 10 }, equip: [] }, alMaster: false });
+D.invia({ t: 'scheda', pg: { nome: 'Lira', razza: 'Elfo', classe: 'Ranger', livello: '<img src=x onerror=alert(1)>', pf: 10, pfMax: 10, ca: 14, oro: 30, car: { for: 10, des: 16, cos: 12, int: 10, sag: 14, car: 10 }, equip: [] }, alMaster: false });
 verifica(!JSON.stringify((await A.aspetta(m => m.t === 'scheda' && m.per === bD.io && typeof m.pg.livello === 'string', 5000)).pg).includes('<'), 'una scheda non può portare codice HTML agli altri giocatori');
+
+// casi limite: chi non è collegato non blocca il voto; chi esce a metà di una partita a dadi non si porta via il piatto
+const E = client(); await E.pronto; E.invia({ t: 'entra', invito: stSic.campagna.invito, nome: 'Elena' });
+const bE = await E.aspetta(m => m.t === 'benvenuto');
+E.invia({ t: 'scheda', pg: { nome: 'Kara', razza: 'Umano', classe: 'Ladro', livello: 1, pf: 8, pfMax: 8, ca: 13, oro: 20, car: { for: 10, des: 16, cos: 12, int: 12, sag: 10, car: 12 }, equip: [] }, alMaster: false });
+await E.aspetta(m => m.t === 'scheda' && m.per === bE.io);
+A.invia({ t: 'voto_apri', domanda: 'Si riposa?', opzioni: ['sì', 'no'] }); await E.aspetta(m => m.t === 'mondo_vivo' && m.voto?.domanda === 'Si riposa?');
+A.coda.length = 0; A.invia({ t: 'stato' }); const collegati = (await A.aspetta(m => m.t === 'stato')).stato;
+for (const [cl, id] of [[A, bA.io], [B2, bB.io], [D, bD.io]]) if (collegati.online.includes(id) && collegati.membri[id]?.ruolo === 'giocatore') cl.invia({ t: 'voto', scelta: 0 });
+await new Promise(r => setTimeout(r, 700));
+E.ws.close();
+verifica(/Si riposa/.test((await A.aspetta(m => m.t === 'diario' && m.ev.testo.startsWith('Il gruppo ha votato'), 6000)).ev.testo), 'il voto si chiude anche se chi non ha votato si scollega');
+const E2 = client(); await E2.pronto; E2.invia({ t: 'ciao', membro: bE.io, chiave: bE.chiave }); await E2.aspetta(m => m.t === 'benvenuto');
+D.coda.length = 0; D.invia({ t: 'stato' }); const oroPrima = (await D.aspetta(m => m.t === 'stato')).stato.pg[bD.io].oro;
+D.invia({ t: 'gioco_apri', tipo: 'dadi', posta: 2 }); await E2.aspetta(m => m.t === 'gioco_taverna' && m.gioco);
+E2.invia({ t: 'gioco_entra' }); await D.aspetta(m => m.t === 'gioco_taverna' && m.gioco?.giocatori.length === 2);
+E2.invia({ t: 'esci' }); await D.aspetta(m => m.t === 'gioco_taverna' && !m.gioco, 6000);
+await new Promise(r => setTimeout(r, 500)); D.coda.length = 0; D.invia({ t: 'stato' });
+verifica((await D.aspetta(m => m.t === 'stato')).stato.pg[bD.io].oro === oroPrima, 'chi esce a metà partita non blocca il tavolo: monete restituite');
 
 // manuale del master: i problemi segnalati finiscono nel manuale condiviso, leggibile dal connettore
 D.invia({ t: 'segnala_problema', testo: 'Prova: mappa con caselle nere' });

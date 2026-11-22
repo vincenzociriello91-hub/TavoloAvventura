@@ -1,12 +1,6 @@
 // Prova dei promemoria sul telefono: la firma VAPID (ES256) degli avvisi Web Push deve essere valida. Uso: node test/push.test.mjs
-import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-const qui = dirname(fileURLToPath(import.meta.url));
-const file = join(mkdtempSync(join(tmpdir(), 'push-')), 'tavolo.mjs');
-writeFileSync(file, readFileSync(join(qui, '../../rapporti-vincenzo/src/tavolo.js'), 'utf8').replace("import { DurableObject } from 'cloudflare:workers';", 'class DurableObject {}'));
-const { Tavolo, b64url } = await import(pathToFileURL(file));
+import server from './server-moduli.mjs';
+const { Tavolo, b64url } = server;
 const c = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
 const k = { jwk: await crypto.subtle.exportKey('jwk', c.privateKey), pub: b64url(new Uint8Array(await crypto.subtle.exportKey('raw', c.publicKey))) };
 let visto = null; globalThis.fetch = async (url, o) => { visto = { url, o }; return { ok: true, status: 201 }; };
