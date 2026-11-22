@@ -70,7 +70,7 @@ const Mappa = (() => {
 
   function init(canvas, o) {
     cv = canvas; ctx = cv.getContext('2d'); opz = o;
-    cv.addEventListener('pointerdown', giu); cv.addEventListener('pointermove', muovi); cv.addEventListener('pointerup', su); cv.addEventListener('pointercancel', ev => { tocchi.delete(ev.pointerId); trascina = null; pizzico = pan = null; annullaPremi(); disegna(); });
+    cv.addEventListener('pointerdown', giu); cv.addEventListener('pointermove', muovi); cv.addEventListener('pointerup', su); cv.addEventListener('pointercancel', ev => { tocchi.delete(ev.pointerId); trascina = null; pizzico = pan = null; cv.style.transform = ''; annullaPremi(); disegna(); });
     cv.addEventListener('wheel', ev => { if (!luogo) return; ev.preventDefault(); zoom(ev.deltaY > 0 ? 0.88 : 1.14, ev.clientX, ev.clientY); }, { passive: false });
     cv.addEventListener('contextmenu', e => e.preventDefault());
     new ResizeObserver(() => adatta()).observe(cv.parentElement);
@@ -855,7 +855,8 @@ const Mappa = (() => {
     tocchi.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     if (tocchi.size === 2) { // due dita: zoom (annulla il tocco o il trascinamento appena iniziato)
       const [a, b] = [...tocchi.values()]; annullaPremi(); trascina = null; pan = null; dopoPizzico = true;
-      pizzico = { d0: Math.max(20, Math.hypot(a.x - b.x, a.y - b.y)), t0: tile }; disegna(); return;
+      const r = cv.getBoundingClientRect(), ox = (a.x + b.x) / 2, oy = (a.y + b.y) / 2;
+      pizzico = { d0: Math.max(20, Math.hypot(a.x - b.x, a.y - b.y)), t0: tile, ox, oy, f: 1 }; cv.style.transformOrigin = `${ox - r.left}px ${oy - r.top}px`; disegna(); return;
     }
     if (tocchi.size > 2 || dopoPizzico) return;
     const q = posDa(ev);
@@ -888,14 +889,15 @@ const Mappa = (() => {
   function annullaPremi() { if (premi) clearTimeout(premi.timer); premi = null; }
   function muovi(ev) {
     if (tocchi.has(ev.pointerId)) tocchi.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-    if (pizzico) { if (tocchi.size === 2) { const [a, b] = [...tocchi.values()], voluto = pizzico.t0 * Math.hypot(a.x - b.x, a.y - b.y) / pizzico.d0; if (Math.abs(voluto - tile) >= 1) zoom(voluto / tile, (a.x + b.x) / 2, (a.y + b.y) / 2); } return; }
+    if (pizzico) { if (tocchi.size === 2) { const [a, b] = [...tocchi.values()], voluto = Math.max(6, Math.min(72, pizzico.t0 * Math.hypot(a.x - b.x, a.y - b.y) / pizzico.d0)); pizzico.f = voluto / tile; cv.style.transform = `scale(${pizzico.f})`; } return; }
     if (pan) { const box = cv.parentElement; box.scrollLeft = pan.sl - (ev.clientX - pan.sx); box.scrollTop = pan.st - (ev.clientY - pan.sy); return; }
     // un dito che scivola sul vuoto scorre la mappa (non è più un tocco)
     if (premi && Math.hypot(ev.clientX - premi.sx, ev.clientY - premi.sy) > 8) { pan = { sx: premi.sx, sy: premi.sy, sl: premi.sl, st: premi.st }; annullaPremi(); return; }
     if (!trascina) return; const q = posDa(ev); if (q.x !== trascina.x || q.y !== trascina.y) { trascina.x = Math.max(0, Math.min(luogo.w - 1, q.x)); trascina.y = Math.max(0, Math.min(luogo.h - 1, q.y)); disegna(); } }
   function su(ev) {
     tocchi.delete(ev?.pointerId);
-    if (pizzico || dopoPizzico || pan) { if (!tocchi.size) { pizzico = pan = null; dopoPizzico = false; } annullaPremi(); trascina = null; disegna(); return; }
+    if (pizzico) { const p = pizzico; pizzico = null; cv.style.transform = ''; if (Math.abs(p.f - 1) > 0.02) zoom(p.f, p.ox, p.oy); }
+    if (dopoPizzico || pan) { if (!tocchi.size) { pan = null; dopoPizzico = false; } annullaPremi(); trascina = null; disegna(); return; }
     if (premi) {
       const p = premi; annullaPremi();
       vaiA(opz.io(), p.x, p.y);

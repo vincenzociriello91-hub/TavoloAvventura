@@ -200,19 +200,35 @@ export function crea(contenitore, opz) {
     }
     // oggetti di scena
     for (const o of L.oggetti || []) { const g = oggetto3D(o, L); if (g) mondo.add(g); }
+    luci3D(d);
+    veli3D(d);
+    meteo(d);
+    if (!chiaveCostruita.startsWith(L.id + '|')) { const io = d.segnalini[opz.io()]; cam.x = io ? io.x + 0.5 : W / 2; cam.z = io ? io.y - 1.5 : H / 2; }
+    chiaveCostruita = firma(d);
+  }
+  // cosa obbliga a ricostruire il luogo: muri, edifici, oggetti, stagione e meteo (non le luci né la nebbia)
+  const firma = d => { const L = d.luogo; return [L.id, L.arrediV || 0, d.stagione, d.innevato, d.esterno, d.meteo, L.edifici.map(e => e.stato || '').join(','), (L.oggetti || []).map(o => `${o.tipo}${o.x},${o.y}${o.dir || ''}${o.rot || 0}${o.stato || ''}`).join(';')].join('|'); };
+  const firmaLuci = d => JSON.stringify([d.amb, d.sole, d.notte, d.sorgenti.slice(0, 10).map(s => [s.x, s.y, s.i, s.r])]);
+  const firmaVeli = d => (d.luogo.visto || '') + '|' + (d.vista ? d.vista.join('') : '') + '|' + (d.extra.vedeTutto ? 1 : 0);
+  let chiaveLuci = '', chiaveVeli = '';
+  function luci3D(d) {
+    luci.forEach(l => scena.remove(l)); luci = [];
     // luci vere: le più vicine al centro della vista proiettano ombre
     const sorg = d.sorgenti.slice(0, 10);
     sorg.forEach((s, i) => { const l = new THREE.PointLight(new THREE.Color(s.rgb[0], s.rgb[1], s.rgb[2]), s.i * 6, s.r * 1.6, 1.6); l.position.set(s.x, 1.1, s.y); l.castShadow = i < 2; if (l.castShadow) { l.shadow.mapSize.set(512, 512); l.shadow.bias = -0.002; } l.userData = { base: s.i * 6, fiamma: s.fiamma }; scena.add(l); luci.push(l); });
+    luceDelMomento(d);
+    chiaveLuci = firmaLuci(d);
+  }
+  function veli3D(d) {
+    const L = d.luogo, W = L.w;
+    for (const m of [nebbia, velo]) if (m) { mondo.remove(m); m.geometry.dispose(); m.material.dispose(); }
     // nebbia di guerra: blocchi neri sopra le caselle mai viste
     nebbia = null;
     if (L.visto) { const celle = []; for (let i = 0; i < L.visto.length; i++) if (L.visto[i] === '0') celle.push(i); if (celle.length) { nebbia = new THREE.InstancedMesh(new THREE.BoxGeometry(1.02, 4, 1.02), new THREE.MeshBasicMaterial({ color: 0x0b0908, transparent: d.extra.vedeTutto, opacity: d.extra.vedeTutto ? 0.5 : 1 }), celle.length); const m4 = new THREE.Matrix4(); celle.forEach((i, k) => { m4.makeTranslation(i % W + 0.5, 2, Math.floor(i / W) + 0.5); nebbia.setMatrixAt(k, m4); }); mondo.add(nebbia); } }
     // vista del personaggio: velo scuro dove ora non vede
     velo = null;
     if (d.vista) { const celle = []; d.vista.forEach((v, i) => { if (v < 2) celle.push([i, v]); }); if (celle.length) { velo = new THREE.InstancedMesh(new THREE.BoxGeometry(1.01, 3.6, 1.01), new THREE.MeshBasicMaterial({ color: 0x05050c, transparent: true, opacity: 0.55, depthWrite: false }), celle.length); const m4 = new THREE.Matrix4(); celle.forEach(([i], k) => { m4.makeTranslation(i % W + 0.5, 1.8, Math.floor(i / W) + 0.5); velo.setMatrixAt(k, m4); }); mondo.add(velo); } }
-    luceDelMomento(d);
-    meteo(d);
-    if (!chiaveCostruita.startsWith(L.id + '|')) { const io = d.segnalini[opz.io()]; cam.x = io ? io.x + 0.5 : W / 2; cam.z = io ? io.y - 1.5 : H / 2; }
-    chiaveCostruita = L.id + '|' + d.chiave + '|' + (d.luogo.visto || '') + '|' + (d.vista ? d.vista.join('') : '');
+    chiaveVeli = firmaVeli(d);
   }
   function luceDelMomento(d) {
     const { liv, col } = d.amb, c = new THREE.Color(col[0], col[1], col[2]);
@@ -353,8 +369,9 @@ export function crea(contenitore, opz) {
   return {
     aggiorna(d) {
       if (!d) return; dati = d;
-      const chiave = d.luogo.id + '|' + d.chiave + '|' + (d.luogo.visto || '') + '|' + (d.vista ? d.vista.join('') : '');
-      if (chiave !== chiaveCostruita) costruisci(d);
+      if (firma(d) !== chiaveCostruita) return costruisci(d);
+      if (firmaLuci(d) !== chiaveLuci) luci3D(d);
+      if (firmaVeli(d) !== chiaveVeli) veli3D(d);
     },
     zoom,
     centra() { const io = dati?.segnalini[opz.io()]; if (io) { cam.x = io.x + 0.5; cam.z = io.y - 1.5; } },
