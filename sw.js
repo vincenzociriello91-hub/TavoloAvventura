@@ -1,5 +1,5 @@
 // Service worker: prima la rete (sempre l'ultima versione), cache solo se offline.
-const CACHE = 'tavoloavventura-3.3.0';
+const CACHE = 'tavoloavventura-3.4.0';
 const FILES = ['./', 'index.html', 'styles.css', 'qrcode.js', 'regole.js', 'comandi.js', 'ritratto.js', 'lpc.js', 'mondo.js', 'mappa.js', 'voce.js', 'bot.js', 'suoni.js', 'app.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 const CDN = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -33,3 +33,6 @@ self.addEventListener('fetch', e => {
     })));
   }
 });
+// promemoria delle serate: la notifica arriva senza contenuto (nessun dato personale passa dal servizio di notifiche)
+self.addEventListener('push', e => e.waitUntil(self.registration.showNotification("Tavolo d'Avventura", { body: 'Si avvicina la serata di D&D! Tocca per entrare al tavolo.', icon: 'icon-192.png', badge: 'icon-192.png', tag: 'serata' })));
+self.addEventListener('notificationclick', e => { e.notification.close(); e.waitUntil(self.clients.matchAll({ type: 'window' }).then(l => l.length ? l[0].focus() : self.clients.openWindow('./'))); });

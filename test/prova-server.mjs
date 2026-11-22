@@ -226,6 +226,26 @@ D.invia({ t: 'chat', testo: 'prova quota finita', alMaster: true });
 const ris = await D.aspetta(m => m.t === 'narra' && m.riserva, 40000);
 verifica(ris.testo.length > 20, 'master senza quota: battuta di riserva invece del silenzio');
 
+// copia della campagna, compagno animale sulla mappa, notifiche
+A.invia({ t: 'esporta' });
+const cp = await A.aspetta(m => m.t === 'esportazione', 6000);
+verifica(cp.dati.campagna && Object.keys(cp.dati).some(k => k.startsWith('luogo:')) && !cp.dati.membri, 'copia della campagna senza membri e chiavi');
+D.invia({ t: 'esporta' });
+verifica(await D.aspetta(m => m.t === 'esportazione', 1200).then(() => false, () => true), 'solo chi ha creato la campagna scarica la copia');
+const diarioPrima = cp.dati.diario.length;
+A.invia({ t: 'chat', testo: 'messaggio dopo la copia', alMaster: false }); await A.aspetta(m => m.t === 'diario' && m.ev.testo === 'messaggio dopo la copia');
+A.invia({ t: 'importa', dati: cp.dati });
+const rip = await A.aspetta(m => m.t === 'stato' && !m.stato.diario.some(d => d.testo === 'messaggio dopo la copia'), 8000);
+verifica(rip.stato.diario.length <= diarioPrima + 1 && rip.stato.campagna.invito, 'campagna ripristinata dalla copia (invito attuale conservato)');
+A.invia({ t: 'compagno_nuovo', per: bD.io, nome: 'Fulmine', specie: 'cavallo' });
+const sgC = await D.aspetta(m => m.t === 'segnalini' && Object.values(m.segnalini).some(x => x.animale === 'cavallo'), 6000);
+const idC = Object.keys(sgC.segnalini).find(k => sgC.segnalini[k].animale === 'cavallo');
+verifica(sgC.segnalini[idC].padrone === bD.io, 'il compagno animale compare sulla mappa accanto al suo personaggio');
+D.invia({ t: 'push_chiave' });
+verifica(/^[A-Za-z0-9_-]{80,}$/.test((await D.aspetta(m => m.t === 'push_chiave', 6000)).pub || ''), 'chiave pubblica per le notifiche creata dal server');
+D.invia({ t: 'push_iscrivi', endpoint: 'https://sito-cattivo.example/push' });
+verifica(await D.aspetta(m => m.t === 'push_ok', 1200).then(() => false, () => true), 'iscrizione alle notifiche solo verso i servizi di notifica veri');
+
 // manuale del master: i problemi segnalati finiscono nel manuale condiviso, leggibile dal connettore
 D.invia({ t: 'segnala_problema', testo: 'Prova: mappa con caselle nere' });
 await new Promise(r => setTimeout(r, 800));

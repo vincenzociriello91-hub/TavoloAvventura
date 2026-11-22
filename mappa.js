@@ -734,6 +734,7 @@ const Mappa = (() => {
   // mostri disegnati dall'AI (pixel art su fondo bianco): il bianco attaccato ai bordi diventa trasparente
   const mostriPronti = new Map();
   const nomeMostro = n => String(n || '').toLowerCase().replace(/[^a-zà-ù ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const ANIMALI = { cane: '🐕', lupo: '🐺', falco: '🦅', gatto: '🐈', cavallo: '🐎', pony: '🐴', mulo: '🫏', corvo: '🐦‍⬛' };
   function mostro(s) {
     const url = opz.urlMostro?.(nomeMostro(s.nome)); if (!url) return null;
     let m = mostriPronti.get(url);
@@ -762,6 +763,16 @@ const Mappa = (() => {
   function segnalino(id, s, pos, t) {
     const cx = pos.x * t + t / 2, cy = pos.y * t + t / 2, R = t * 0.44;
     ovale(ctx, cx + t * 0.06, cy + t * 0.1, R, R * 0.9, 'rgba(0,0,0,.45)');
+    if (s.animale) {
+      // compagno animale: il disegno della sua specie (o un'icona) su una basetta del colore del suo giocatore
+      const im = mostro({ nome: s.animale }), bx = cx, by = cy + t * 0.22, rx = R * 0.8, ry = R * 0.36;
+      ctx.fillStyle = s.colore || '#5cc85c'; ctx.beginPath(); ctx.ellipse(bx, by, rx, ry, 0, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(20,17,15,.9)'; ctx.lineWidth = Math.max(1.5, t / 16); ctx.stroke();
+      if (im) { const H = t * (/cavall|pony|mulo/.test(s.animale) ? 1.5 : 1.05), W = H * im.width / im.height; ctx.drawImage(im, bx - W / 2, by - H + ry * 0.4, W, H); }
+      else { ctx.font = `${Math.round(t * 0.7)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(ANIMALI[s.animale] || '🐾', bx, by + ry * 0.2); }
+      ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+      if (t >= 12 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.3)}px Inter, system-ui, sans-serif`; const nw = ctx.measureText(s.nome).width; ctx.fillStyle = 'rgba(20,17,15,.75)'; rr(ctx, bx - nw / 2 - 4, by + ry + 1, nw + 8, Math.max(12, t * 0.4), 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(s.nome, bx - nw / 2, by + ry + Math.max(10, t * 0.32)); }
+      return;
+    }
     if (s.tipo === 'nemico' && !figura(id, s) && mostro(s)) {
       // mostro disegnato in piedi sulla basetta rossa, girato verso il personaggio più vicino
       const im = mostro(s), bx = cx, by = cy + t * 0.22, rx = R * 0.95, ry = R * 0.42, grande = GRANDI.test(nomeMostro(s.nome));
