@@ -347,3 +347,19 @@ body.tv .strumenti-mappa, body.tv #vDadi h3:first-of-type, body.tv #rapidi { dis
 .pagina-diario .piccolo { color: #6a5434; }
 .storia-pg { font-style: italic; line-height: 1.5; }
 .pericolo { border-color: #8a3a2f; color: #ffb199; }
+/* mondo vivo: voto, enigma, nemesi, minacce, bacheca, segreti */
+.mondo-vivo { display: flex; flex-direction: column; gap: 10px; margin: 10px 0; }
+.mondo-vivo:empty { display: none; }
+.voto { border-color: var(--oro); }
+.opzioni-voto { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.opzioni-voto button { flex: 1 1 140px; }
+.enigma .storia-pg, .segreto p { margin: 6px 0; }
+.nemesi { border-color: var(--rosso); }
+.livello-minaccia { color: var(--rosso); letter-spacing: 2px; white-space: nowrap; }
+.missione { padding: 8px 0; border-top: 1px solid rgba(255,255,255,.08); }
+.missione:first-of-type { border-top: 0; }
+.missione.completata { opacity: .6; }
+.missione.accettata strong::before { content: '✔ '; color: var(--verde); }
+.segreto { border: 1px dashed var(--oro); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
+.segreto.fatto { border-style: solid; border-color: var(--verde); }
+button:disabled { opacity: .45; cursor: not-allowed; }
