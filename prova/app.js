@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.4.3';
+const VERSION = '2.4.4';
 const CHANGELOG = [
+  { v: '2.4.4', data: '22/11/2026', voci: [
+    'In Altro, "Avvia partita bot" prende il posto del bot di prova: ogni volta crea una campagna nuova con 4 personaggi bot (razze, classi e nomi diversi) e il master AI, che in pochi minuti provano tutte le funzioni. La tua campagna non viene toccata e alla fine parte il rapporto completo.'
+  ] },
   { v: '2.4.3', data: '22/11/2026', voci: [
     'Master AI più pronto: se un modello di Gemini ci mette troppo (oltre 30 secondi), passa subito a un altro invece di bloccare la partita.'
   ] },
@@ -1262,17 +1265,17 @@ $('#btnPreferito').addEventListener('click', () => {
 // Bot di prova (solo amministratore)
 $('#btnBot').addEventListener('click', async () => {
   if (BotProva.attivo) return;
-  const invito = S.st?.campagna?.invito; if (!invito) { toast('Serve il codice invito: crea un nuovo codice in Altro', true); return; }
-  const ul = $('#botLog'); ul.innerHTML = ''; $('#btnBot').disabled = true; $('#btnBot').textContent = 'Il bot sta giocando…';
+  const ul = $('#botLog'); ul.innerHTML = ''; $('#btnBot').disabled = true; $('#btnBot').textContent = 'La partita bot è in corso…';
+  // ogni volta una campagna nuova: 4 personaggi bot e il master AI provano tutte le funzioni, poi parte il rapporto
   const r = await BotProva.avvia({
-    url: `${SERVER_WS}/tavolo/${S.codice}/ws`, invito,
+    server: SERVER_WS,
     log: (t, d) => Report.log(t, d),
     onPasso: t => ul.insertAdjacentHTML('beforeend', `<li>▶ ${esc(t)}</li>`),
     onErr: m => ul.insertAdjacentHTML('beforeend', `<li>❌ ${esc(m)}</li>`)
   });
-  ul.insertAdjacentHTML('beforeend', `<li>✅ Finito in ${r.durataS} s: comandi capiti ${r.comandi.capiti} (+${r.comandi.aiCapiti} dall'AI), non capiti ${r.comandi.nonCapiti.length}; risposte del master ${r.master.filter(x => x.png !== undefined && !/nessuna/.test(x.risposta)).length}/${r.master.length}${r.rispostaMedianaMasterMs ? ', tempo medio ' + Math.round(r.rispostaMedianaMasterMs / 100) / 10 + ' s' : ''}; mappe persistenti: ${r.persistenza === null ? '—' : r.persistenza ? 'sì' : 'NO'}.</li>`);
-  $('#btnBot').disabled = false; $('#btnBot').textContent = 'Avvia bot di prova';
-  await Report.chiudi('bot di prova'); toast('Rapporto del bot inviato');
+  if (r) ul.insertAdjacentHTML('beforeend', `<li>✅ Finito in ${r.durataS} s: ${r.ok} prove riuscite, ${r.falliti.length} non riuscite${r.falliti.length ? ' (' + esc(r.falliti.join(', ')) + ')' : ''}.</li>`);
+  $('#btnBot').disabled = false; $('#btnBot').textContent = 'Avvia partita bot';
+  await Report.chiudi('partita bot'); toast('Rapporto della partita bot inviato');
 });
 $('#btnLascia').addEventListener('click', async () => {
   const i = await chiedi('<h2>Lasciare la campagna?</h2><p>Il tuo personaggio e il tuo posto nella campagna vengono cancellati per sempre. Per tornare servirà un nuovo invito.</p>', [{ testo: 'Lascia', pieno: true }, { testo: 'Annulla' }]);
