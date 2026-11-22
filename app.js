@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.4.2';
+const VERSION = '2.4.3';
 const CHANGELOG = [
+  { v: '2.4.3', data: '22/11/2026', voci: [
+    'Master AI più pronto: se un modello di Gemini ci mette troppo (oltre 30 secondi), passa subito a un altro invece di bloccare la partita.'
+  ] },
   { v: '2.4.2', data: '22/11/2026', voci: [
     'Il d100 si tira come al tavolo: due dadi da dieci, uno per le decine (00-90) e uno per le unità (0-9). Prima il dado mostrava un numero diverso dal risultato.',
     'Master AI più resistente: se un modello Gemini ha finito la quota gratuita o non esiste più, passa da solo ad altri modelli. Se la quota è finita per tutti, l\'app lo dice chiaramente.'
@@ -202,6 +205,7 @@ const Report = {
   }
 };
 window.addEventListener('error', e => {
+  if (/ResizeObserver loop/.test(e.message)) return; // avviso innocuo del browser, non un errore
   Report.log('errore', { msg: e.message, file: e.filename, riga: e.lineno, col: e.colno });
   // subito dopo un aggiornamento GitHub Pages può servire index.html vecchio con app.js nuovo: si ricarica una volta sola
   if (performance.now() < 5000 && /null/.test(e.message)) { try { if (!sessionStorage.getItem('ta_ricaricata')) { sessionStorage.setItem('ta_ricaricata', '1'); location.reload(); } } catch {} }
