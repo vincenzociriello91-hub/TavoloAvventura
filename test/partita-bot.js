@@ -88,11 +88,11 @@ const chiedi = (p, msg, tipo, ms = 45000) => p.evaluate(([msg, tipo, ms]) => new
     return D.evaluate(p => S.st.segnalini[S.io].x === p.x && S.st.segnalini[S.io].y === p.y, prima);
   });
   await passo('zoom della mappa e "Tutta la mappa"', async () => { await A.click('#btnZoomPiu'); await A.click('#btnZoomMeno'); await A.click('#btnZoomTutta'); return true; });
-  await passo('vista 3D accesa e spenta', async () => { await A.click('#btn3d'); await A.waitForSelector('#mappa3dBox canvas', { timeout: 20000 }); await A.waitForTimeout(1500); await A.click('#btnZoomTutta'); await A.click('#btn3d'); return true; });
+  await passo('vista 3D accesa e spenta', async () => { await A.click('#btn3d'); try { await A.waitForSelector('#mappa3dBox canvas', { state: 'attached', timeout: 45000 }); await A.waitForTimeout(1500); await A.click('#btnZoomTutta'); } finally { if (!await A.evaluate(() => document.querySelector('#mappa3dBox').hidden)) await A.click('#btn3d'); } return true; }); // sul server di GitHub (senza scheda video) il 3D è lento
   await passo('mappa del mondo illustrata', async () => { await A.click('#btnMondo'); await A.waitForTimeout(800); await A.click('#btnMondo'); return true; });
 
   // luoghi ed edifici
-  await passo('viaggio verso un altro luogo', async () => { await A.evaluate(() => invia({ t: 'vai', nome: 'Villaggio di Pietrarossa' })); await A.waitForFunction(() => /Pietrarossa/.test(S.st.luogo?.nome), null, { timeout: 15000 }); return true; });
+  await passo('viaggio verso un altro luogo', async () => { await A.evaluate(() => invia({ t: 'vai', nome: 'Villaggio di Pietrarossa' })); await A.waitForFunction(() => /Pietrarossa/.test(S.st.luogo?.nome), null, { timeout: 45000 }); return true; });
   await passo('entrare in un edificio e uscire', async () => {
     const ed = await A.evaluate(() => S.st.luogo.edifici.find(e => e.stato !== 'distrutto' && !/pozzo|torre|radura/i.test(e.nome))); await A.evaluate(id => invia({ t: 'entra_edificio', edificio: id }), ed.id);
     await A.waitForFunction(() => S.st.luogo?.genitore, null, { timeout: 40000 }); const dentro = await A.evaluate(() => S.st.luogo.nome);
