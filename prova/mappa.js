@@ -17,11 +17,12 @@ const Mappa = (() => {
   const PASSABILI = [...PIATTI, 'sedia', 'sgabello', 'torcia', 'candelabro'];
   const LUCI = { camino: [5, '255,140,50'], candelabro: [3.5, '255,200,110'], torcia: [4.5, '255,150,60'], funghi: [1.6, '90,220,200'], falo: [5, '255,140,50'], lampione: [3, '255,215,140'] };
 
-  function setExtra(e) { extra = { ...extra, ...e }; disegna(); }
+  const cambiato = () => opz.onCambio?.();
+  function setExtra(e) { extra = { ...extra, ...e }; disegna(); cambiato(); }
   function setAmbiente(a) {
     const n = { ora: a?.ora ?? null, meteo: a?.meteo || '', stagione: a?.stagione || '' };
     if (JSON.stringify(n) === JSON.stringify(amb)) return;
-    amb = n; particelle = []; cacheChiave = ''; disegna();
+    amb = n; particelle = []; cacheChiave = ''; disegna(); cambiato();
   }
   const MESI_STAGIONE = ['inverno', 'inverno', 'primavera', 'primavera', 'primavera', 'estate', 'estate', 'estate', 'autunno', 'autunno', 'autunno', 'inverno'];
   const stagione = () => amb.stagione || MESI_STAGIONE[new Date().getMonth()];
@@ -109,8 +110,8 @@ const Mappa = (() => {
     cv.style.width = luogo.w * tile + 'px'; cv.style.height = luogo.h * tile + 'px';
     cacheChiave = ''; disegna();
   }
-  function imposta(l, s, m) { const nuovo = !luogo || !l || luogo.id !== l.id; if (l !== luogo) cacheChiave = ''; luogo = l; segnalini = s || {}; membri = m || membri; if (nuovo) adatta(); else disegna(); }
-  function aggiornaSegnalini(s) { segnalini = s || {}; disegna(); }
+  function imposta(l, s, m) { const nuovo = !luogo || !l || luogo.id !== l.id; if (l !== luogo) cacheChiave = ''; luogo = l; segnalini = s || {}; membri = m || membri; if (nuovo) adatta(); else disegna(); cambiato(); }
+  function aggiornaSegnalini(s) { segnalini = s || {}; disegna(); cambiato(); }
   function cella(x, y) { return luogo.celle[y]?.[x] ?? '#'; }
   const muro = c => c === '#' || c === 'w' || c === 'R';
   const esterno = () => ['citta', 'villaggio', 'porto', 'foresta', 'aperto', 'castello'].includes(luogo.tipo);
@@ -714,6 +715,34 @@ const Mappa = (() => {
     if (io) for (const f of fiamme) fuoco = Math.max(fuoco, 1 - Math.hypot(f.x - io.x - 0.5, f.y - io.y - 0.5) / 6);
     return { meteo: meteo(), esterno: esterno(), fuoco: Math.max(0, fuoco) };
   }
-  function setVisto(id, visto) { if (luogo && luogo.id === id) { luogo.visto = visto; disegna(); } }
-  return { init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, chiediCasella, setVisto, celleArea };
+  function setVisto(id, visto) { if (luogo && luogo.id === id) { luogo.visto = visto; disegna(); cambiato(); } }
+  /* ---------------- per la vista 3D (mappa3d.js): stessi dati, stesse regole ---------------- */
+  // terreno piatto (pavimenti, strade, erba, acqua, porte, bancone, camino, scale, tappeti) a [px] pixel per casella
+  function terreno3D(px) {
+    const c0 = document.createElement('canvas'); c0.width = luogo.w * px; c0.height = luogo.h * px;
+    const c = c0.getContext('2d'), salva = dpr; dpr = 1;
+    const tutte = (fn) => { for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) fn(c, cella(x, y), x, y, px); };
+    tutte(base); tutte(texture); tutte((cc, ch, x, y, t) => { if (!muro(ch)) ombre(cc, ch, x, y, t); }); tutte((cc, ch, x, y, t) => { if (ch !== 'f') struttura(cc, ch, x, y, t); });
+    for (const o of luogo.oggetti || []) if (PIATTI.includes(o.tipo)) oggetto(c, o, px);
+    dpr = salva;
+    return c0;
+  }
+  // disegno dall'alto di un oggetto, per quelli che in 3D restano decalcomanie
+  function spriteOggetto(o, px) { const c = document.createElement('canvas'); c.width = c.height = px * 2; oggetto(c.getContext('2d'), { ...o, x: 0, y: 0 }, px, px / 2, px / 2); return c; }
+  function dati3D() {
+    if (!luogo) return null;
+    if (cv && cv.width) strato(); // calcola luce per casella e fiamme
+    return { luogo, segnalini, extra, amb: luceAmbiente(), sole: sole() ? vettoreSole() : null, sorgenti: sorgenti(), stagione: stagione(), meteo: meteo(), innevato: innevato(), esterno: esterno(), notte: notte(), vista: calcolaVista(), chiave: cacheChiave };
+  }
+  // stesso comportamento dei tocchi in 2D: breve = vai lì, lungo = scheda dell'edificio
+  function azioneCasella(x, y, lunga) {
+    if (!luogo || x < 0 || y < 0 || x >= luogo.w || y >= luogo.h) return;
+    if (attesaArea) { const cb = attesaArea; attesaArea = null; cb(x, y); return; }
+    if (lunga) { const ed = luogo.edifici.find(e => dentroEd(e, x, y)); if (ed) opz.onEdificio?.(ed); return; }
+    const io = opz.io(), ob = oggettoIn(x, y);
+    const libera = !'#wRT~'.includes(cella(x, y)) && !(ob && !PASSABILI.includes(ob.tipo)) && !Object.values(segnalini).some(s => s.x === x && s.y === y);
+    if (segnalini[io] && libera) { segnalini[io] = { ...segnalini[io], x, y }; opz.onMuovi?.(io, x, y); disegna(); cambiato(); }
+  }
+  const casa3D = (x, y) => casaDi(x, y);
+  return { init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, terreno3D, spriteOggetto, dati3D, azioneCasella, casa3D, figura: (id, s) => figura(id, s), puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea };
 })();
