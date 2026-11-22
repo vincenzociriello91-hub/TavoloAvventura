@@ -5,13 +5,42 @@
 const Mappa = (() => {
   let cv, ctx, luogo = null, segnalini = {}, membri = {}, opz = {}, tile = 24, trascina = null, premi = null, dpr = 1, evidenzia = null;
   let extra = { aree: [], vedeTutto: false, movimento: null }, attesaArea = null;
-  let cache = null, cacheChiave = '';
+  let cache = null, cacheChiave = '', bagliore = null, fiamme = [];
+  // ambiente del gioco (dai Varchi): ora del giorno, meteo e stagione cambiano luce, ombre del sole, terreno e alberi
+  let amb = { ora: null, meteo: '', stagione: '' };
+  let particelle = [], lampo = 0, ultimoFotogramma = 0;
   const ritratti = new Map();
   const PIATTI = ['tappeto', 'ragnatela', 'ossa', 'funghi', 'macerie'];
   const PASSABILI = [...PIATTI, 'sedia', 'sgabello', 'torcia', 'candelabro'];
-  const LUCI = { camino: [5, '255,140,50'], candelabro: [3, '255,200,110'], torcia: [3.5, '255,150,60'], falo: [5, '255,140,50'], lampione: [3, '255,215,140'] };
+  const LUCI = { camino: [5, '255,140,50'], candelabro: [3.5, '255,200,110'], torcia: [4.5, '255,150,60'], funghi: [1.6, '90,220,200'], falo: [5, '255,140,50'], lampione: [3, '255,215,140'] };
 
   function setExtra(e) { extra = { ...extra, ...e }; disegna(); }
+  function setAmbiente(a) {
+    const n = { ora: a?.ora ?? null, meteo: a?.meteo || '', stagione: a?.stagione || '' };
+    if (JSON.stringify(n) === JSON.stringify(amb)) return;
+    amb = n; particelle = []; cacheChiave = ''; disegna();
+  }
+  const MESI_STAGIONE = ['inverno', 'inverno', 'primavera', 'primavera', 'primavera', 'estate', 'estate', 'estate', 'autunno', 'autunno', 'autunno', 'inverno'];
+  const stagione = () => amb.stagione || MESI_STAGIONE[new Date().getMonth()];
+  const ora = () => amb.ora ?? new Date().getHours() + new Date().getMinutes() / 60;
+  const meteo = () => amb.meteo || 'sereno';
+  const innevato = () => stagione() === 'inverno' && meteo() === 'neve' && esterno();
+  // luce ambiente: livello 0..1 e colore. Fuori segue l'ora e il meteo; dentro è più bassa; sotto terra quasi buio.
+  function luceAmbiente() {
+    const tipo = luogo.tipo;
+    if (tipo === 'dungeon') return { liv: 0.27, col: [0.6, 0.65, 0.95] };
+    if (tipo === 'grotta') return { liv: 0.3, col: [0.6, 0.68, 0.9] };
+    const o = ora(), notteOra = o < 5 || o >= 20.5;
+    if (tipo === 'taverna' || tipo === 'interno') return notteOra ? { liv: 0.56, col: [0.95, 0.85, 0.75] } : { liv: 0.62, col: [1, 0.95, 0.88] };
+    let liv, col;
+    if (o >= 8 && o < 17) { liv = 1; col = [1, 1, 1]; }
+    else if (o >= 5 && o < 8) { const k = (o - 5) / 3; liv = 0.3 + 0.7 * k; col = [1, 0.75 + 0.25 * k, 0.6 + 0.4 * k]; }
+    else if (o >= 17 && o < 20.5) { const k = (o - 17) / 3.5; liv = 1 - 0.75 * k; col = [1, 0.82 - 0.2 * k, 0.7 - 0.15 * k]; }
+    else { liv = 0.32; col = [0.55, 0.65, 1]; }
+    liv *= { nuvoloso: 0.85, pioggia: 0.7, temporale: 0.55, neve: 0.92, nebbia: 0.85 }[meteo()] || 1;
+    return { liv, col };
+  }
+  const notte = () => luceAmbiente().liv < 0.5;
   function chiediCasella(cb) { attesaArea = cb; cv.style.cursor = 'crosshair'; }
   function celleArea(a) {
     const out = [];
@@ -37,6 +66,34 @@ const Mappa = (() => {
     cv.addEventListener('pointerdown', giu); cv.addEventListener('pointermove', muovi); cv.addEventListener('pointerup', su); cv.addEventListener('pointercancel', () => { trascina = null; annullaPremi(); disegna(); });
     cv.addEventListener('contextmenu', e => e.preventDefault());
     new ResizeObserver(() => adatta()).observe(cv.parentElement);
+    anima();
+  }
+  // animazione leggera (~15 fotogrammi al secondo) solo se la mappa si vede e c'è qualcosa che si muove
+  function anima() {
+    const vivo = luogo && cv.offsetParent !== null && document.visibilityState === 'visible' && (fiamme.length || (esterno() && ['pioggia', 'temporale', 'neve', 'nebbia'].includes(meteo())));
+    if (vivo && !trascina) disegna(true);
+    setTimeout(() => requestAnimationFrame(anima), vivo ? 66 : 500);
+  }
+  // pioggia, neve, nebbia e lampi sopra la mappa (solo all'aperto)
+  function meteoAnimato(t) {
+    const m = meteo(); if (!esterno() || !['pioggia', 'temporale', 'neve', 'nebbia'].includes(m)) return;
+    const W = luogo.w * t, H = luogo.h * t, adesso = performance.now(), dt = Math.min(0.1, (adesso - (ultimoFotogramma || adesso)) / 1000); ultimoFotogramma = adesso;
+    const quante = m === 'temporale' ? 260 : m === 'pioggia' ? 170 : m === 'neve' ? 140 : 7;
+    while (particelle.length < quante) particelle.push({ x: Math.random() * W, y: Math.random() * H, v: 0.6 + Math.random() * 0.6, f: Math.random() * 6.28 });
+    if (m === 'nebbia') {
+      for (const p of particelle) { p.x += dt * 8 * p.v; if (p.x > W + 200) p.x = -200; const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, t * 6); g.addColorStop(0, 'rgba(225,228,235,.22)'); g.addColorStop(1, 'rgba(225,228,235,0)'); ctx.fillStyle = g; ctx.fillRect(p.x - t * 6, p.y - t * 6, t * 12, t * 12); }
+      return;
+    }
+    if (m === 'neve') {
+      ctx.fillStyle = 'rgba(255,255,255,.9)';
+      for (const p of particelle) { p.y += dt * t * 1.6 * p.v; p.f += dt * 2; p.x += Math.sin(p.f) * 0.4; if (p.y > H) { p.y = -4; p.x = Math.random() * W; } ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1, t / 18) * p.v * 1.4, 0, 7); ctx.fill(); }
+      return;
+    }
+    ctx.strokeStyle = 'rgba(190,210,235,.45)'; ctx.lineWidth = Math.max(1, t / 28); ctx.beginPath();
+    for (const p of particelle) { p.y += dt * t * 22 * p.v; p.x -= dt * t * 4 * p.v; if (p.y > H || p.x < 0) { p.y = -t; p.x = Math.random() * W * 1.1; } ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + t * 0.12, p.y - t * 0.55 * p.v); }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(20,30,50,.12)'; ctx.fillRect(0, 0, W, H);
+    if (m === 'temporale') { if (lampo <= 0 && Math.random() < 0.004) lampo = 1; if (lampo > 0) { ctx.fillStyle = `rgba(235,240,255,${lampo * 0.55})`; ctx.fillRect(0, 0, W, H); lampo -= dt * 3; } }
   }
   function adatta() {
     if (!cv || !luogo) return;
@@ -66,7 +123,10 @@ const Mappa = (() => {
     const r = rnd(x, y), X = x * t, Y = y * t, v = r();
     const tipo = luogo.tipo;
     let col;
-    if (ch === '.' || ch === 'T') col = hsl(92 + v * 14, 30 + v * 8, tipo === 'foresta' ? 22 + v * 5 : 28 + v * 5);
+    if (ch === '.' || ch === 'T') {
+      const st = stagione();
+      col = innevato() ? hsl(210, 18, 86 + v * 6) : st === 'autunno' ? hsl(62 + v * 12, 32 + v * 8, tipo === 'foresta' ? 22 + v * 5 : 28 + v * 5) : st === 'inverno' ? hsl(85 + v * 12, 14 + v * 6, 30 + v * 5) : hsl(92 + v * 14, 30 + v * 8, tipo === 'foresta' ? 22 + v * 5 : 28 + v * 5);
+    }
     else if (ch === ',') col = ['citta', 'castello'].includes(tipo) ? '#3d3833' : hsl(30, 28 + v * 6, 34 + v * 5);
     else if (ch === '_') col = tipo === 'grotta' ? hsl(30, 14, 36 + v * 6) : '#35312d';
     else if (ch === '=' || ch === '+' || ch === 'b') col = '#3b2a1c';
@@ -81,11 +141,15 @@ const Mappa = (() => {
   }
   function texture(c, ch, x, y, t) {
     const r = rnd(x, y, 1), X = x * t, Y = y * t, tipo = luogo.tipo;
-    if (ch === '.' || ch === 'T') {
+    if ((ch === '.' || ch === 'T') && innevato()) {
+      for (let k = 0; k < 3; k++) ovale(c, X + r() * t, Y + r() * t, t * (0.3 + r() * 0.5), t * (0.2 + r() * 0.4), r() < 0.6 ? 'rgba(120,140,180,.14)' : 'rgba(255,255,255,.35)');
+      for (let k = 0; k < 2; k++) if (r() < 0.35) { c.strokeStyle = 'rgba(60,80,40,.6)'; c.lineWidth = 1; const bx = X + r() * t, by = Y + r() * t; c.beginPath(); c.moveTo(bx, by); c.lineTo(bx + 1, by - t * 0.12); c.stroke(); }
+    } else if (ch === '.' || ch === 'T') {
       for (let k = 0; k < 3; k++) ovale(c, X + r() * t, Y + r() * t, t * (0.3 + r() * 0.5), t * (0.2 + r() * 0.4), r() < 0.5 ? 'rgba(20,40,10,.18)' : 'rgba(150,180,90,.10)');
+      if (stagione() === 'autunno') for (let k = 0; k < 4; k++) ovale(c, X + r() * t, Y + r() * t, t * 0.045, t * 0.03, ['#c8641e', '#d8a02a', '#a83a1e'][Math.floor(r() * 3)]);
       c.lineWidth = Math.max(1, t / 30); c.lineCap = 'round';
       for (let k = 0; k < 9; k++) { const bx = X + r() * t, by = Y + r() * t, l = t * (0.08 + r() * 0.1); c.strokeStyle = r() < 0.5 ? 'rgba(25,50,15,.55)' : 'rgba(140,175,80,.45)'; c.beginPath(); c.moveTo(bx, by); c.lineTo(bx + (r() - 0.5) * l, by - l); c.stroke(); }
-      if (r() < 0.06) for (let k = 0; k < 3; k++) ovale(c, X + r() * t, Y + r() * t, t * 0.04, t * 0.04, r() < 0.5 ? '#f3e7a0' : '#e8e8f0');
+      if (r() < (stagione() === 'primavera' ? 0.22 : stagione() === 'estate' ? 0.08 : 0.02)) for (let k = 0; k < 3; k++) ovale(c, X + r() * t, Y + r() * t, t * 0.04, t * 0.04, ['#f3e7a0', '#e8e8f0', '#e890b0', '#a0b8f0'][Math.floor(r() * 4)]);
     } else if (ch === ',') {
       if (['citta', 'castello'].includes(tipo)) {
         // ciottoli
@@ -93,6 +157,7 @@ const Mappa = (() => {
         for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const o = (j % 2) * s / 2, v = r(); rr(c, X + i * s + o - s / 2 + 1, Y + j * s + 1, s - 2, s - 2, s * 0.35); c.fillStyle = hsl(30, 6 + v * 6, 40 + v * 14); c.fill(); }
         c.fillStyle = 'rgba(255,255,255,.05)'; c.fillRect(X, Y, t, t * 0.1);
       } else {
+        if (innevato()) for (let k = 0; k < 3; k++) ovale(c, X + r() * t, Y + r() * t, t * 0.35, t * 0.25, 'rgba(235,240,250,.45)');
         for (let k = 0; k < 3; k++) ovale(c, X + r() * t, Y + r() * t, t * (0.3 + r() * 0.4), t * (0.2 + r() * 0.3), r() < 0.5 ? 'rgba(60,40,20,.20)' : 'rgba(200,170,120,.12)');
         for (let k = 0; k < 6; k++) ovale(c, X + r() * t, Y + r() * t, t * 0.035, t * 0.03, r() < 0.5 ? '#9a8d78' : '#5c5040');
       }
@@ -131,6 +196,12 @@ const Mappa = (() => {
       for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) { const v = r(); c.fillStyle = hsl(40, 6, 46 + v * 12); c.fillRect(X + i * s + 1 - (j % 2) * s / 2, Y + j * s + 1, s - 2, s - 2); }
       c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(X, Y, t, t * 0.08); c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(X, Y + t * 0.92, t, t * 0.08);
       if ((x + y) % 2 === 0) { c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(X + t * 0.3, Y + t * 0.3, t * 0.4, t * 0.4); }
+      if (y + 1 < luogo.h && !muro(cella(x, y + 1))) faccia(c, x, y, t, 40, 6, 44);
+    } else if (ch === 'R' && y + 1 < luogo.h && !muro(cella(x, y + 1)) && cella(x, y + 1) !== '~') {
+      // parete di roccia vista di fronte
+      const g = c.createLinearGradient(X, Y + t * 0.35, X, Y + t); g.addColorStop(0, '#5a4e42'); g.addColorStop(1, '#2a241e');
+      c.fillStyle = g; c.beginPath(); c.moveTo(X, Y + t * 0.45); for (let k = 0; k <= 4; k++) c.lineTo(X + k * t / 4, Y + t * (0.3 + r() * 0.25)); c.lineTo(X + t, Y + t); c.lineTo(X, Y + t); c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1; for (let k = 0; k < 3; k++) { const px = X + r() * t; c.beginPath(); c.moveTo(px, Y + t * 0.5); c.lineTo(px + (r() - 0.5) * t * 0.2, Y + t); c.stroke(); }
     } else if (ch === 'R') {
       for (let k = 0; k < 4; k++) { const v = r(); c.fillStyle = hsl(28, 8, 9 + v * 9); c.beginPath(); const cx = X + r() * t, cy = Y + r() * t, s = t * (0.25 + r() * 0.3); c.moveTo(cx - s, cy); c.lineTo(cx - s * 0.3, cy - s * 0.8); c.lineTo(cx + s * 0.7, cy - s * 0.5); c.lineTo(cx + s, cy + s * 0.3); c.lineTo(cx, cy + s * 0.8); c.closePath(); c.fill(); }
     } else if (ch === '#') {
@@ -140,8 +211,20 @@ const Mappa = (() => {
         const s = t / 2;
         for (let j = 0; j < 2; j++) for (let i = -1; i < 2; i++) { const v = r(), bx = X + i * s + (j % 2 ? s / 2 : 0); c.fillStyle = hsl(25, 8, 16 + v * 9); c.fillRect(Math.max(X, bx + 1), Y + j * s + 1, Math.min(s - 2, X + t - bx - 1), s - 2); }
         c.fillStyle = 'rgba(255,255,255,.10)'; c.fillRect(X, Y, t, Math.max(1, t / 14));
+        if (y + 1 < luogo.h && !muro(cella(x, y + 1)) && !casaDi(x, y)) faccia(c, x, y, t, 30, 8, 30);
       } else for (let k = 0; k < 3; k++) ovale(c, X + r() * t, Y + r() * t, t * 0.3, t * 0.2, 'rgba(255,255,255,.025)');
     }
+  }
+  // faccia frontale di un muro (rilievo): mattoni illuminati dall'alto, base in ombra
+  function faccia(c, x, y, t, hh, s, l) {
+    const X = x * t, Y = y * t, r = rnd(x, y, 5), top = Y + t * 0.48, alto = t * 0.52;
+    const g = c.createLinearGradient(X, top, X, Y + t); g.addColorStop(0, hsl(hh, s, l + 8)); g.addColorStop(1, hsl(hh, s, l - 10));
+    c.fillStyle = g; c.fillRect(X, top, t + 0.5, alto);
+    c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1;
+    for (let j = 1; j < 3; j++) { const ry = top + j * alto / 3; c.beginPath(); c.moveTo(X, ry); c.lineTo(X + t, ry); c.stroke(); }
+    for (let j = 0; j < 3; j++) { const o = (j % 2) * t / 4 + r() * 2; for (let px = X + o; px < X + t; px += t / 2) { c.beginPath(); c.moveTo(px, top + j * alto / 3); c.lineTo(px, top + (j + 1) * alto / 3); c.stroke(); } }
+    c.fillStyle = 'rgba(255,255,255,.22)'; c.fillRect(X, top, t, Math.max(1, t / 18));
+    c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(X, Y + t - Math.max(1, t / 14), t, Math.max(1, t / 14));
   }
   // ombre portate dai muri sul pavimento e schiuma sulle rive
   function ombre(c, ch, x, y, t) {
@@ -189,11 +272,22 @@ const Mappa = (() => {
   }
   function albero(c, x, y, t) {
     const r = rnd(x, y, 3), cx = x * t + t / 2 + (r() - 0.5) * t * 0.3, cy = y * t + t / 2 + (r() - 0.5) * t * 0.3, R = t * (0.62 + r() * 0.25);
-    ovale(c, cx + R * 0.35, cy + R * 0.4, R * 0.95, R * 0.8, 'rgba(0,0,0,.32)');
-    const tono = 95 + r() * 30;
-    for (let k = 0; k < 6; k++) { const a = r() * 6.28, d = R * 0.45 * r(); ovale(c, cx + Math.cos(a) * d, cy + Math.sin(a) * d, R * 0.55, R * 0.55, hsl(tono, 38, 18 + r() * 6)); }
-    for (let k = 0; k < 5; k++) { const a = r() * 6.28, d = R * 0.35 * r(); ovale(c, cx + Math.cos(a) * d - R * 0.12, cy + Math.sin(a) * d - R * 0.15, R * 0.32, R * 0.3, hsl(tono, 40, 27 + r() * 8)); }
-    for (let k = 0; k < 4; k++) ovale(c, cx - R * 0.25 + r() * R * 0.3, cy - R * 0.3 + r() * R * 0.3, R * 0.12, R * 0.1, hsl(tono - 10, 45, 40));
+    if (!sole()) ovale(c, cx + R * 0.2, cy + R * 0.25, R * 0.9, R * 0.75, 'rgba(0,0,0,.28)');
+    const st = stagione(), pino = r() < (luogo.tipo === 'foresta' ? 0.35 : 0.2);
+    if (st === 'inverno' && !pino) {
+      // albero spoglio
+      c.strokeStyle = '#4a3624'; c.lineCap = 'round';
+      for (let k = 0; k < 7; k++) { const a = k / 7 * 6.28 + r(), l = R * (0.6 + r() * 0.4); c.lineWidth = Math.max(1, t / 14); c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + Math.cos(a) * l, cy + Math.sin(a) * l); c.stroke(); c.lineWidth = 1; c.beginPath(); c.moveTo(cx + Math.cos(a) * l * 0.6, cy + Math.sin(a) * l * 0.6); c.lineTo(cx + Math.cos(a + 0.5) * l * 0.9, cy + Math.sin(a + 0.5) * l * 0.9); c.stroke(); }
+      ovale(c, cx, cy, R * 0.16, R * 0.16, '#3a2a1a');
+      if (innevato()) for (let k = 0; k < 6; k++) ovale(c, cx + (r() - 0.5) * R, cy + (r() - 0.5) * R, R * 0.08, R * 0.05, '#f0f4fa');
+      return;
+    }
+    const tono = pino ? 140 + r() * 15 : st === 'autunno' ? 18 + r() * 30 : st === 'estate' ? 100 + r() * 20 : 90 + r() * 30;
+    const sat = pino ? 30 : st === 'autunno' ? 65 : 40;
+    for (let k = 0; k < 6; k++) { const a = r() * 6.28, d = R * 0.45 * r(); ovale(c, cx + Math.cos(a) * d, cy + Math.sin(a) * d, R * 0.55, R * 0.55, hsl(tono, sat, 18 + r() * 6)); }
+    for (let k = 0; k < 5; k++) { const a = r() * 6.28, d = R * 0.35 * r(); ovale(c, cx + Math.cos(a) * d - R * 0.12, cy + Math.sin(a) * d - R * 0.15, R * 0.32, R * 0.3, hsl(tono, sat + 2, 27 + r() * 8)); }
+    for (let k = 0; k < 4; k++) ovale(c, cx - R * 0.25 + r() * R * 0.3, cy - R * 0.3 + r() * R * 0.3, R * 0.12, R * 0.1, hsl(tono - 10, sat + 5, 40));
+    if (innevato()) for (let k = 0; k < 5; k++) ovale(c, cx - R * 0.3 + r() * R * 0.5, cy - R * 0.35 + r() * R * 0.4, R * 0.18, R * 0.1, 'rgba(245,248,255,.9)');
   }
   function fiamma(c, x, y, s) {
     const g = c.createRadialGradient(x, y, 0, x, y, s); g.addColorStop(0, '#fff6c0'); g.addColorStop(0.35, '#ffb02e'); g.addColorStop(0.75, 'rgba(230,80,20,.85)'); g.addColorStop(1, 'rgba(200,40,10,0)');
@@ -213,7 +307,7 @@ const Mappa = (() => {
     }
     if (!(esterno() && luogo.celle[e.y]?.[e.x] === '#')) return;
     // ombra dell'edificio
-    c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(X + t * 0.3, Y + t * 0.35, W, H);
+    if (!sole()) { c.fillStyle = 'rgba(0,0,0,.3)'; c.fillRect(X + t * 0.2, Y + t * 0.25, W, H); }
     if (e.stato === 'distrutto') {
       c.fillStyle = '#3a342e'; c.fillRect(X, Y, W, H);
       for (let k = 0; k < e.w * e.h * 5; k++) { const v = r(); c.fillStyle = hsl(30, 6, 25 + v * 25); c.beginPath(); const px = X + r() * W, py = Y + r() * H, s = t * (0.08 + r() * 0.18); c.moveTo(px - s, py); c.lineTo(px, py - s * 0.8); c.lineTo(px + s, py + s * 0.2); c.lineTo(px - s * 0.2, py + s); c.closePath(); c.fill(); }
@@ -241,6 +335,7 @@ const Mappa = (() => {
     if (orizz) { for (let py = Y + passo; py < Y + H; py += passo) { c.beginPath(); c.moveTo(X, py); c.lineTo(X + W, py); c.stroke(); for (let px = X + ((py / passo) % 2) * passo * 0.6; px < X + W; px += passo * 1.2) { c.beginPath(); c.moveTo(px, py - passo); c.lineTo(px, py); c.stroke(); } } }
     else { for (let px = X + passo; px < X + W; px += passo) { c.beginPath(); c.moveTo(px, Y); c.lineTo(px, Y + H); c.stroke(); for (let py = Y + ((px / passo) % 2) * passo * 0.6; py < Y + H; py += passo * 1.2) { c.beginPath(); c.moveTo(px - passo, py); c.lineTo(px, py); c.stroke(); } } }
     c.fillStyle = 'rgba(255,255,255,.18)'; orizz ? c.fillRect(X, Y + H / 2 - t * 0.06, W, t * 0.12) : c.fillRect(X + W / 2 - t * 0.06, Y, t * 0.12, H);
+    if (innevato()) { c.fillStyle = 'rgba(240,245,252,.82)'; c.fillRect(X, Y, W, H); c.fillStyle = 'rgba(150,170,200,.35)'; orizz ? c.fillRect(X, Y + H / 2, W, H / 2) : c.fillRect(X + W / 2, Y, W / 2, H); }
     c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineWidth = Math.max(1.5, t / 10); c.strokeRect(X + 0.5, Y + 0.5, W - 1, H - 1);
     if (!tempio && r() < 0.7) { const cx = X + W * (0.2 + r() * 0.6), cy = orizz ? Y + H * 0.25 : Y + H * (0.2 + r() * 0.6); c.fillStyle = '#5a524a'; c.fillRect(cx, cy, t * 0.4, t * 0.4); c.fillStyle = '#1a1512'; c.fillRect(cx + t * 0.08, cy + t * 0.08, t * 0.24, t * 0.24); }
     if (tempio) { c.fillStyle = '#e8d890'; const cx = X + W / 2, cy = Y + H / 2; c.fillRect(cx - t * 0.06, cy - t * 0.35, t * 0.12, t * 0.7); c.fillRect(cx - t * 0.25, cy - t * 0.15, t * 0.5, t * 0.12); }
@@ -302,28 +397,106 @@ const Mappa = (() => {
     if (o.nome && t >= 22) { c.font = `600 ${Math.max(9, t * 0.32)}px Inter, system-ui, sans-serif`; const tw = c.measureText(o.nome).width; c.fillStyle = 'rgba(20,17,15,.7)'; c.fillRect(cx - tw / 2 - 3, Y - t * 0.3, tw + 6, t * 0.36); c.fillStyle = '#f3ead9'; c.textAlign = 'start'; c.textBaseline = 'alphabetic'; c.fillText(o.nome, cx - tw / 2, Y - t * 0.03); }
   }
 
+  /* ---------------- sole e luci (dai Varchi: ombre del sole secondo l'ora, luci vere che proiettano ombre) ---------------- */
+  // c'è il sole diretto? Solo fuori, di giorno, col cielo sereno o poco nuvoloso
+  function sole() { if (!luogo || !esterno()) return false; const o = ora(); return o >= 6.5 && o <= 19 && ['sereno', 'nuvoloso'].includes(meteo()); }
+  // vettore dell'ombra in caselle per unità di altezza: mattino verso ovest, mezzogiorno corta verso nord, sera verso est
+  function vettoreSole() { const f = Math.max(0, Math.min(1, (ora() - 6.5) / 12.5)), lungo = 0.35 + 1.6 * Math.abs(1 - 2 * f); return { x: -(1 - 2 * f) * lungo, y: -0.35 - 0.25 * Math.abs(1 - 2 * f) }; }
+  const ALTI = { colonna: 2, statua: 1.6, scaffale: 1.2, masso: 0.6, stalagmite: 1.2, botte: 0.6, cassa: 0.5, carretto: 0.6, bancarella: 1.1, lampione: 2, stendardo: 1.8, rastrelliera: 1, cespuglio: 0.5, falo: 0 };
+  function ombreSole(c, t) {
+    if (!sole()) return;
+    const v = vettoreSole(), forza = meteo() === 'nuvoloso' ? 0.16 : 0.32;
+    const m = document.createElement('canvas'); m.width = c.canvas.width; m.height = c.canvas.height;
+    const k = m.getContext('2d'); k.setTransform(dpr, 0, 0, dpr, 0, 0); k.fillStyle = '#000';
+    const proietta = (fn, alto) => { const n = Math.max(2, Math.ceil(alto * Math.hypot(v.x, v.y) * 4)); for (let i = 0; i <= n; i++) { const f = i / n * alto; fn(v.x * f * t, v.y * f * t); } };
+    for (const e of luogo.edifici) if (luogo.celle[e.y]?.[e.x] === '#' && e.stato !== 'distrutto') proietta((dx, dy) => k.fillRect(e.x * t + dx, e.y * t + dy, e.w * t, e.h * t), e.nome === 'Mastio' || /^Torre/.test(e.nome) ? 4 : 2);
+    for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) {
+      const ch = cella(x, y);
+      if (ch === 'T') proietta((dx, dy) => { k.beginPath(); k.ellipse(x * t + t / 2 + dx, y * t + t / 2 + dy, t * 0.6, t * 0.55, 0, 0, 7); k.fill(); }, 1.6);
+      else if (ch === 'w') proietta((dx, dy) => k.fillRect(x * t + dx, y * t + dy, t, t), 1.2);
+    }
+    for (const o of luogo.oggetti || []) { const a = ALTI[o.tipo]; if (a) proietta((dx, dy) => { k.beginPath(); k.ellipse(o.x * t + t / 2 + dx, o.y * t + t / 2 + dy, t * 0.32, t * 0.3, 0, 0, 7); k.fill(); }, a); }
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = forza; c.drawImage(m, 0, 0); c.restore();
+  }
+  // sorgenti di luce: camini, oggetti accesi, di notte le porte delle case con la lanterna
+  function sorgenti() {
+    const out = [];
+    for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) {
+      const ch = cella(x, y);
+      if (ch === 'f') out.push({ x: x + 0.5, y: y + 0.5, r: 5.5, rgb: [1, 0.55, 0.2], i: 1.1, fiamma: true });
+      else if (ch === '+' && notte() && esterno() && casaDi(x, y)?.stato === 'integro') { const f = [[0, 1], [0, -1], [1, 0], [-1, 0]].find(([dx, dy]) => !casaDi(x + dx, y + dy) && !muro(cella(x + dx, y + dy))); if (f) out.push({ x: x + 0.5 + f[0] * 0.7, y: y + 0.5 + f[1] * 0.7, r: 3.2, rgb: [1, 0.75, 0.4], i: 0.85 }); }
+    }
+    for (const o of luogo.oggetti || []) {
+      if (o.stato !== 'integro' || !LUCI[o.tipo] || (o.tipo === 'funghi' && luogo.tipo !== 'grotta')) continue;
+      if (o.tipo === 'lampione' && !notte()) continue;
+      const [raggio, rgb] = LUCI[o.tipo], col = rgb.split(',').map(n => n / 255);
+      out.push({ x: o.x + 0.5, y: o.y + 0.5, r: raggio + 0.5, rgb: col, i: o.tipo === 'falo' ? 1.1 : 0.85, fiamma: !['lampione', 'funghi'].includes(o.tipo) });
+    }
+    for (const e of luogo.edifici) if (e.stato === 'bruciato' && esterno()) out.push({ x: e.x + e.w / 2, y: e.y + e.h / 2, r: 2.5, rgb: [1, 0.35, 0.1], i: 0.35 });
+    return out;
+  }
+  const BLOCCA_LUCE = ['colonna', 'statua', 'scaffale', 'masso', 'stalagmite'];
+  // mappa della luce a 4 campioni per casella: ogni luce illumina solo dove la vede (ombre vere dei muri), poi si sfuma
+  function mappaLuce() {
+    const A = luceAmbiente(), L = sorgenti();
+    if (A.liv >= 0.98 && !L.length) return null;
+    const S = 4, LW = luogo.w * S, LH = luogo.h * S, n = LW * LH;
+    const blocco = new Uint8Array(luogo.w * luogo.h);
+    for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) blocco[y * luogo.w + x] = muro(cella(x, y)) || casaDi(x, y) ? 1 : 0;
+    for (const o of luogo.oggetti || []) if (BLOCCA_LUCE.includes(o.tipo)) blocco[o.y * luogo.w + o.x] = 1;
+    const tetto_ = new Uint8Array(luogo.w * luogo.h); for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) tetto_[y * luogo.w + x] = casaDi(x, y) ? 1 : 0;
+    const R = new Float32Array(n).fill(A.liv * A.col[0]), G = new Float32Array(n).fill(A.liv * A.col[1]), B = new Float32Array(n).fill(A.liv * A.col[2]);
+    const gR = new Float32Array(n), gG = new Float32Array(n), gB = new Float32Array(n);
+    const vede = (lx, ly, px, py) => {
+      const dx = px - lx, dy = py - ly, d = Math.hypot(dx, dy), passi = Math.ceil(d / 0.25), cx0 = Math.floor(lx), cy0 = Math.floor(ly), cx1 = Math.floor(px), cy1 = Math.floor(py);
+      for (let i = 1; i < passi; i++) { const qx = Math.floor(lx + dx * i / passi), qy = Math.floor(ly + dy * i / passi); if ((qx === cx0 && qy === cy0) || (qx === cx1 && qy === cy1)) continue; if (blocco[qy * luogo.w + qx]) return false; }
+      return true;
+    };
+    for (const l of L) {
+      const x0 = Math.max(0, Math.floor((l.x - l.r) * S)), x1 = Math.min(LW - 1, Math.ceil((l.x + l.r) * S)), y0 = Math.max(0, Math.floor((l.y - l.r) * S)), y1 = Math.min(LH - 1, Math.ceil((l.y + l.r) * S));
+      for (let sy = y0; sy <= y1; sy++) for (let sx = x0; sx <= x1; sx++) {
+        const px = (sx + 0.5) / S, py = (sy + 0.5) / S, d = Math.hypot(px - l.x, py - l.y);
+        if (d >= l.r || tetto_[Math.floor(py) * luogo.w + Math.floor(px)] || !vede(l.x, l.y, px, py)) continue;
+        const f = l.i * (1 - d / l.r) ** 2, k = sy * LW + sx;
+        R[k] += l.rgb[0] * f; G[k] += l.rgb[1] * f; B[k] += l.rgb[2] * f;
+        gR[k] += l.rgb[0] * f; gG[k] += l.rgb[1] * f; gB[k] += l.rgb[2] * f;
+      }
+    }
+    const scuro = new ImageData(LW, LH), luce = new ImageData(LW, LH);
+    for (let k = 0; k < n; k++) {
+      scuro.data[k * 4] = Math.min(255, R[k] * 255); scuro.data[k * 4 + 1] = Math.min(255, G[k] * 255); scuro.data[k * 4 + 2] = Math.min(255, B[k] * 255); scuro.data[k * 4 + 3] = 255;
+      luce.data[k * 4] = Math.min(255, gR[k] * 90); luce.data[k * 4 + 1] = Math.min(255, gG[k] * 90); luce.data[k * 4 + 2] = Math.min(255, gB[k] * 90); luce.data[k * 4 + 3] = 255;
+    }
+    const tela = (img) => { const c = document.createElement('canvas'); c.width = LW; c.height = LH; c.getContext('2d').putImageData(img, 0, 0); return c; };
+    return { scuro: tela(scuro), luce: tela(luce), sorgenti: L };
+  }
+
   /* ---------------- composizione dello strato fisso (in cache) ---------------- */
   function strato() {
-    const t = tile, chiave = luogo.id + ':' + t + ':' + dpr;
+    const t = tile, chiave = luogo.id + ':' + t + ':' + dpr + ':' + JSON.stringify(amb) + ':' + Math.floor(ora() * 2);
     if (cache && cacheChiave === chiave) return cache;
     const c0 = document.createElement('canvas'); c0.width = cv.width; c0.height = cv.height;
     const c = c0.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.imageSmoothingEnabled = true;
     const tutte = (fn) => { for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) fn(c, cella(x, y), x, y, t); };
-    tutte(base); tutte(texture); tutte(ombre); tutte(struttura);
+    tutte(base); tutte(texture); tutte(ombre); tutte(struttura); ombreSole(c, t);
     const ogg = (luogo.oggetti || []).filter(o => !(trascina?.ogg === o.id));
     ogg.filter(o => PIATTI.includes(o.tipo)).forEach(o => oggetto(c, o, t));
     for (const e of luogo.edifici) tetto(c, e, t);
     ogg.filter(o => !PIATTI.includes(o.tipo)).forEach(o => oggetto(c, o, t));
     tutte((cc, ch, x, y) => { if (ch === 'T') albero(cc, x, y, t); });
-    // luce: ambienti chiusi più scuri, fuochi e torce illuminano attorno
-    const chiuso = ['taverna', 'interno', 'dungeon', 'grotta'].includes(luogo.tipo);
+    // luce vera: buio secondo l'ora e il luogo, luci che proiettano le ombre dei muri; il bagliore si somma (e tremola) a parte
     const W = luogo.w * t, H = luogo.h * t;
-    if (chiuso) { c.fillStyle = luogo.tipo === 'taverna' || luogo.tipo === 'interno' ? 'rgba(12,8,20,.14)' : 'rgba(5,5,15,.45)'; c.fillRect(0, 0, W, H); }
-    c.globalCompositeOperation = 'lighter';
-    const luce = (x, y, [raggio, rgb]) => { const R = raggio * t, g = c.createRadialGradient(x, y, 0, x, y, R); g.addColorStop(0, `rgba(${rgb},${chiuso ? 0.32 : 0.16})`); g.addColorStop(1, `rgba(${rgb},0)`); c.fillStyle = g; c.fillRect(x - R, y - R, R * 2, R * 2); };
-    tutte((cc, ch, x, y) => { if (ch === 'f') luce(x * t + t / 2, y * t + t / 2, LUCI.camino); });
-    ogg.forEach(o => { if (LUCI[o.tipo] && o.stato === 'integro') luce(o.x * t + t / 2, o.y * t + t / 2, LUCI[o.tipo]); });
-    c.globalCompositeOperation = 'source-over';
+    const ml = mappaLuce();
+    bagliore = null; fiamme = [];
+    if (ml) {
+      c.save(); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+      c.globalCompositeOperation = 'multiply'; c.filter = `blur(${Math.round(t * 0.3)}px)`; c.drawImage(ml.scuro, 0, 0, W, H); c.filter = 'none';
+      c.restore();
+      const b = document.createElement('canvas'); b.width = c0.width; b.height = c0.height;
+      const bc = b.getContext('2d'); bc.imageSmoothingEnabled = true; bc.imageSmoothingQuality = 'high'; bc.filter = `blur(${Math.round(t * 0.4 * dpr)}px)`; bc.drawImage(ml.luce, 0, 0, b.width, b.height); bc.filter = 'none';
+      bagliore = b; fiamme = ml.sorgenti.filter(l => l.fiamma);
+    }
+    if (meteo() === 'nebbia' && esterno()) { c.fillStyle = 'rgba(200,205,215,.22)'; c.fillRect(0, 0, W, H); }
     // vignettatura
     const vg = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.35)'); c.fillStyle = vg; c.fillRect(0, 0, W, H);
     // griglia leggera da battle map
@@ -362,6 +535,20 @@ const Mappa = (() => {
       const g = ctx.createRadialGradient(cx - R * 0.2, cy - R * 0.2, 1, cx, cy, R * 0.75); g.addColorStop(0, '#b0302a'); g.addColorStop(1, '#5a1210'); ovale(ctx, cx, cy, R * 0.72, R * 0.72, g);
       ctx.fillStyle = '#ffe8e0'; ctx.font = `800 ${Math.max(10, t * 0.42)}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((s.nome || '?').charAt(0).toUpperCase(), cx, cy + 1);
       if (s.pf !== undefined && extra.vedeTutto) { ctx.font = `700 ${Math.max(9, t * 0.3)}px Inter, sans-serif`; ctx.fillStyle = '#ffd6cc'; ctx.fillText(`PF ${s.pf}`, cx, cy - R - t * 0.15); }
+    } else if (ritratto(id)) {
+      // figura in piedi (HD-2D): basetta colorata a terra con i punti ferita, personaggio intero sopra
+      const im = ritratto(id), bx = cx, by = cy + t * 0.22, rx = R * 0.95, ry = R * 0.42;
+      ovale(ctx, bx + t * 0.05, by + t * 0.05, rx * 1.05, ry * 1.1, 'rgba(0,0,0,.5)');
+      ctx.fillStyle = s.colore || '#e8b04b'; ctx.beginPath(); ctx.ellipse(bx, by, rx, ry, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(bx, by, rx * 0.72, ry * 0.62, 0, 0, 7); ctx.fill();
+      const pg = opz.pg?.(id);
+      if (pg?.pfMax) { const f = Math.max(0, Math.min(1, pg.pf / pg.pfMax)); ctx.strokeStyle = f > 0.5 ? '#5cc85c' : f > 0.25 ? '#e8b04b' : '#e04a3a'; ctx.lineWidth = Math.max(2, t / 11); ctx.beginPath(); ctx.ellipse(bx, by, rx * 0.86, ry * 0.8, 0, -Math.PI / 2, -Math.PI / 2 + f * 6.283); ctx.stroke(); }
+      ctx.strokeStyle = id === opz.io() ? '#ffffff' : 'rgba(20,17,15,.9)'; ctx.lineWidth = Math.max(1.5, t / 16); ctx.beginPath(); ctx.ellipse(bx, by, rx, ry, 0, 0, 7); ctx.stroke();
+      const iw = t * 1.05, ih = iw * 44 / 36;
+      ctx.imageSmoothingEnabled = false; ctx.drawImage(im, bx - iw / 2, by - ih + ry * 0.6, iw, ih); ctx.imageSmoothingEnabled = true;
+      ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+      if (t >= 20 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome; while (nome.length > 3 && ctx.measureText(nome).width > t * 1.25) nome = nome.slice(0, -2) + '…'; const nw = ctx.measureText(nome).width; ctx.fillStyle = 'rgba(20,17,15,.78)'; rr(ctx, bx - nw / 2 - 4, by + ry + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(nome, bx - nw / 2, by + ry + t * 0.33); }
+      return;
     } else {
       ctx.fillStyle = s.colore || '#e8b04b'; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
       const im = ritratto(id);
@@ -379,11 +566,13 @@ const Mappa = (() => {
     if (t >= 20 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome; while (nome.length > 3 && ctx.measureText(nome).width > t * 1.25) nome = nome.slice(0, -2) + '…'; s = { ...s, nome }; const nw = ctx.measureText(s.nome).width; ctx.fillStyle = 'rgba(20,17,15,.78)'; rr(ctx, cx - nw / 2 - 4, cy + R + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(s.nome, cx - nw / 2, cy + R + t * 0.33); }
   }
 
-  function disegna() {
+  function disegna(animando) {
     if (!ctx || !luogo) return;
     const t = tile;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(strato(), 0, 0);
+    if (bagliore) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.82 + Math.random() * 0.18; ctx.drawImage(bagliore, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = true;
+    for (const f of fiamme) if (!luogo.visto || extra.vedeTutto || luogo.visto[Math.floor(f.y) * luogo.w + Math.floor(f.x)] !== '0') fiamma(ctx, f.x * t + (Math.random() - 0.5) * t * 0.04, f.y * t + (Math.random() - 0.5) * t * 0.04, t * (0.12 + Math.random() * 0.06));
     if (trascina?.ogg) { const o = luogo.oggetti.find(o => o.id === trascina.ogg); if (o) { ctx.globalAlpha = 0.85; oggetto(ctx, o, t, trascina.x * t, trascina.y * t); ctx.globalAlpha = 1; } }
     // caselle raggiungibili nel turno
     if (extra.movimento && segnalini[extra.movimento.id]) {
@@ -404,10 +593,12 @@ const Mappa = (() => {
       for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) if (luogo.visto[y * luogo.w + x] === '0') ctx.fillRect(x * t, y * t, t + 0.5, t + 0.5);
     }
     if (evidenzia) { const e = luogo.edifici.find(e => e.id === evidenzia); if (e) { ctx.strokeStyle = '#ffd25a'; ctx.lineWidth = 2; ctx.strokeRect(e.x * t + 1, e.y * t + 1, e.w * t - 2, e.h * t - 2); } }
-    for (const [id, s] of Object.entries(segnalini)) {
-      if (luogo.visto && !extra.vedeTutto && s.tipo === 'nemico' && luogo.visto[s.y * luogo.w + s.x] === '0') continue;
-      segnalino(id, s, trascina?.id === id ? trascina : s, t);
-    }
+    // segnalini dal fondo verso chi sta davanti, così le figure in piedi si sovrappongono come in HD-2D
+    Object.entries(segnalini).map(([id, s]) => [id, s, trascina?.id === id ? trascina : s]).sort((a, b) => a[2].y - b[2].y).forEach(([id, s, pos]) => {
+      if (luogo.visto && !extra.vedeTutto && s.tipo === 'nemico' && luogo.visto[s.y * luogo.w + s.x] === '0') return;
+      segnalino(id, s, pos, t);
+    });
+    meteoAnimato(t);
   }
 
   /* ---------------- tocchi ---------------- */
@@ -446,5 +637,5 @@ const Mappa = (() => {
     segnalini[t.id] = { ...segnalini[t.id], x: t.x, y: t.y }; disegna(); opz.onMuovi?.(t.id, t.x, t.y);
   }
   function setVisto(id, visto) { if (luogo && luogo.id === id) { luogo.visto = visto; disegna(); } }
-  return { init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, chiediCasella, setVisto, celleArea };
+  return { init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, chiediCasella, setVisto, celleArea };
 })();

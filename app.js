@@ -1,6 +1,12 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.7.0';
+const VERSION = '1.8.0';
 const CHANGELOG = [
+  { v: '1.8.0', data: '22/11/2026', voci: [
+    'Mappe con la tecnologia delle Cronache dei Varchi: luci vere che proiettano le ombre dei muri, buio di notte, lanterne accese davanti alle porte, fiamme che tremolano.',
+    'Ombre del sole che cambiano con l\'ora: lunghe verso ovest al mattino, corte a mezzogiorno, lunghe verso est la sera.',
+    'Meteo sulla mappa: pioggia, temporale con i lampi, neve, nebbia. Stagioni: foglie rosse in autunno, alberi spogli e neve d\'inverno, fiori in primavera.',
+    'Muri in rilievo e personaggi in piedi sulla loro basetta, come nello stile HD-2D. Il master AI decide ora e tempo atmosferico; se non lo fa, vale l\'ora vera.'
+  ] },
   { v: '1.7.0', data: '22/11/2026', voci: [
     'Mappe nuove in stile battle map di D&D, molto più realistiche: pavimenti in legno e pietra, ciottoli, erba, acqua con le rive, tetti con le tegole, ombre dei muri, luce di camini, torce e candele.',
     'Oggetti di scena sulla mappa: tavoli, sedie, botti, casse, bauli, letti, scaffali, forzieri, altari, colonne, carretti, bancarelle, tronchi, massi e altro. Restano al loro posto quando tornate.',
@@ -277,7 +283,7 @@ function gestisci(m) {
     case 'aree': S.st.aree = m.aree; aggiornaExtraMappa(); return;
     case 'nebbia': if (S.st.luogo?.id === m.id) { S.st.luogo.visto = m.visto; Mappa.setVisto(m.id, m.visto); } return;
     case 'gruppo': S.st.gruppo = m.gruppo; renderTesoro(); return;
-    case 'mondo': S.st.mondo = m.mondo; renderMondo(); if (!$('#mondoBox').hidden) renderMappaMondo(); return;
+    case 'mondo': S.st.mondo = m.mondo; renderMondo(); Mappa.setAmbiente(m.mondo?.calendario); if (!$('#mondoBox').hidden) renderMappaMondo(); return;
     case 'relazioni': S.st.relazioni = m.relazioni; renderSchedaSeServe(); return;
     case 'pong': S.latenza = Math.round(performance.now() - (S.ping || performance.now())); return;
   }
@@ -392,6 +398,7 @@ function renderMappa() {
   const TIPI = { citta: 'città', villaggio: 'villaggio', taverna: 'taverna', dungeon: 'dungeon', foresta: 'foresta', grotta: 'grotta', castello: 'castello', porto: 'porto', aperto: 'all\'aperto' };
   $('#luogoTipo').textContent = l ? `${TIPI[l.tipo] || (l.tipo === 'interno' ? 'interno' : l.tipo)}${l.visite > 1 ? ' · visitato ' + l.visite + ' volte' : ''}` : '';
   $('#btnEsciEd').hidden = !(l?.genitore && (capo() || masterAI()));
+  Mappa.setAmbiente(S.st?.mondo?.calendario);
   if (l) { Mappa.imposta(l, S.st.segnalini, S.st.membri); aggiornaExtraMappa(); }
 }
 function aggiornaScenaSonora() { const c = S.st?.combattimento; Suoni.scena(c?.attivo ? 'combattimento' : S.st?.luogo?.tipo || 'aperto'); }
