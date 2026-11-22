@@ -135,7 +135,7 @@ const Comandi = {
     if (eq) return { ops: [{ op: 'indossa', nome: pulisciNome(eq[2]) }] };
     const rip = f.match(/\b(ripongo|riponi|rinfodero|mi tolgo|tolgo di dosso|levo)\s+(.+)/);
     if (rip) return { ops: [{ op: 'ripon', nome: pulisciNome(rip[2]) }] };
-    const butta = f.match(/\b(butto|getto|vendo|lascio cadere|perdo|rimuovi|rimuovo|cancella)\s+(.+?)(\s+dall'?\s*(zaino|inventario))?$/);
+    const butta = f.match(/\b(butto|getto|vendo|lascio cadere|perdo|rimuovi|rimuovo|cancella|togli|tolgo|elimina|elimino|scarto|bevo|consumo)\s+(.+?)(\s+dall'?\s*(zaino|inventario))?$/);
     if (butta && !/\bmonete|oro\b/.test(f)) return { ops: [{ op: 'togli', nome: pulisciNome(butta[2]) }] };
     const agg = f.match(/\b(aggiungi|aggiungo|raccolgo|metto nello zaino|metti nello zaino|metto nell' inventario)\s+(.+)/) || f.match(/\b(prendo|trovo|compro|ottengo)\s+(.+?)\s+(e lo metto|e la metto|nello|nell' inventario|nell'inventario|all' inventario)/);
     if (agg) {

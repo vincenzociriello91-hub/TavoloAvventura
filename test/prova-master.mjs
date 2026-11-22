@@ -33,5 +33,6 @@ A.invia({ t: 'dado', formula: 'd20+3', motivo: 'Percezione' });
 await A.aspetta(m => m.t === 'dado');
 const n2 = await A.aspetta(m => m.t === 'narra' || m.t === 'master_zitto', 10000);
 v(n2, 'dopo un tiro il master risponde da solo');
+v(n2?.testo?.includes('Di nuovo: Oste Bruno'), 'il master ricorda i PNG già incontrati con lo stesso nome');
 v(A.coda.some(m => m.t === 'luogo_mod' && m.luogo.edifici[0].stato === 'bruciato'), 'il master può bruciare un edificio del luogo attuale');
 console.log(`\n${ok} ok, ${ko} falliti`); process.exit(ko ? 1 : 0);

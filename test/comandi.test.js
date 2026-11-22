@@ -39,6 +39,9 @@ prova('ho finito il mio turno', r => r.turno);
 prova('dividi il bottino', r => r.gruppo.op === 'dividi');
 prova('metti 20 monete nel tesoro comune', r => r.gruppo.delta === 20 && r.ops[0].delta === -20);
 prova('prendo 5 monete dal fondo comune', r => r.gruppo.delta === -5 && r.ops[0].delta === 5);
+prova('togli la pozione di guarigione', r => r.ops[0].op === 'togli' && /pozione di guarigione/i.test(r.ops[0].nome)); // frase reale del bot, finiva all'AI
+prova('bevo la pozione di guarigione', r => r.ops[0].op === 'togli');
+prova('togli un punto alla forza', r => r.ops[0].op === 'car' && r.ops[0].delta === -1);
 prova('metto la corda nel tesoro comune', r => r.gruppo.op === 'oggetto' && r.ops[0].op === 'togli');
 prova('tiro un d20 più 5', r => r.dado.formula === 'd20+5');
 prova('lancio due d6', r => r.dado.formula === '2d6');
