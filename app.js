@@ -1,6 +1,12 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 const CHANGELOG = [
+  { v: '1.5.0', data: '22/11/2026', voci: [
+    'Musica e suoni d\'ambiente generati dall\'app: cambiano da soli con il luogo e durante il combattimento; suoni per dadi, critici e livelli.',
+    'Edifici in cui entrare: l\'interno viene creato una volta (stanze e descrizione dall\'IA gratuita di Cloudflare) e poi resta sempre uguale.',
+    'Eventi stagionali: neve a dicembre, colori di Halloween e carnevale; il master li intreccia nella storia.',
+    'Calendario di gioco con giorni e stagioni gestito dal master.'
+  ] },
   { v: '1.4.0', data: '22/11/2026', voci: [
     'Fazioni e reputazione: il master AI le crea e le aggiorna, e i PNG trattano il gruppo di conseguenza.',
     'Valute locali con il cambio in monete d\'oro ("trovo 30 corone di Argentea").',
@@ -123,7 +129,7 @@ function riepilogoStato() {
 
 /* ============ STATO ============ */
 const S = { codice: null, io: null, chiave: null, st: null, ws: null, vista: 'vMappa', viewPg: null, undo: [], pendenti: {}, tentativi: 0, ultimoParlato: 0 };
-const OPZ = Object.assign({ narratore: true, avvisi: true, master: true, grandi: false }, leggi('ta_opzioni', {}));
+const OPZ = Object.assign({ narratore: true, avvisi: true, master: true, grandi: false, suoni: false, volume: 0.5 }, leggi('ta_opzioni', {}));
 const me = () => S.st?.membri?.[S.io];
 const capo = () => !!(me() && (me().ruolo === 'master' || me().admin));
 const mioPg = () => S.st?.pg?.[S.io] || null;
@@ -187,11 +193,11 @@ function gestisci(m) {
     }
     case 'dado': {
       S.st.dadi = [...(S.st.dadi || []), m.tiro].slice(-60);
-      if (m.tiro.chi === S.io) { S.ultimoMio = m.tiro; $('#tiroAzioni').hidden = false; }
+      if (m.tiro.chi === S.io) { S.ultimoMio = m.tiro; $('#tiroAzioni').hidden = false; Suoni.effetto(m.tiro.critico ? 'critico' : m.tiro.fallimento ? 'fallimento' : 'dado'); }
       if (m.tiro.chi === S.io || document.body.classList.contains('tv')) mostraTiro(m.tiro);
       renderTiri(); renderRapidi(); return;
     }
-    case 'luogo': S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; renderMappa(); return;
+    case 'luogo': S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; S.st.aree = []; renderMappa(); if (!$('#mondoBox').hidden) renderMappaMondo(); Report.log('luogo', { nome: m.luogo.nome, tipo: m.luogo.tipo }); return;
     case 'luogo_mod': S.st.luogo = m.luogo; renderMappa(); return;
     case 'segnalini': S.st.segnalini = m.segnalini; Mappa.aggiornaSegnalini(m.segnalini); return;
     case 'diario': S.st.diario = [...(S.st.diario || []), m.ev].slice(-200); renderDiario(); return;
@@ -234,7 +240,7 @@ function gestisci(m) {
     case 'combattimento': {
       const prima = S.st.combattimento; S.st.combattimento = m.combattimento; renderCombat();
       const c = m.combattimento, ora = c?.attivo && c.ordine[c.turno];
-      if (ora && ora.id === S.io && !(prima?.attivo && prima.ordine[prima.turno]?.id === S.io && prima.round === c.round)) { if (OPZ.avvisi) Narratore.avviso('Tocca a te'); toast('È il tuo turno!'); }
+      if (ora && ora.id === S.io && !(prima?.attivo && prima.ordine[prima.turno]?.id === S.io && prima.round === c.round)) { if (OPZ.avvisi) Narratore.avviso('Tocca a te'); toast('È il tuo turno!'); Suoni.effetto('turno'); }
       Report.log('combattimento', { attivo: c?.attivo, round: c?.round, turno: ora?.nome });
       return;
     }
@@ -288,7 +294,8 @@ function renderTutto() {
   if (!S.st) return;
   const c = S.st.campagna;
   $('#tCampagna').textContent = c.nome;
-  $('#tSotto').textContent = `${Regole.set(c.regole).nome} · master ${c.masterTipo === 'ai' ? 'AI' : 'in carne e ossa'} · sessione ${c.sessione || 1}`;
+  const cal = S.st.mondo?.calendario;
+  $('#tSotto').textContent = `${Regole.set(c.regole).nome} · master ${c.masterTipo === 'ai' ? 'AI' : 'in carne e ossa'} · sessione ${c.sessione || 1}${cal ? ` · giorno ${cal.giorno}, ${cal.stagione}` : ''}`;
   $('#aiutoCapo').hidden = !capo();
   $('#dSegretoBox').hidden = !capo();
   $('#boxNarra').hidden = !(capo() && c.masterTipo === 'umano');
@@ -330,10 +337,18 @@ Mappa.init($('#mappa'), {
   onMuovi: (id, x, y) => invia({ t: 'segnalino', id, x, y }),
   altezzaMax: () => largo() || document.body.classList.contains('tv') ? window.innerHeight - 200 : 9999,
   onEdificio: async ed => {
-    if (!capo()) { toast(`${ed.nome}${ed.stato !== 'integro' ? ' — ' + ed.stato : ''}`); return; }
+    const puoEntrare = (capo() || masterAI()) && !['dungeon', 'grotta', 'taverna', 'interno'].includes(S.st.luogo?.tipo) && ed.stato !== 'distrutto' && !/pozzo|torre|radura/i.test(ed.nome);
+    if (!capo()) {
+      if (!puoEntrare) { toast(`${ed.nome}${ed.stato !== 'integro' ? ' — ' + ed.stato : ''}`); return; }
+      const i = await chiedi(`<h2>${esc(ed.nome)}</h2>${ed.stato !== 'integro' ? `<p>Stato: ${esc(ed.stato)}</p>` : ''}`, [{ testo: 'Entra', pieno: true }, { testo: 'Chiudi' }]);
+      if (i === 0) invia({ t: 'entra_edificio', edificio: ed.id });
+      return;
+    }
     const stati = ['integro', 'danneggiato', 'bruciato', 'distrutto'];
-    const i = await chiedi(`<h2>${esc(ed.nome)}</h2><p>Stato attuale: <strong>${esc(ed.stato)}</strong>. Il cambiamento resta sulla mappa per sempre.</p>`, [...stati.map(s => ({ testo: s.charAt(0).toUpperCase() + s.slice(1), pieno: s === ed.stato })), { testo: 'Chiudi' }]);
-    if (i >= 0 && i < stati.length && stati[i] !== ed.stato) invia({ t: 'modifica_luogo', edificio: ed.id, stato: stati[i] });
+    const i = await chiedi(`<h2>${esc(ed.nome)}</h2><p>Stato attuale: <strong>${esc(ed.stato)}</strong>. Il cambiamento resta sulla mappa per sempre.</p>`, [...(puoEntrare ? [{ testo: 'Entra', pieno: true }] : []), ...stati.map(s => ({ testo: s.charAt(0).toUpperCase() + s.slice(1) })), { testo: 'Chiudi' }]);
+    const k = puoEntrare ? i - 1 : i;
+    if (puoEntrare && i === 0) { invia({ t: 'entra_edificio', edificio: ed.id }); return; }
+    if (k >= 0 && k < stati.length && stati[k] !== ed.stato) invia({ t: 'modifica_luogo', edificio: ed.id, stato: stati[k] });
   }
 });
 function renderMappa() {
@@ -342,10 +357,13 @@ function renderMappa() {
   $('#mappa').hidden = !l;
   $('#luogoNome').textContent = l ? l.nome : 'Nessun luogo';
   const TIPI = { citta: 'città', villaggio: 'villaggio', taverna: 'taverna', dungeon: 'dungeon', foresta: 'foresta', grotta: 'grotta', castello: 'castello', porto: 'porto', aperto: 'all\'aperto' };
-  $('#luogoTipo').textContent = l ? `${TIPI[l.tipo] || l.tipo}${l.visite > 1 ? ' · visitato ' + l.visite + ' volte' : ''}` : '';
+  $('#luogoTipo').textContent = l ? `${TIPI[l.tipo] || (l.tipo === 'interno' ? 'interno' : l.tipo)}${l.visite > 1 ? ' · visitato ' + l.visite + ' volte' : ''}` : '';
+  $('#btnEsciEd').hidden = !(l?.genitore && (capo() || masterAI()));
   if (l) { Mappa.imposta(l, S.st.segnalini, S.st.membri); aggiornaExtraMappa(); }
 }
+function aggiornaScenaSonora() { const c = S.st?.combattimento; Suoni.scena(c?.attivo ? 'combattimento' : S.st?.luogo?.tipo || 'aperto'); }
 function aggiornaExtraMappa() {
+  aggiornaScenaSonora();
   const c = S.st?.combattimento, ora = c?.attivo && c.ordine[c.turno];
   const pg = mioPg();
   Mappa.setExtra({ aree: S.st?.aree || [], vedeTutto: capo(), movimento: ora && ora.id === S.io && pg ? { id: S.io, celle: Math.max(1, Math.floor((pg.vel || 9) / 1.5)) } : null });
@@ -390,6 +408,7 @@ $('#tesoro').addEventListener('click', e => {
   if (b.dataset.tes === 'deposita') { const v = parseInt(prompt('Quante monete metti nel tesoro comune?'), 10); if (v > 0) { if (mioPg()) modifica([{ op: 'oro', delta: -v }]); invia({ t: 'gruppo', op: 'oro', delta: v }); } }
 });
 $('#tesoro').addEventListener('submit', e => { e.preventDefault(); const n = $('#tesOggetto').value.trim(); if (n) invia({ t: 'gruppo', op: 'oggetto', nome: n, qta: 1 }); });
+$('#btnEsciEd').addEventListener('click', () => invia({ t: 'esci_edificio' }));
 $('#formVai').addEventListener('submit', e => { e.preventDefault(); const n = $('#vaiNome').value.trim(); if (!n) return; invia({ t: 'vai', nome: n }); $('#vaiNome').value = ''; Report.log('vai', { nome: n }); });
 function mostraNarrazione(testo, png) { const n = $('#narrazione'); n.hidden = false; n.classList.remove('pensa'); $('#narrChi').textContent = png ? `${png} (dal master)` : 'Il master'; $('#narrTesto').textContent = testo; $('#narrVolto').hidden = !png; if (png) $('#narrVolto').innerHTML = Ritratto.volto(png, 64); }
 $('#btnZitto').addEventListener('click', () => { Narratore.zitto(); $('#narrazione').hidden = true; });
@@ -675,6 +694,7 @@ function modifica(azione, notaExtra) {
   invia({ t: 'scheda', per, pg, nota: note || null });
   renderScheda(); renderPresenza();
   if (note) mostraAnnulla(`${pg.nome}: ${note}`);
+  if (/livello \d/.test(note || '')) Suoni.effetto('livello');
   Report.log('scheda', { nota: note, per: per === S.io ? 'io' : 'altro', pf: pg.pf, livello: pg.livello });
 }
 function annulla() {
@@ -845,6 +865,7 @@ function renderAltro() {
   $('#cartaBot').hidden = !me()?.admin;
   renderCosti();
   $('#optNome').value = me()?.nome || '';
+  $('#optSuoni').checked = OPZ.suoni; $('#optVolume').value = OPZ.volume;
   $('#optNarratore').checked = OPZ.narratore; $('#optAvvisi').checked = OPZ.avvisi; $('#optMaster').checked = OPZ.master; $('#optGrandi').checked = OPZ.grandi;
   const n = leggi('ta_rapporti', []).length, es = leggi('ta_report_esito', null);
   $('#repInfo').textContent = (n ? `${n} rapporti in coda. ` : 'Nessun rapporto in coda. ') + (es ? `Ultimo invio ${es.t}: ${es.stato >= 200 && es.stato < 300 ? 'OK' : 'errore ' + es.stato}` : '');
@@ -862,6 +883,8 @@ $('#btnRiassunto').addEventListener('click', () => { invia({ t: 'riassunto' }); 
 $('#optNarratore').addEventListener('change', e => { OPZ.narratore = e.target.checked; Narratore.attivo = OPZ.narratore; scrivi('ta_opzioni', OPZ); });
 $('#optAvvisi').addEventListener('change', e => { OPZ.avvisi = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optMaster').addEventListener('change', e => { OPZ.master = e.target.checked; scrivi('ta_opzioni', OPZ); });
+$('#optSuoni').addEventListener('change', e => { OPZ.suoni = e.target.checked; scrivi('ta_opzioni', OPZ); Suoni.attivo = OPZ.suoni; if (OPZ.suoni) aggiornaScenaSonora(); Report.log('suoni', { attivi: OPZ.suoni }); });
+$('#optVolume').addEventListener('input', e => { OPZ.volume = Number(e.target.value); Suoni.volume = OPZ.volume; scrivi('ta_opzioni', OPZ); });
 $('#optGrandi').addEventListener('change', e => { OPZ.grandi = e.target.checked; scrivi('ta_opzioni', OPZ); applicaGrandi(); });
 $('#optNome').addEventListener('change', e => { const v = e.target.value.trim(); if (v) { invia({ t: 'impostazioni', mioNome: v }); scrivi('ta_nome', v); } });
 function applicaGrandi() { document.documentElement.style.setProperty('--scala', OPZ.grandi ? 1.2 : 1); setTimeout(() => Mappa.adatta(), 50); }
@@ -989,6 +1012,9 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:' && location.ho
 $('#ver').textContent = VERSION;
 $('#changelog').innerHTML = CHANGELOG.map(c => `<p><strong>${c.v}</strong> <span class="piccolo">${c.data}</span></p><ul>${c.voci.map(v => `<li>${esc(v)}</li>`).join('')}</ul>`).join('');
 Narratore.attivo = OPZ.narratore; applicaGrandi();
+Suoni.volume = OPZ.volume;
+document.addEventListener('pointerdown', () => { if (OPZ.suoni && !Suoni.attivo) { Suoni.attivo = true; aggiornaScenaSonora(); } }, { once: true });
+(() => { const d = new Date(), m = d.getMonth() + 1, g = d.getDate(); const st = m === 12 || (m === 1 && g <= 6) ? 'inverno' : (m === 10 && g >= 20) || (m === 11 && g <= 2) ? 'ombre' : m === 2 ? 'carnevale' : ''; if (st) document.body.classList.add('st-' + st); })();
 window.addEventListener('resize', () => { if (largo() && S.vista === 'vMappa') mostraVista('vScheda'); });
 (() => {
   const q = new URLSearchParams(location.search);

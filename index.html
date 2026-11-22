@@ -97,7 +97,7 @@
         <button id="richTira" class="pieno" type="button">Tira</button>
       </div>
       <div class="luogo-testa">
-        <div><strong id="luogoNome">Nessun luogo</strong> <span id="luogoTipo" class="piccolo"></span></div>
+        <div><strong id="luogoNome">Nessun luogo</strong> <span id="luogoTipo" class="piccolo"></span> <button id="btnEsciEd" type="button" class="testo-btn" hidden>Esci all'aperto</button></div>
         <form id="formVai" class="riga" autocomplete="off"><input id="vaiNome" placeholder="Vai a… (es. Taverna del Drago)" maxlength="60" aria-label="Nome del luogo"><button class="pieno" type="submit">Vai</button></form>
       </div>
       <div class="mappa-box" id="mappaBox"><canvas id="mappa" aria-label="Mappa del luogo"></canvas>
@@ -186,6 +186,8 @@
         <label class="spunta"><input type="checkbox" id="optAvvisi" checked> Avvisi vocali in cuffia (tocca a te, poca vita)</label>
         <label class="spunta"><input type="checkbox" id="optMaster" checked> Il master AI ascolta quello che dico</label>
         <label class="spunta"><input type="checkbox" id="optGrandi"> Caratteri grandi</label>
+        <label class="spunta"><input type="checkbox" id="optSuoni"> Musica e suoni d'ambiente</label>
+        <label>Volume<input type="range" id="optVolume" min="0" max="1" step="0.05" value="0.5"></label>
         <p class="piccolo">Comandi vocali: tieni premuto il tasto del microfono in basso mentre parli. Il tasto verde in alto attiva l'ascolto continuo, che su Android può non funzionare insieme alla chat vocale.</p>
         <label>Il tuo nome<input id="optNome" maxlength="30"></label>
         <a id="linkTv" class="bottone largo" href="#" target="_blank" rel="noopener">Apri il tavolo sulla TV</a>
@@ -245,6 +247,7 @@
 <script src="mappa.js"></script>
 <script src="voce.js"></script>
 <script src="bot.js"></script>
+<script src="suoni.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
