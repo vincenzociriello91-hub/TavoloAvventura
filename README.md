@@ -22,7 +22,7 @@ D&D online con gli amici, dal browser di qualsiasi telefono, PC, Odin o TV. Nien
 - File: `regole.js` (5e/3.5), `comandi.js` (comandi vocali), `ritratto.js`, `mappa.js`, `voce.js` (WebRTC, riconoscimento vocale, narratore), `app.js`.
 
 ## Licenze
-Regole tratte dal System Reference Document 5.1 (CC-BY-4.0) e 3.5 (OGL). Dungeons & Dragons è un marchio di Wizards of the Coast: app non ufficiale, fatta da fan. Libreria QR di Kazuhiko Arase (MIT).
+Regole tratte dal System Reference Document 5.1 (CC-BY-4.0) e 3.5 (OGL). Dungeons & Dragons è un marchio di Wizards of the Coast: app non ufficiale, fatta da fan. Libreria QR di Kazuhiko Arase (MIT). Personaggi animati: Universal LPC Spritesheet Character Generator (OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0), autori in `lpc/crediti.json`; si aggiornano con `strumenti/lpc_da_varchi.py`.
 
 ## Pubblicare una versione
 Aggiornare insieme `VERSION`/`CHANGELOG` in `app.js`, `version.json` e `CACHE` in `sw.js`, lanciare le prove (`test/README.md`), poi:

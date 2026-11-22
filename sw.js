@@ -1,6 +1,6 @@
 // Service worker: prima la rete (sempre l'ultima versione), cache solo se offline.
-const CACHE = 'tavoloavventura-1.8.0';
-const FILES = ['./', 'index.html', 'styles.css', 'qrcode.js', 'regole.js', 'comandi.js', 'ritratto.js', 'mappa.js', 'voce.js', 'bot.js', 'suoni.js', 'app.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'tavoloavventura-1.9.0';
+const FILES = ['./', 'index.html', 'styles.css', 'qrcode.js', 'regole.js', 'comandi.js', 'ritratto.js', 'lpc.js', 'mappa.js', 'voce.js', 'bot.js', 'suoni.js', 'app.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 const CDN = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', e => {

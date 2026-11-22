@@ -6,6 +6,11 @@ http.createServer((req, res) => {
     const j = JSON.parse(b || '{}');
     const testoUtente = j.contents?.[0]?.parts?.[0]?.text || '';
     let out;
+    if (j.generationConfig?.responseModalities?.includes('AUDIO')) { // voce: mezzo secondo di tono a 24 kHz
+      const pcm = new Int16Array(12000).map((_, i) => Math.sin(i / 8) * 6000);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;codec=pcm;rate=24000', data: Buffer.from(pcm.buffer).toString('base64') } }] } }] }));
+    }
     if (j.systemInstruction) { // turno del master
       const ctx = JSON.parse(testoUtente);
       ultimo.contesto = ctx;
@@ -20,6 +25,8 @@ http.createServer((req, res) => {
       out = JSON.stringify({ narrazione: 'Una rissa scoppia nella locanda. Un boccale vola verso di voi.' + (gia ? ` Di nuovo: ${gia}.` : ''), png: 'Oste Bruno', eventi });
     } else if (/comando per modificare/.test(testoUtente)) out = JSON.stringify({ ops: [{ op: 'car', car: 'sag', delta: 1 }] });
     else if (/Domanda di regole/.test(testoUtente)) out = 'In 5e un attacco di opportunità si fa con la reazione.';
+    else if (/Racconta la serata/.test(testoUtente)) out = JSON.stringify({ titolo: 'La rissa del Cinghiale', racconto: 'Una serata di boccali volanti e goblin sconfitti.', prompt: 'heroes celebrating in a tavern' });
+    else if (/PROMPT:/.test(testoUtente)) out = 'PROMPT: a tavern brawl, flying mugs\nDIDASCALIA: Rissa nella locanda';
     else out = 'Riassunto finto.';
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: out }] } }] }));
