@@ -202,7 +202,7 @@ const gv = await A.aspetta(m => m.t === 'diario' && /Carte sul tavolo/.test(m.ev
 const fine = await D.aspetta(m => m.t === 'gioco_taverna' && !m.gioco);
 D.invia({ t: 'stato' }); const st5 = (await D.aspetta(m => m.t === 'stato')).stato;
 verifica(!!gv && !!fine && st5.pg[bD.io].oro + st5.pg[bA.io].oro === oroD + 30, 'gioco di carte: il piatto va a chi vince, le monete tornano');
-verifica(st5.membri[bD.io].presenze >= 1 && Array.isArray(st5.avventure) && st5.avventure.some(a => a.id === 'torre' && a.seguito === 'miniera'), 'presenze contate e catalogo delle avventure (con il seguito della miniera)');
+verifica(st5.membri[bD.io].presenze >= 1 && Array.isArray(st5.avventure) && st5.avventure.some(a => a.id === 'torre' && a.seguito === 'miniera') && st5.avventure.some(a => a.id === 'montagna' && a.seguito === 'torre'), 'presenze contate e catalogo delle avventure (con il seguito della miniera)');
 A.invia({ t: 'avventura_inizia', id: 'lanterna' });
 verifica(!!(await A.aspetta(m => m.t === 'luogo' && m.luogo.nome === 'Villa Ombrosa', 8000)), 'avventura di una serata: "La notte della lanterna" parte da Villa Ombrosa');
 const codiceSf = codice; // sfida settimanale: campagna nuova in solitaria

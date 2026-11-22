@@ -133,7 +133,7 @@ $('#mondoVivo').addEventListener('submit', e => {
 // storia e albero genealogico: il giocatore risponde a 4 domande, il master la scrive
 function cartaStoria(pg, puo) {
   const f = pg.famiglia || {};
-  return `<details${pg.storia ? '' : ' open'}><summary>Storia e famiglia</summary>${pg.storia ? `<p class="storia-pg">${esc(pg.storia)}</p>` : ''}
+  return `<details><summary>Storia e famiglia${pg.storia ? '' : ' (da scrivere col master)'}</summary>${pg.storia ? `<p class="storia-pg">${esc(pg.storia)}</p>` : ''}
     ${puo ? `<div class="colonna"><label>Da dove viene<input id="stOrigini" maxlength="200" value="${esc(f.origini || '')}" placeholder="Es. un villaggio di pescatori sulla costa"></label>
     <label>Famiglia (genitori, fratelli, legami)<input id="stFamiglia" maxlength="300" value="${esc(f.famiglia || '')}" placeholder="Es. padre fabbro, sorella maggiore scomparsa"></label>
     <label>Segno particolare<input id="stSegno" maxlength="150" value="${esc(f.segno || '')}" placeholder="Es. una cicatrice a forma di luna"></label>

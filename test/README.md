@@ -1,6 +1,6 @@
 # Prove di Tavolo d'Avventura
 
-Servono: Node 20+, `npm i ws playwright wrangler@4`, il repository `rapporti-vincenzo` accanto a questo.
+Servono: Node 20+, `npm i ws playwright wrangler@4 eslint@9 globals` (tutti insieme: installarne uno alla volta toglie gli altri), il repository `rapporti-vincenzo` accanto a questo.
 
 1. Gemini finto: `node test/gemini-finto.mjs` (porta 8799)
 2. Server delle stanze, dalla cartella `rapporti-vincenzo`:
@@ -12,7 +12,7 @@ Servono: Node 20+, `npm i ws playwright wrangler@4`, il repository `rapporti-vin
    - `node test/prova-server.mjs` e `node test/prova-master.mjs` (server e master AI)
    - `node test/e2e.js` (app intera nel browser: due giocatori, TV, voce, bot di prova)
 
-   - `node test/push.test.mjs` (firma delle notifiche) e `sh test/controllo-codice.sh` (nomi non definiti e doppioni in app e server; serve `npm i eslint@9 globals`)
+   - `node test/push.test.mjs` (firma delle notifiche) e `sh test/controllo-codice.sh` (nomi non definiti e doppioni in app e server)
 
 Devono passare tutte prima di pubblicare.
 

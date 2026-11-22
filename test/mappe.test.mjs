@@ -9,6 +9,17 @@ let prove = 0;
 const errori = [];
 const ok = (cond, msg) => { prove++; if (!cond) errori.push(msg); };
 
+// ogni scena di ogni avventura pronta ha un luogo che si genera, un testo da leggere e nemici con i numeri a posto; i seguiti puntano a un'avventura che esiste
+for (const [id, avv] of Object.entries(server.AVVENTURE)) {
+  ok(!avv.seguito || server.AVVENTURE[avv.seguito], `${id}: seguito di un'avventura che non esiste`);
+  ok(avv.scene.length >= 3 && avv.sinossi && avv.ricompensa && avv.segreti.length, `${id}: avventura incompleta`);
+  for (const sc of avv.scene) {
+    ok(['citta', 'villaggio', 'taverna', 'dungeon', 'foresta', 'grotta', 'castello', 'porto', 'aperto', 'interno'].includes(sc.tipo), `${id}/${sc.id}: tipo di luogo sconosciuto (${sc.tipo})`);
+    const l = generaLuogo(sc.luogo, sc.tipo, 'prova:' + sc.id); ok(l.celle.length === l.h && l.ingresso, `${id}/${sc.id}: luogo non generato`);
+    ok(sc.leggi?.length > 80 && sc.obiettivo && sc.png && sc.indizi, `${id}/${sc.id}: testi mancanti`);
+    for (const n of sc.incontro || []) ok(n.nome && n.numero > 0 && n.pf > 0 && n.ca > 0, `${id}/${sc.id}: nemico con numeri sbagliati`);
+  }
+}
 // anche i nomi che chiedono un disegno preciso (ponti, guadi): il disegno deve corrispondere al nome
 const CASI = [...TIPI.map(t => ['Prova ' + t, t]), ['Viadotto Spezzato', 'aperto'], ['Ponte del Re', 'aperto'], ['Guado del Mulino', 'aperto']];
 for (const [nomeL, tipo] of CASI) for (let seme = 1; seme <= 8; seme++) {
