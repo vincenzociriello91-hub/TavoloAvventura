@@ -162,6 +162,10 @@ details summary { cursor: pointer; color: var(--oro2); min-height: 44px; display
 .diario li .chi { color: var(--tenue); font-size: .78rem; }
 .diario li.narrazione-ev { border-color: #5a4630; background: #231b14; }
 .diario li.narrazione-ev p { margin: 2px 0 0; font-style: italic; }
+#sottotitoli { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(92vw, 900px); z-index: 55; pointer-events: none;
+  background: rgba(12,9,7,.86); color: #fff6e0; border-radius: 14px; padding: 12px 18px; font-size: clamp(18px, 2.6vw, 30px); line-height: 1.35; text-align: center; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+body.tv #sottotitoli { font-size: 40px; bottom: 40px; }
+.stat-tab { border-collapse: collapse; width: 100%; font-size: 14px; } .stat-tab th, .stat-tab td { padding: 4px 8px; border-bottom: 1px solid #3a2e22; text-align: center; } .stat-tab td:first-child { text-align: left; }
 .dadi3d { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 60; display: none; }
 .icona-ogg { display: inline-flex; vertical-align: middle; margin-right: 6px; cursor: grab; touch-action: none; }
 .fantasma-ogg { position: fixed; pointer-events: none; z-index: 70; transform: translate(-50%, -50%) scale(1.6); filter: drop-shadow(0 4px 6px rgba(0,0,0,.6)); }
@@ -248,7 +252,7 @@ body.tv .btn-parla { display: none !important; }
 .slot { font-size: 1.1rem; letter-spacing: 2px; color: var(--oro2); flex: 1; }
 .slot-riga button { min-height: 34px; padding: 2px 12px; }
 .mondo-box { background: #15110e; border: 1px solid var(--bordo); border-radius: var(--r); overflow: auto; }
-.mondo-box svg { display: block; width: 100%; min-width: 640px; height: 420px; }
+.mondo-box canvas { display: block; cursor: pointer; }
 .rep { height: 8px; background: #3a2f26; border-radius: 4px; position: relative; overflow: hidden; margin: 4px 0 8px; }
 .rep div { position: absolute; top: 0; bottom: 0; }
 .mondo-riga { display: flex; justify-content: space-between; gap: 8px; }

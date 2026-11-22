@@ -71,6 +71,8 @@
           <label><input type="radio" name="cMaster" value="ai" checked><span>Intelligenza artificiale</span></label>
           <label><input type="radio" name="cMaster" value="umano"><span>Una persona</span></label>
         </fieldset>
+        <label>Avventura<select id="cAvventura"><option value="">Libera: la inventa il master</option><option value="miniera">Pronta: La miniera dei goblin (livelli 1-3, una serata)</option></select></label>
+        <label class="spunta"><input type="checkbox" id="cSolitaria"> Gioco da solo: il master AI gioca anche due compagni</label>
         <fieldset class="segmentato" id="cMioRuoloBox" hidden><legend>Tu sei</legend>
           <label><input type="radio" name="cMioRuolo" value="giocatore" checked><span>Giocatore</span></label>
           <label><input type="radio" name="cMioRuolo" value="master"><span>Il master</span></label>
@@ -105,7 +107,7 @@
         <div class="vuoto" id="mappaVuota"><p>Il gruppo non è ancora in nessun luogo.</p><p class="piccolo" id="mappaVuotaSugg">Il master AI vi porterà nel primo luogo appena iniziate a giocare. Potete anche scrivere un luogo qui sopra.</p></div>
       </div>
       <div class="mappa3d-box" id="mappa3dBox" hidden></div>
-      <div class="mondo-box" id="mondoBox" hidden><svg id="mondoSvg" role="img" aria-label="Mappa del mondo: luoghi conosciuti e viaggi del gruppo"></svg></div>
+      <div class="mondo-box" id="mondoBox" hidden><canvas id="mondoCanvas" role="img" aria-label="Mappa del mondo illustrata: luoghi conosciuti e viaggi del gruppo"></canvas></div>
       <div class="riga strumenti-mappa"><button id="btnMondo" type="button">Mappa del mondo</button><button id="btn3d" type="button">Vista 3D</button><button id="btnArea" type="button">Area incantesimo</button><button id="btnPulisciAree" type="button" hidden>Togli le aree</button><button id="btnCombat" type="button" hidden>Inizia combattimento</button><button id="btnIllustra" type="button" hidden>Illustra la scena</button></div>
       <p class="piccolo aiuto-mappa">Tocca una casella per muovere il tuo segnalino (o trascinalo). Tieni premuto su un edificio per vederlo<span id="aiutoCapo" hidden> o cambiarne lo stato</span>.</p>
     </div>
@@ -187,6 +189,7 @@
           <select id="smDiff" aria-label="Difficoltà"><option>facile</option><option selected>media</option><option>difficile</option><option>mortale</option></select><button type="button" data-strumento="incontro">Incontro bilanciato</button></div>
         <div class="riga"><label>GS<input id="smGs" type="number" min="0" max="20" value="1" inputmode="numeric" style="width:70px"></label><button type="button" data-strumento="tesoro">Tesoro casuale</button></div>
         <div class="riga"><input id="smNegozio" maxlength="60" placeholder="Nome del negozio (es. Fabbro Ulrico)"><select id="smTipoNeg" aria-label="Tipo di negozio"><option value="emporio">emporio</option><option value="fabbro">fabbro</option><option value="alchimista">alchimista</option><option value="magia">magia</option></select><button type="button" id="smApriNeg">Apri negozio</button><button type="button" id="smChiudiNeg">Chiudi</button></div>
+        <div id="smAvventura"></div>
         <div id="smRisultato" class="piccolo"></div>
         <label>Note segrete (le vedi solo tu)<textarea id="smNote" rows="4" maxlength="8000" placeholder="Trame, segreti dei PNG, idee per la prossima sessione"></textarea></label>
         <button type="button" id="smSalvaNote">Salva le note</button>
@@ -196,12 +199,14 @@
         <button id="btnRiassunto" type="button" class="largo">Nella puntata precedente…</button>
         <button id="btnRiepilogo" type="button" class="largo" hidden>Fine serata: riepilogo illustrato</button>
         <button id="btnLibro" type="button" class="largo">Libro della campagna (PDF)</button>
+        <button id="btnStatistiche" type="button" class="largo">Statistiche e trofei</button>
         <label class="spunta"><input type="checkbox" id="optNarratore" checked> Leggi ad alta voce il master</label>
         <label class="spunta"><input type="checkbox" id="optAvvisi" checked> Avvisi vocali in cuffia (tocca a te, poca vita)</label>
         <label class="spunta"><input type="checkbox" id="optMaster" checked> Il master AI ascolta quello che dico</label>
         <label class="spunta"><input type="checkbox" id="optGrandi"> Caratteri grandi</label>
         <label class="spunta"><input type="checkbox" id="optSuoni"> Musica e suoni d'ambiente</label>
         <label class="spunta"><input type="checkbox" id="optDadi3d" checked> Dadi 3D che rotolano</label>
+        <label class="spunta"><input type="checkbox" id="optSottotitoli" checked> Sottotitoli grandi quando parla il master</label>
         <label>Volume<input type="range" id="optVolume" min="0" max="1" step="0.05" value="0.5"></label>
         <p class="piccolo">Comandi vocali: tieni premuto il tasto del microfono in basso mentre parli. Il tasto verde in alto attiva l'ascolto continuo, che su Android può non funzionare insieme alla chat vocale.</p>
         <label>Il tuo nome<input id="optNome" maxlength="30"></label>
@@ -256,11 +261,13 @@
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <dialog id="dlg" class="dlg"><form method="dialog"><div id="dlgCorpo"></div><div class="riga dlg-azioni" id="dlgAzioni"></div></form></dialog>
 
+<div id="sottotitoli" aria-live="polite" hidden></div>
 <script src="qrcode.js"></script>
 <script src="regole.js"></script>
 <script src="comandi.js"></script>
 <script src="ritratto.js"></script>
 <script src="lpc.js"></script>
+<script src="mondo.js"></script>
 <script src="mappa.js"></script>
 <script src="voce.js"></script>
 <script src="bot.js"></script>

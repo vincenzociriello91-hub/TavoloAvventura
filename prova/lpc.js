@@ -92,7 +92,7 @@ const Lpc = (() => {
   function daNome(nome, tipo) {
     const n = String(nome || '').toLowerCase(), h = hash(nome), pick = (arr, k = 0) => arr[(h >> k) % arr.length];
     const orco = /goblin|orco|orchi|hobgoblin|bugbear/.test(n);
-    const umano = tipo === 'png' || /bandit|brigant|guardi|soldat|cultist|mago|strega|ladro|assassin|cavalier|mercenar|predon|pirat|negromant|sacerdot|capitan|elfo oscuro|drow|stregon/.test(n);
+    const umano = tipo === 'png' || tipo === 'alleato' || /bandit|brigant|guardi|soldat|cultist|mago|strega|ladro|assassin|cavalier|mercenar|predon|pirat|negromant|sacerdot|capitan|elfo oscuro|drow|stregon/.test(n);
     if (tipo === 'nemico' && !orco && !umano) return null; // mostri: segnalino classico
     const donna = !orco && /(a|essa|ina)$/.test(n.split(' ')[0]) && !/guardia|spia/.test(n.split(' ')[0]);
     const s = ['corpo', orco ? (donna ? 'testa_orca' : 'testa_orco') : donna ? 'testa_donna' : /vecchi|anzian/.test(n) ? 'testa_anziano' : 'testa_uomo', 'pantaloni', 'stivali', pick(['maglia', 'tunica'], 3)];
@@ -106,6 +106,7 @@ const Lpc = (() => {
       if (/guardi|soldat/.test(n)) s.push('cotta', 'elmo', 'spada_corta'); else s.push(pick(['capelli_1', 'capelli_2', 'capelli_3', 'capelli_6', 'capelli_8', 'capelli_0'], 4));
       if (!donna && h % 3 === 0) s.push(pick(['barba_1', 'barba_2', 'baffi_1'], 6));
       if (/mago|stregon/.test(n)) s.push('cappello_mago', 'bastone');
+      if (tipo === 'alleato') s.push(...(/ranger|arcier|cacciat/.test(n) ? ['cuoio', 'arco_corto'] : /chieric|frate|fra'|sacerdot|paladin/.test(n) ? ['cotta', 'mazza'] : /ladr|furfant/.test(n) ? ['cuoio', 'pugnale'] : ['cotta', 'spada_corta']));
     }
     return { corpo: /nano|halfling|gnomo|bambin/.test(n) ? 'teen' : donna ? 'female' : 'male', colori: { body: orco ? pick(['green', 'dark_green', 'pale_green'], 7) : pick(['light', 'amber', 'olive', 'taupe', 'bronze', 'brown'], 7), hair: pick(['black', 'dark_brown', 'chestnut', 'blonde', 'redhead', 'gray', 'white'], 8), cloth: tipo === 'nemico' ? pick(['maroon', 'black', 'charcoal', 'red'], 9) : pick(['brown', 'tan', 'forest', 'navy', 'maroon', 'slate', 'leather', 'walnut'], 9), metal: pick(['iron', 'steel', 'bronze'], 10), eye: 'brown' }, strati: s.map(pezzo => ({ pezzo })) };
   }
