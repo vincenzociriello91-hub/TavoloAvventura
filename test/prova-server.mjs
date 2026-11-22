@@ -113,6 +113,15 @@ B2.invia({ t: 'parlato', testo: 'apro la porta della cripta' });
 const dp = await A.aspetta(m => m.t === 'diario' && m.ev.tipo === 'parlato');
 verifica(dp.ev.testo.includes('apro la porta'), 'parlato registrato nel diario');
 
+// memoriale: un personaggio caduto va nel memoriale e la sua scheda si libera per un erede
+B2.invia({ t: 'caduto', motivo: 'travolto da una frana' });
+const mem = await A.aspetta(m => m.t === 'memoriale', 6000);
+verifica(mem.memoriale.some(c => c.chi === bB.io && c.motivo.includes('frana')) && mem.caduto === bB.io, 'personaggio caduto nel memoriale');
+// galleria dei PNG e memoriale arrivano nello stato a chi entra
+A.invia({ t: 'stato' });
+const st2 = await A.aspetta(m => m.t === 'stato');
+verifica(Array.isArray(st2.stato.memoriale) && st2.stato.png && typeof st2.stato.png === 'object', 'stato con memoriale e galleria dei PNG');
+
 const Z = client('https://sito-cattivo.example');
 verifica(await Z.pronto.then(() => false, e => /403/.test(e.message)), 'origine sconosciuta rifiutata');
 

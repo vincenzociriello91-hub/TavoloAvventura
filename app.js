@@ -1,6 +1,15 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.7.0';
+const VERSION = '2.8.0';
 const CHANGELOG = [
+  { v: '2.8.0', data: '22/11/2026', voci: [
+    'Diario del personaggio: a fine serata ognuno riceve una pagina scritta dal punto di vista del suo personaggio (nella Scheda).',
+    'Bentornato: chi ha saltato una o più serate, quando rientra, trova il racconto di cosa si è perso.',
+    'Cartolina della serata: dal riepilogo, un\'immagine ricordo con illustrazione, momento migliore e personaggi, da mandare sul gruppo.',
+    'Personaggi incontrati: nel Diario la galleria dei PNG con volto, luogo e cosa si sa di loro.',
+    'Storia e famiglia: rispondi a quattro domande e il master scrive la storia del tuo personaggio, che poi usa nell\'avventura.',
+    'Memoriale dei caduti: chi muore resta ricordato con le sue imprese, e puoi creare un erede che riceve un suo oggetto.',
+    'Premi della campagna nelle statistiche (Re degli 1 naturali, Spugna del gruppo, Mani bucate...) e libro della campagna con diari e memoriale.'
+  ] },
   { v: '2.7.0', data: '22/11/2026', voci: [
     'Musica vera che cambia da sola con la scena: giorno, notte, taverna, dungeon, combattimento e boss (JP Soundworks). Si accende con "Musica e suoni d\'ambiente" in Altro.',
     'Effetti sonori: il master ha una tavola dei suoni (porta, colpo, magia, monete, pozione, tuono, vittoria, sconfitta) che suona su tutti i telefoni; anche il master AI li usa nei momenti giusti.',
@@ -340,6 +349,9 @@ function gestisci(m) {
       renderTiri(); renderRapidi(); return;
     }
     case 'suono': Suoni.effetto(m.nome); return;
+    case 'png': S.st.png = m.png; renderDiarioExtra(); return;
+    case 'memoriale': S.st.memoriale = m.memoriale; if (m.caduto) { delete S.st.pg[m.caduto]; renderSchedaSeServe(true); } renderDiarioExtra(); return;
+    case 'bentornato': mostraBentornato(m.riepiloghi); return;
     case 'luogo': S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; S.st.aree = []; renderMappa(); if (!$('#mondoBox').hidden) renderMappaMondo(); Report.log('luogo', { nome: m.luogo.nome, tipo: m.luogo.tipo }); return;
     case 'luogo_mod': S.st.luogo = m.luogo; renderMappa(); return;
     case 'segnalini': {
@@ -481,7 +493,7 @@ function renderTutto() {
   $('#optMaster').closest('label').hidden = !masterAI();
   $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); }
   if (capo()) renderAvventura(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
-  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderMondo(); renderAltro();
+  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondo(); renderAltro();
 }
 function renderPresenza() {
   if (!S.st) return;
@@ -700,9 +712,21 @@ function renderScheda() {
   </div>
   <div class="carta">
     <details><summary>Aspetto del personaggio</summary>${puo ? formAspetto(pg.aspetto || {}, pg.razza) : ''}</details>
+    ${cartaStoria(pg, puo)}
+    ${(pg.diario || []).length ? `<details><summary>Il diario di ${esc(pg.nome)} (${pg.diario.length})</summary>${[...pg.diario].reverse().map(d => `<div class="pagina-diario"><span class="piccolo">Sessione ${d.sessione || '?'} · ${esc(d.titolo || '')}</span><p>${esc(d.testo)}</p></div>`).join('')}</details>` : ''}
     <label>Note<textarea id="pgNote" rows="3" maxlength="4000" ${puo ? '' : 'readonly'}>${esc(pg.note || '')}</textarea></label>
-    <div class="riga"><button id="btnStampa">Stampa o salva in PDF</button>${puo ? '<button id="btnAnnullaScheda">Annulla ultima modifica</button>' : ''}</div>
+    <div class="riga"><button id="btnStampa">Stampa o salva in PDF</button>${puo ? '<button id="btnAnnullaScheda">Annulla ultima modifica</button>' : ''}${puo ? '<button id="btnCaduto" class="pericolo">Il personaggio è caduto</button>' : ''}</div>
   </div>`;
+}
+// storia e albero genealogico: il giocatore risponde a 4 domande, il master la scrive
+function cartaStoria(pg, puo) {
+  const f = pg.famiglia || {};
+  return `<details${pg.storia ? '' : ' open'}><summary>Storia e famiglia</summary>${pg.storia ? `<p class="storia-pg">${esc(pg.storia)}</p>` : ''}
+    ${puo ? `<div class="colonna"><label>Da dove viene<input id="stOrigini" maxlength="200" value="${esc(f.origini || '')}" placeholder="Es. un villaggio di pescatori sulla costa"></label>
+    <label>Famiglia (genitori, fratelli, legami)<input id="stFamiglia" maxlength="300" value="${esc(f.famiglia || '')}" placeholder="Es. padre fabbro, sorella maggiore scomparsa"></label>
+    <label>Segno particolare<input id="stSegno" maxlength="150" value="${esc(f.segno || '')}" placeholder="Es. una cicatrice a forma di luna"></label>
+    <label>Cosa sogna o teme<input id="stSogno" maxlength="150" value="${esc(f.sogno || '')}" placeholder="Es. ritrovare la sorella"></label>
+    <button type="button" id="btnStoria">${pg.storia ? 'Riscrivila col master' : 'Scrivila col master'}</button></div>` : ''}</details>`;
 }
 const LIVELLI_REL = ['sconosciuti', 'conoscenti', 'rivali', 'amici', 'amici stretti', 'compagni di vita', 'famiglia'];
 // 0 = solo aspetto, 1 = informazioni principali, 2 = tutta la scheda
@@ -798,6 +822,7 @@ function renderCreazione(box) {
   const nAb = r === '5e' ? set.classi[bozza.classe]?.abilita || 2 : 0;
   box.innerHTML = `<div class="carta">
     <h2>Crea il tuo personaggio</h2><p class="piccolo">${esc(set.nome)}: tutto il resto (PF, CA, tiri salvezza, abilità) si calcola da solo.</p>
+    ${(() => { const c = (S.st.memoriale || []).filter(x => x.chi === S.io).pop(); return c && !bozza.erede ? `<div class="carta-mini"><strong>In ricordo di ${esc(c.nome)}</strong><p class="piccolo">Puoi creare un erede della sua famiglia: riceve ${esc(c.eredita?.nome || 'il suo ricordo')}.</p><button type="button" id="cpErede">Crea un erede</button></div>` : ''; })()}
     ${cartaSessioneZero()}
     <div class="pg-testa"><div class="ritratto" id="anteprima">${Ritratto.svg(anteprima, { dim: 120 })}</div>
       <div class="pg-info"><label>Nome<input id="cpNome" maxlength="40" value="${esc(bozza.nome)}" placeholder="Es. Brann Barbaferro"></label>
@@ -851,14 +876,18 @@ $('#scheda').addEventListener('click', async e => {
   if (b.id === 'szUsa' && S.sz?.proposta) { const pr = S.sz.proposta; Object.assign(bozza, { nome: pr.nome || bozza.nome, razza: pr.razza, classe: pr.classe, allineamento: pr.allineamento || bozza.allineamento, aspetto: { ...bozza.aspetto, ...(pr.aspetto || {}) }, note: [pr.storia, pr.legami && 'Legami: ' + pr.legami].filter(Boolean).join('\n\n'), competenze: [] }); S.sz.usata = true; renderScheda(); toast('Proposta applicata: scegli le caratteristiche e crea il personaggio'); return; }
   if (b.dataset.compra) { invia({ t: 'compra', merce: b.dataset.compra }); return; }
   if (b.dataset.vendi !== undefined) { invia({ t: 'vendi', indice: Number(b.dataset.vendi) }); return; }
+  if (b.id === 'cpErede') { const c = (S.st.memoriale || []).filter(x => x.chi === S.io).pop(); if (c) { bozza.nome = `${bozza.nome.split(' ')[0] || 'Nuovo'} ${c.cognome}`.trim(); bozza.erede = c; renderScheda(); toast(`Erede di ${c.nome}: riceverà ${c.eredita?.nome || 'il suo ricordo'}`); } return; }
   if (b.id === 'cpCrea') {
     if (!bozza.nome.trim()) { toast('Dai un nome al personaggio', true); $('#cpNome').focus(); return; }
     const pg = Regole.nuovo(regole(), bozza);
+    if (bozza.erede) { if (bozza.erede.eredita) pg.equip = [...(pg.equip || []), { nome: bozza.erede.eredita.nome + ' (eredità)', qta: 1 }]; pg.storia = `Erede di ${bozza.erede.nome}, caduto nella sessione precedente.`; }
     invia({ t: 'scheda', pg, nota: `${pg.nome}, ${pg.razza} ${pg.classe}, entra in gioco` });
     S.st.pg[S.io] = pg; bozza = null; Report.log('pg-creato', { razza: pg.razza, classe: pg.classe, regole: pg.regole });
     renderScheda(); toast('Personaggio creato!'); return;
   }
   const pg = S.st?.pg?.[S.viewPg]; if (!pg) return;
+  if (b.id === 'btnStoria') { invia({ t: 'storia', origini: $('#stOrigini').value, famiglia: $('#stFamiglia').value, segno: $('#stSegno').value, sogno: $('#stSogno').value }); toast('Il master scrive la storia…'); return; }
+  if (b.id === 'btnCaduto') { chiedi(`<h2>${esc(pg.nome)} è caduto?</h2><p>Il personaggio va nel memoriale con le sue imprese. Potrai creare un erede che riceve un suo oggetto.</p>`, [{ testo: 'Sì, è caduto', pieno: true }, { testo: 'Annulla' }]).then(i => { if (i === 0) invia({ t: 'caduto', pg: S.viewPg }); }); return; }
   if (b.dataset.prova) { const [tipo, k] = b.dataset.prova.split(':'); if (tipo === 'car') tira('d20' + fm(mod(pg.car[k])), 'Prova di ' + CAR_NOMI[k]); else if (tipo === 'ts') tira('d20' + fm(Regole.tiroSalvezza(pg, k)), 'Tiro salvezza ' + ({ tem: 'Tempra', rif: 'Riflessi', vol: 'Volontà' }[k] || CAR_NOMI[k])); else tira('d20' + fm(Regole.abilita(pg, k)), k); return; }
   if (b.dataset.attacco) { const at = Regole.attacco(pg, { nome: b.dataset.attacco }); tira('d20' + fm(at.colpire), 'Attacco con ' + b.dataset.attacco); return; }
   if (b.dataset.danni) { const at = Regole.attacco(pg, { nome: b.dataset.danni }); tira(at.danno.replace(/^1d/, 'd'), 'Danni ' + b.dataset.danni); return; }
@@ -1169,7 +1198,7 @@ document.addEventListener('click', e => {
 function mostraStatistiche(m) {
   const VOCI = [['tiri', 'Dadi tirati'], ['critici', 'Critici'], ['fallimenti', 'Fallimenti critici'], ['danniSubiti', 'Danni subiti'], ['cadute', 'Volte a terra'], ['cure', 'PF recuperati'], ['speso', 'Monete spese']];
   const tabella = (dati) => { const ids = Object.keys(dati || {}).filter(id => id !== 'gruppo'); if (!ids.length) return '<p class="piccolo">Ancora niente da contare.</p>'; return `<div style="overflow-x:auto"><table class="stat-tab"><tr><th></th>${ids.map(id => `<th>${esc(m.nomi[id] || id)}</th>`).join('')}</tr>${VOCI.map(([k, n]) => `<tr><td>${n}</td>${ids.map(id => `<td>${dati[id][k] || 0}</td>`).join('')}</tr>`).join('')}</table></div>${dati.gruppo ? `<p class="piccolo">Il gruppo: ${dati.gruppo.nemici || 0} nemici sconfitti, ${dati.gruppo.combattimenti || 0} combattimenti.</p>` : ''}`; };
-  chiedi(`<h2>Statistiche</h2>${m.trofei.length ? `<h3>Trofei della serata</h3><ul>${m.trofei.map(x => `<li>🏆 <strong>${esc(x.titolo)}</strong>: ${esc(x.chi)} <span class="piccolo">(${esc(x.motivo)})</span></li>`).join('')}</ul>` : ''}<h3>Questa sessione (${m.sessione || 1})</h3>${tabella(m.s)}<h3>Tutta la campagna</h3>${tabella(m.tot)}`, [{ testo: 'Chiudi' }]);
+  chiedi(`<h2>Statistiche</h2>${(m.premi || []).length ? `<h3>Premi della campagna</h3><ul>${m.premi.map(x => `<li>🎖️ <strong>${esc(x.titolo)}</strong>: ${esc(x.chi)} <span class="piccolo">(${esc(x.motivo)})</span></li>`).join('')}</ul>` : ''}${m.trofei.length ? `<h3>Trofei della serata</h3><ul>${m.trofei.map(x => `<li>🏆 <strong>${esc(x.titolo)}</strong>: ${esc(x.chi)} <span class="piccolo">(${esc(x.motivo)})</span></li>`).join('')}</ul>` : ''}<h3>Questa sessione (${m.sessione || 1})</h3>${tabella(m.s)}<h3>Tutta la campagna</h3>${tabella(m.tot)}`, [{ testo: 'Chiudi' }]);
 }
 $('#btnLibro').addEventListener('click', () => { invia({ t: 'libro' }); toast('Preparo il libro…'); });
 function apriLibro(m) {
@@ -1186,8 +1215,8 @@ function apriLibro(m) {
     @media print{body{background:#fff;padding:0} .stampa{display:none}}</style></head><body>
     <p class="stampa" style="text-align:center"><button onclick="print()" style="font-size:16px;padding:10px 18px">Stampa o salva in PDF</button></p>
     <h1>${esc(m.campagna.nome)}</h1><p class="sotto">${esc(m.campagna.ambientazione || '')} · D&amp;D ${esc(m.campagna.regole)} · ${m.campagna.sessione || 1} sessioni</p>${copertina ? img(copertina) : ''}
-    <h2>I protagonisti</h2>${m.pg.map(p => `<div class="pg">${Ritratto.svg(p, { dim: 80 })}<div><strong>${esc(p.nome)}</strong><br>${esc(p.razza)} ${esc(p.classe)}, livello ${p.livello}${p.note ? `<br><span class="nota">${esc(p.note)}</span>` : ''}</div></div>`).join('')}
-    ${capitoli}<section class="cap"><h2>Cronaca completa</h2>${cronaca || '<p>Nessuna narrazione ancora.</p>'}</section></body></html>`);
+    <h2>I protagonisti</h2>${m.pg.map(p => `<div class="pg">${Ritratto.svg(p, { dim: 80 })}<div><strong>${esc(p.nome)}</strong><br>${esc(p.razza)} ${esc(p.classe)}, livello ${p.livello}${p.storia ? `<br><span class="nota">${esc(p.storia)}</span>` : ''}</div></div>`).join('')}
+    ${capitoli}${m.pg.some(p => (p.diario || []).length) ? `<section class="cap"><h2>Dai diari dei protagonisti</h2>${m.pg.filter(p => (p.diario || []).length).map(p => `<h3>${esc(p.nome)}</h3>${p.diario.map(d => `<p><em>Sessione ${d.sessione || '?'}</em> — ${esc(d.testo)}</p>`).join('')}`).join('')}</section>` : ''}${(S.st.memoriale || []).length ? `<section class="cap"><h2>Memoriale</h2>${S.st.memoriale.map(c => `<p><strong>${esc(c.nome)}</strong>, ${esc(c.razza || '')} ${esc(c.classe || '')} di livello ${c.livello}. ${esc(c.motivo || '')}</p>`).join('')}</section>` : ''}<section class="cap"><h2>Cronaca completa</h2>${cronaca || '<p>Nessuna narrazione ancora.</p>'}</section></body></html>`);
   w.document.close(); Report.log('libro', { capitoli: m.riepiloghi.length, voci: m.diario.length });
 }
 /* ---- sessione zero: il master aiuta a creare il personaggio ---- */
@@ -1217,7 +1246,8 @@ async function mostraRiepilogo(r) {
   const s = r.stats || {}, img = r.img ? urlMedia('img', r.img) : null;
   const righe = [...(s.trofei || []).map(x => `🏆 ${x.titolo}: ${x.chi} (${x.motivo})`), s.nemici?.length ? `Nemici sconfitti: ${s.nemici.join(', ')}` : '', s.combattimenti ? `Combattimenti: ${s.combattimenti}` : '', s.luoghi?.length ? `Luoghi: ${s.luoghi.join(', ')}` : '', ...Object.entries(s.px || {}).map(([n, v]) => `${n}: +${v} PX`), ...(s.livelli || []), ...(s.bottino || []).slice(-6)].filter(Boolean);
   const testoCondiviso = `${r.titolo}\n\n${r.racconto}\n\n${righe.join('\n')}`;
-  const i = await chiedi(`<h2>${esc(r.titolo)}</h2>${img ? `<img src="${img}" alt="" style="width:100%;border-radius:10px;margin:4px 0 8px">` : ''}<p style="white-space:pre-wrap">${esc(r.racconto)}</p>${righe.length ? `<ul class="piccolo">${righe.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`, [{ testo: 'Condividi', pieno: true }, { testo: 'Chiudi' }]);
+  const i = await chiedi(`<h2>${esc(r.titolo)}</h2>${img ? `<img src="${img}" alt="" style="width:100%;border-radius:10px;margin:4px 0 8px">` : ''}<p style="white-space:pre-wrap">${esc(r.racconto)}</p>${righe.length ? `<ul class="piccolo">${righe.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`, [{ testo: 'Condividi', pieno: true }, { testo: 'Cartolina' }, { testo: 'Chiudi' }]);
+  if (i === 1) return cartolina(r);
   if (i !== 0) return;
   try {
     const files = img ? [new File([await fetch(img).then(x => x.blob())], 'serata.jpg', { type: 'image/jpeg' })] : [];
@@ -1435,3 +1465,44 @@ const Pad = (() => {
   addEventListener('gamepaddisconnected', () => toast('Controller scollegato'));
   return { get attivo() { return attivo; } };
 })();
+
+/* ============ Diario: galleria dei PNG e memoriale dei caduti ============ */
+function renderDiarioExtra() {
+  const png = Object.entries(S.st?.png || {}).sort((a, b) => (b[1].t || 0) - (a[1].t || 0));
+  const g = $('#galleriaPng'); if (g) { g.hidden = !png.length; $('#galleriaPngLista').innerHTML = png.map(([nome, p]) => { const v = S.st.volti?.[nome];
+    return `<div class="carta-png">${v ? `<img src="${urlMedia('img', v)}" alt="" class="volto-png" onerror="this.outerHTML=Ritratto.volto(${esc(JSON.stringify(nome))}, 64)">` : Ritratto.volto(nome, 64)}<div><strong>${esc(nome)}</strong>${p.luogo ? `<div class="piccolo">Incontrato a ${esc(p.luogo)}</div>` : ''}${(p.note || []).map(n => `<div class="piccolo">• ${esc(n)}</div>`).join('')}</div></div>`; }).join(''); $('#galleriaPngConta').textContent = png.length; }
+  const mem = S.st?.memoriale || [], mm = $('#memoriale'); if (mm) { mm.hidden = !mem.length; $('#memorialeLista').innerHTML = [...mem].reverse().map(c => `<div class="caduto"><strong>✝ ${esc(c.nome)}</strong> <span class="piccolo">${esc(c.razza || '')} ${esc(c.classe || '')}, livello ${c.livello || 1} · ${new Date(c.t).toLocaleDateString('it-IT')}</span>${c.motivo ? `<p class="piccolo">${esc(c.motivo)}</p>` : ''}${(c.imprese || []).length ? `<ul class="piccolo">${c.imprese.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}</div>`).join(''); }
+}
+/* ============ Bentornato: cosa ti sei perso ============ */
+function mostraBentornato(rie) {
+  if (!rie?.length) return;
+  chiedi(`<h2>Bentornato!</h2><p class="piccolo">Mentre eri via il gruppo ha giocato ${rie.length === 1 ? 'una serata' : rie.length + ' serate'}. Ecco cosa ti sei perso:</p>${rie.map(r => `<h3>${esc(r.titolo)}</h3>${r.img ? `<img src="${urlMedia('img', r.img)}" alt="" style="width:100%;border-radius:10px">` : ''}<p style="white-space:pre-wrap">${esc(r.racconto)}</p>`).join('')}`, [{ testo: 'Torniamo a giocare', pieno: true }]);
+  if (OPZ.narratore && rie[rie.length - 1].racconto) Narratore.parla(rie[rie.length - 1].racconto);
+  Report.log('bentornato', { serate: rie.length });
+}
+/* ============ Cartolina della serata: immagine ricordo da mandare sul gruppo ============ */
+async function cartolina(r) {
+  const W = 1080, H = 1350, c = Object.assign(document.createElement('canvas'), { width: W, height: H }), k = c.getContext('2d');
+  const g = k.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2b2018'); g.addColorStop(1, '#120e0b'); k.fillStyle = g; k.fillRect(0, 0, W, H);
+  k.strokeStyle = '#d9a441'; k.lineWidth = 10; k.strokeRect(24, 24, W - 48, H - 48);
+  const carica = src => new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+  if (r.img) { const im = await carica(urlMedia('img', r.img)); if (im) { const lato = W - 120; k.drawImage(im, 60, 60, lato, lato * 0.62); k.strokeStyle = 'rgba(217,164,65,.7)'; k.lineWidth = 4; k.strokeRect(60, 60, lato, lato * 0.62); } }
+  k.fillStyle = '#f0c46a'; k.textAlign = 'center'; k.font = '700 58px Cinzel, Georgia, serif';
+  const testoA = (t, y, max, font, col, alt) => { k.font = font; k.fillStyle = col; const parole = String(t).split(' '); let riga = '', yy = y; for (const p of parole) { if (k.measureText(riga + p).width > max) { k.fillText(riga.trim(), W / 2, yy); riga = ''; yy += alt; } riga += p + ' '; } k.fillText(riga.trim(), W / 2, yy); return yy; };
+  let y = testoA(r.titolo, 700, W - 160, '700 56px Cinzel, Georgia, serif', '#f0c46a', 64);
+  const momento = (r.racconto || '').split(/(?<=[.!?])\s/)[0];
+  y = testoA('«' + momento + '»', y + 70, W - 200, 'italic 34px Georgia, serif', '#f3ead9', 44);
+  const pgs = Object.values(S.st.pg || {}).slice(0, 6), passo = (W - 120) / Math.max(1, pgs.length);
+  for (const [i, p] of pgs.entries()) {
+    const svg = Ritratto.svg(p, { dim: 120 }).replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+    const im = await carica('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)); const cx = 60 + passo * i + passo / 2;
+    if (im) k.drawImage(im, cx - 60, H - 300, 120, 120);
+    k.font = '600 26px Inter, sans-serif'; k.fillStyle = '#f3ead9'; k.fillText(p.nome.split(' ')[0], cx, H - 150);
+  }
+  k.font = '500 26px Inter, sans-serif'; k.fillStyle = '#bcae96'; k.fillText(`${S.st.campagna.nome} · ${new Date(r.t || Date.now()).toLocaleDateString('it-IT')}`, W / 2, H - 70);
+  const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+  const file = new File([blob], 'cartolina.png', { type: 'image/png' });
+  try { if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: r.titolo }); return; } } catch {}
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'cartolina.png' }); a.click();
+  Report.log('cartolina', { titolo: r.titolo });
+}
