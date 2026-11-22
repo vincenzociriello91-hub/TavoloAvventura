@@ -26,6 +26,6 @@ window.addEventListener('resize', () => { if (largo() && S.vista === 'vMappa') m
     $('#eCodice').value = codice; $('#eInvito').value = invito;
     if (document.body.classList.contains('tv')) { connetti(codice, () => ({ t: 'entra', invito, nome: 'TV del tavolo', ruolo: 'spettatore' })); return; }
     $('#cartaCrea').hidden = true; $('#eNome').focus();
-    if (q.get('s') === '1') { $('input[name="eRuolo"][value="spettatore"]').checked = true; $('#btnEntra').textContent = 'Guarda la partita'; }
+    if (q.get('s') === '1') { $('input[name="eRuolo"][value="spettatore"]').checked = true; $('#btnEntra').textContent = 'Guarda la partita'; $('#eRuolo').hidden = true; } // con questo link si entra solo a guardare: la scelta del ruolo non serve
   }
 })();

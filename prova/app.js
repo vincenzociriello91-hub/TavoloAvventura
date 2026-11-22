@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.7.0';
+const VERSION = '3.7.1';
 const CHANGELOG = [
+  { v: '3.7.1', data: '22/11/2026', voci: [
+    'Chi apre il link per spettatori non vede più la scelta del ruolo: entra direttamente a guardare.'
+  ] },
   { v: '3.7.0', data: '22/11/2026', voci: [
     'Nuova avventura pronta: «Il Re sotto la Montagna» (livelli 3-5, due serate), terzo capitolo dopo la miniera e la Torre di Corvonero.',
     'Il tasto del microfono non copre più gli ultimi bottoni: sotto ogni schermata c\'è spazio per scorrere.',
