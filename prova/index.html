@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tavolo d'Avventura</title>
+<meta name="description" content="D&D online con gli amici: voce, schede automatiche, mappe persistenti e master AI.">
+<meta name="theme-color" content="#14110f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="barra">
+  <div class="logo" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="28" height="28"><path d="M12 2 21 7v10l-9 5-9-5V7z" fill="#d9a441"/><path d="M12 2v20M3 7l9 5 9-5M3 17l9-5 9 5" stroke="#14110f" stroke-width="1.2" fill="none"/></svg>
+  </div>
+  <div class="titolo">
+    <strong id="tCampagna">Tavolo d'Avventura</strong>
+    <span id="tSotto" class="piccolo">D&amp;D online con gli amici</span>
+  </div>
+  <div id="presenza" class="presenza" aria-label="Chi è collegato"></div>
+  <div class="azioni-barra" id="azioniBarra" hidden>
+    <button id="btnAscolto" class="tondo" type="button" aria-label="Comandi vocali" title="Comandi vocali e voce al master"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 12h2M8 8v8M12 5v14M16 8v8M20 11v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <button id="btnMic" class="tondo mic" type="button" aria-label="Microfono" title="Microfono della chat vocale"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>
+  </div>
+</header>
+
+<div id="parziale" class="parziale" hidden></div>
+<div id="statoRete" class="statorete" hidden>Connessione persa: riprovo…</div>
+<div id="updatebar" class="updatebar" hidden><span id="updatenotes">Nuova versione disponibile</span><button id="btnUpdate" type="button" class="pieno piccolo-btn">Aggiorna</button></div>
+
+<main>
+  <!-- INGRESSO -->
+  <section id="ingresso" class="ingresso">
+    <div class="eroe">
+      <h1>Il vostro tavolo da gioco, ovunque siate</h1>
+      <p>Voce tra amici, schede che si aggiornano da sole, mappe che ricordano tutto e un master che può essere una persona o l'intelligenza artificiale.</p>
+    </div>
+    <div class="schede-ingresso">
+      <div class="carta" id="cartaEntra">
+        <h2>Entra con un invito</h2>
+        <p class="piccolo">Inquadra il QR del tuo amico oppure apri il link che ti ha mandato.</p>
+        <label>Il tuo nome<input id="eNome" maxlength="30" autocomplete="nickname" placeholder="Es. Marco"></label>
+        <label>Codice campagna<input id="eCodice" maxlength="12" placeholder="Es. K7QX2M9A" autocapitalize="characters"></label>
+        <label>Codice invito<input id="eInvito" maxlength="12" placeholder="Dal QR" autocapitalize="characters"></label>
+        <fieldset class="segmentato" id="eRuolo"><legend>Partecipo come</legend>
+          <label><input type="radio" name="eRuolo" value="giocatore" checked><span>Giocatore</span></label>
+          <label><input type="radio" name="eRuolo" value="master"><span>Master</span></label>
+          <label><input type="radio" name="eRuolo" value="spettatore"><span>Spettatore</span></label>
+        </fieldset>
+        <button id="btnEntra" class="pieno grande" type="button">Entra nella stanza</button>
+      </div>
+      <div class="carta" id="cartaCrea">
+        <h2>Crea una campagna</h2>
+        <label>Nome della campagna<input id="cNome" maxlength="60" placeholder="Es. La Torre di Smeraldo"></label>
+        <fieldset class="segmentato"><legend>Regolamento</legend>
+          <label><input type="radio" name="cRegole" value="5e" checked><span>D&amp;D 5ª edizione</span></label>
+          <label><input type="radio" name="cRegole" value="3.5"><span>D&amp;D 3.5</span></label>
+        </fieldset>
+        <label>Ambientazione<textarea id="cAmbientazione" rows="2" maxlength="400" placeholder="Es. Fantasy classico: regni, draghi e antiche rovine"></textarea></label>
+        <div class="chips" id="chipsAmb">
+          <button type="button" class="chip">Fantasy classico</button><button type="button" class="chip">Dark fantasy gotico</button><button type="button" class="chip">Pirati e isole maledette</button><button type="button" class="chip">Deserto e antichi imperi</button><button type="button" class="chip">Terre del nord innevate</button><button type="button" class="chip">Città di intrighi e gilde</button>
+        </div>
+        <fieldset class="segmentato"><legend>Chi fa il master</legend>
+          <label><input type="radio" name="cMaster" value="ai" checked><span>Intelligenza artificiale</span></label>
+          <label><input type="radio" name="cMaster" value="umano"><span>Una persona</span></label>
+        </fieldset>
+        <fieldset class="segmentato" id="cMioRuoloBox" hidden><legend>Tu sei</legend>
+          <label><input type="radio" name="cMioRuolo" value="giocatore" checked><span>Giocatore</span></label>
+          <label><input type="radio" name="cMioRuolo" value="master"><span>Il master</span></label>
+        </fieldset>
+        <label>Il tuo nome<input id="cMioNome" maxlength="30" autocomplete="nickname" placeholder="Es. Vincenzo"></label>
+        <button id="btnCrea" class="pieno grande" type="button">Crea e invita gli amici</button>
+      </div>
+    </div>
+    <div class="carta" id="cartaMie" hidden>
+      <h2>Le tue campagne</h2>
+      <ul id="listaMie" class="lista-mie"></ul>
+    </div>
+  </section>
+
+  <!-- GIOCO -->
+  <section id="gioco" class="gioco" hidden>
+    <div class="vista vista-mappa attiva" id="vMappa">
+      <div class="narrazione" id="narrazione" hidden>
+        <div class="narr-testa"><span id="narrChi">Il master</span><button id="btnZitto" class="testo-btn" type="button">Silenzio</button></div>
+        <div class="narr-corpo"><div class="narr-volto" id="narrVolto" hidden></div><p id="narrTesto"></p></div>
+      </div>
+      <div class="combat" id="combat" hidden></div>
+      <div class="richiesta" id="richiesta" hidden>
+        <span id="richTesto"></span>
+        <button id="richTira" class="pieno" type="button">Tira</button>
+      </div>
+      <div class="luogo-testa">
+        <div><strong id="luogoNome">Nessun luogo</strong> <span id="luogoTipo" class="piccolo"></span> <button id="btnEsciEd" type="button" class="testo-btn" hidden>Esci all'aperto</button></div>
+        <form id="formVai" class="riga" autocomplete="off"><input id="vaiNome" placeholder="Vai a… (es. Taverna del Drago)" maxlength="60" aria-label="Nome del luogo"><button class="pieno" type="submit">Vai</button></form>
+      </div>
+      <div class="mappa-box" id="mappaBox"><canvas id="mappa" aria-label="Mappa del luogo"></canvas>
+        <div class="vuoto" id="mappaVuota"><p>Il gruppo non è ancora in nessun luogo.</p><p class="piccolo" id="mappaVuotaSugg">Il master AI vi porterà nel primo luogo appena iniziate a giocare. Potete anche scrivere un luogo qui sopra.</p></div>
+      </div>
+      <div class="mondo-box" id="mondoBox" hidden><svg id="mondoSvg" role="img" aria-label="Mappa del mondo: luoghi conosciuti e viaggi del gruppo"></svg></div>
+      <div class="riga strumenti-mappa"><button id="btnMondo" type="button">Mappa del mondo</button><button id="btnArea" type="button">Area incantesimo</button><button id="btnPulisciAree" type="button" hidden>Togli le aree</button><button id="btnCombat" type="button" hidden>Inizia combattimento</button></div>
+      <p class="piccolo aiuto-mappa">Trascina il tuo segnalino per muoverti. Tocca un edificio per vederlo<span id="aiutoCapo" hidden> o cambiarne lo stato</span>.</p>
+    </div>
+
+    <div class="vista" id="vScheda">
+      <div class="riga sel-pg" id="selPgBox"><label>Personaggio<select id="selPg"></select></label></div>
+      <div id="scheda"></div>
+      <div class="carta" id="tesoro"></div>
+    </div>
+
+    <div class="vista" id="vDadi">
+      <div class="dadi-tasti" id="dadiTasti"></div>
+      <div class="riga dadi-opz">
+        <label>Modificatore<input id="dMod" type="number" value="0" min="-20" max="30" inputmode="numeric"></label>
+        <label>Quanti<input id="dQuanti" type="number" value="1" min="1" max="20" inputmode="numeric"></label>
+        <label>Motivo<input id="dMotivo" maxlength="80" placeholder="Es. Furtività"></label>
+      </div>
+      <fieldset class="segmentato"><legend>Tiro</legend>
+        <label><input type="radio" name="dModo" value="" checked><span>Normale</span></label>
+        <label><input type="radio" name="dModo" value="vantaggio"><span>Vantaggio</span></label>
+        <label><input type="radio" name="dModo" value="svantaggio"><span>Svantaggio</span></label>
+      </fieldset>
+      <label class="spunta" id="dSegretoBox" hidden><input type="checkbox" id="dSegreto"> Tiro segreto (lo vedi solo tu)</label>
+      <div class="ultimo-tiro" id="ultimoTiro" aria-live="polite"></div>
+      <div class="riga" id="tiroAzioni" hidden><button id="btnPreferito" type="button">☆ Salva nei preferiti</button></div>
+      <h3>Rapidi</h3>
+      <div class="chips" id="rapidi"></div>
+      <h3>Tiri del tavolo</h3>
+      <ul class="lista-tiri" id="listaTiri"></ul>
+    </div>
+
+    <div class="vista" id="vDiario">
+      <form id="formChat" class="riga" autocomplete="off">
+        <input id="chatTesto" maxlength="600" placeholder="Scrivi al tavolo o descrivi cosa fai" aria-label="Messaggio">
+        <button class="pieno" type="submit">Invia</button>
+      </form>
+      <label class="spunta" id="alMasterBox"><input type="checkbox" id="alMaster" checked> Fallo sentire al master AI</label>
+      <div class="carta-mini" id="boxNarra" hidden>
+        <strong>Narra come master</strong>
+        <form id="formNarra" class="colonna" autocomplete="off"><textarea id="narraTesto" rows="2" maxlength="1500" placeholder="Descrivi la scena: verrà letta ad alta voce a tutti"></textarea>
+        <div class="riga"><input id="narraPng" maxlength="40" placeholder="PNG che parla (facoltativo)"><button class="pieno" type="submit">Narra</button></div></form>
+      </div>
+      <form id="formRegola" class="riga" autocomplete="off">
+        <input id="regolaTesto" maxlength="400" placeholder="Domanda sulle regole (es. come funziona la lotta?)" aria-label="Domanda sulle regole">
+        <button type="submit">Chiedi</button>
+      </form>
+      <div id="rispostaRegola" class="carta-mini" hidden></div>
+      <details class="carta-mini" id="boxMondo"><summary>Il mondo: fazioni, valute, notizie</summary><div id="mondo"></div></details>
+      <ul class="diario" id="diario"></ul>
+    </div>
+
+    <div class="vista" id="vAltro">
+      <div class="carta" id="cartaInvito">
+        <h2>Invita al tavolo</h2>
+        <div class="invito-box"><div id="qr" class="qr"></div>
+          <div><p class="piccolo">Fai inquadrare il QR o manda il link. Il codice cambia a ogni sessione: i vecchi inviti smettono di funzionare.</p>
+            <div class="riga"><button id="btnCondividi" class="pieno" type="button">Condividi link</button><button id="btnCopia" type="button">Copia</button></div>
+            <button id="btnNuovoInvito" class="testo-btn" type="button">Crea un nuovo codice</button>
+          </div></div>
+      </div>
+      <div class="carta" id="cartaCampagna" hidden>
+        <h2>Campagna</h2>
+        <label>Nome<input id="aNome" maxlength="60"></label>
+        <fieldset class="segmentato"><legend>Regolamento</legend>
+          <label><input type="radio" name="aRegole" value="5e"><span>5ª edizione</span></label>
+          <label><input type="radio" name="aRegole" value="3.5"><span>3.5</span></label>
+        </fieldset>
+        <label>Ambientazione<textarea id="aAmb" rows="2" maxlength="400"></textarea></label>
+        <fieldset class="segmentato"><legend>Master</legend>
+          <label><input type="radio" name="aMaster" value="ai"><span>AI</span></label>
+          <label><input type="radio" name="aMaster" value="umano"><span>Persona</span></label>
+        </fieldset>
+        <div class="riga"><button id="btnSalvaCamp" class="pieno" type="button">Salva</button><button id="btnNuovaSessione" type="button">Inizia nuova sessione</button></div>
+        <div id="ruoliBox"></div>
+      </div>
+      <div class="carta">
+        <h2>Gioco</h2>
+        <button id="btnRiassunto" type="button" class="largo">Nella puntata precedente…</button>
+        <label class="spunta"><input type="checkbox" id="optNarratore" checked> Leggi ad alta voce il master</label>
+        <label class="spunta"><input type="checkbox" id="optAvvisi" checked> Avvisi vocali in cuffia (tocca a te, poca vita)</label>
+        <label class="spunta"><input type="checkbox" id="optMaster" checked> Il master AI ascolta quello che dico</label>
+        <label class="spunta"><input type="checkbox" id="optGrandi"> Caratteri grandi</label>
+        <label class="spunta"><input type="checkbox" id="optSuoni"> Musica e suoni d'ambiente</label>
+        <label>Volume<input type="range" id="optVolume" min="0" max="1" step="0.05" value="0.5"></label>
+        <p class="piccolo">Comandi vocali: tieni premuto il tasto del microfono in basso mentre parli. Il tasto verde in alto attiva l'ascolto continuo, che su Android può non funzionare insieme alla chat vocale.</p>
+        <label>Il tuo nome<input id="optNome" maxlength="30"></label>
+        <a id="linkTv" class="bottone largo" href="#" target="_blank" rel="noopener">Apri il tavolo sulla TV</a>
+        <p class="piccolo">Sulla TV o sulla Odin si vedono la mappa grande, le narrazioni e i dadi; ognuno usa il telefono per la scheda.</p>
+      </div>
+      <div class="carta" id="cartaCosti" hidden>
+        <h2>Uso dell'intelligenza artificiale</h2>
+        <div id="costi" class="piccolo"></div>
+      </div>
+      <div class="carta" id="cartaBot" hidden>
+        <h2>Bot di prova</h2>
+        <p class="piccolo">Entra come giocatore in più, gioca da solo una partita completa (master, comandi vocali, dadi, mappe, livelli) e poi esce. Tutto finisce nel rapporto.</p>
+        <button id="btnBot" type="button" class="largo">Avvia bot di prova</button>
+        <ul id="botLog" class="esito-prova"></ul>
+      </div>
+      <div class="carta">
+        <h2>Prova prima della partita</h2>
+        <p class="piccolo">Controlla microfono, cuffie, connessione e browser.</p>
+        <button id="btnProva" type="button" class="largo">Avvia la prova</button>
+        <ul id="esitoProva" class="esito-prova"></ul>
+      </div>
+      <div class="carta">
+        <h2>Suggerimenti</h2>
+        <p class="piccolo">Un'idea per l'app? Scrivila qui: arriva a chi la sviluppa.</p>
+        <form id="formSugg" class="colonna"><textarea id="suggTesto" rows="2" maxlength="1500" placeholder="Mi piacerebbe che…"></textarea><button class="pieno" type="submit">Invia suggerimento</button></form>
+      </div>
+      <div class="carta">
+        <h2>App</h2>
+        <p>Versione <strong id="ver"></strong></p>
+        <div class="riga"><button id="btnCheck" type="button">Cerca aggiornamenti</button><button id="btnRapporto" type="button">Salva rapporto</button></div>
+        <p id="repInfo" class="piccolo"></p>
+        <div class="riga"><button id="btnEsci" type="button" class="testo-btn">Esci dalla stanza</button><button id="btnLascia" type="button" class="testo-btn">Lascia la campagna</button></div>
+        <details><summary>Novità</summary><div id="changelog"></div></details>
+        <p class="piccolo">Regole tratte dal System Reference Document di D&amp;D 5.1 (CC-BY-4.0) e 3.5 (OGL). Dungeons &amp; Dragons è un marchio di Wizards of the Coast: app non ufficiale, fatta da fan.</p>
+      </div>
+    </div>
+
+    <button id="btnParla" class="btn-parla" type="button" aria-label="Tieni premuto e parla: comandi per la scheda o azioni per il master"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span>Tieni premuto e parla</span></button>
+    <nav class="nav" id="nav" aria-label="Sezioni">
+      <button type="button" data-v="vMappa" class="attivo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z M9 4v14M15 6v14" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/></svg><span>Mappa</span></button>
+      <button type="button" data-v="vScheda"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6" stroke="currentColor" stroke-width="2" fill="none"/></svg><span>Scheda</span></button>
+      <button type="button" data-v="vDadi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7v10l-9 5-9-5V7z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/><path d="M12 7 7.5 15h9z" stroke="currentColor" stroke-width="1.6" fill="none"/></svg><span>Dadi</span></button>
+      <button type="button" data-v="vDiario"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z M9 9h6M9 13h6" stroke="currentColor" stroke-width="2" fill="none"/></svg><span>Diario</span></button>
+      <button type="button" data-v="vAltro"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></svg><span>Altro</span></button>
+    </nav>
+  </section>
+</main>
+
+<div id="annullaBar" class="annulla-bar" hidden><span id="annullaTesto"></span><button id="btnAnnulla" type="button">Annulla</button></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<dialog id="dlg" class="dlg"><form method="dialog"><div id="dlgCorpo"></div><div class="riga dlg-azioni" id="dlgAzioni"></div></form></dialog>
+
+<script src="qrcode.js"></script>
+<script src="regole.js"></script>
+<script src="comandi.js"></script>
+<script src="ritratto.js"></script>
+<script src="mappa.js"></script>
+<script src="voce.js"></script>
+<script src="bot.js"></script>
+<script src="suoni.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

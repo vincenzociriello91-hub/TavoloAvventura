@@ -25,4 +25,11 @@ D&D online con gli amici, dal browser di qualsiasi telefono, PC, Odin o TV. Nien
 Regole tratte dal System Reference Document 5.1 (CC-BY-4.0) e 3.5 (OGL). Dungeons & Dragons è un marchio di Wizards of the Coast: app non ufficiale, fatta da fan. Libreria QR di Kazuhiko Arase (MIT).
 
 ## Pubblicare una versione
-GitHub Pages pubblica il ramo `gh-pages`: dopo ogni commit su `main` fare `git push origin main main:gh-pages`. Aggiornare insieme `VERSION`/`CHANGELOG` in `app.js`, `version.json` e `CACHE` in `sw.js`.
+Aggiornare insieme `VERSION`/`CHANGELOG` in `app.js`, `version.json` e `CACHE` in `sw.js`, lanciare le prove (`test/README.md`), poi:
+- `./pubblica.sh prova` → canale di prova (`/TavoloAvventura/prova/`), per Vincenzo
+- `./pubblica.sh pubblico` → anche il canale pubblico (`/TavoloAvventura/`), per gli amici
+
+## Segreti facoltativi del server
+- `ANTHROPIC_KEY`: il master usa Claude invece di Gemini (a pagamento).
+- `TURN_KEY_ID` e `TURN_API_TOKEN`: server di inoltro Cloudflare per la voce fra reti diverse.
+- `MCP_CHIAVE`: attiva il connettore "D&D" per Claude su `/mcp?chiave=...`.

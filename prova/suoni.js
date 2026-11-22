@@ -1,0 +1,65 @@
+/* Musica e suoni d'ambiente generati dal browser (Web Audio): nessun file audio da scaricare o da licenziare.
+   La scena cambia da sola col luogo (taverna, dungeon, foresta...) e col combattimento; effetti per dadi e livelli. */
+const Suoni = (() => {
+  let ctx = null, bus = null, attivo = false, volume = 0.5, scena = null, nodi = [], timer = [], gainScena = null;
+  const PENTA = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3];
+  function avvia() {
+    if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)(); bus = ctx.createGain(); bus.gain.value = volume * 0.5; bus.connect(ctx.destination); }
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  }
+  function bufRumore() { const b = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = b.getChannelData(0); let ult = 0; for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; ult = (ult + 0.02 * w) / 1.02; d[i] = ult * 3.5; } return b; }
+  function rumore(tipoFiltro, freq, q, g, uscita) {
+    const src = ctx.createBufferSource(); src.buffer = bufRumore(); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = tipoFiltro; f.frequency.value = freq; f.Q.value = q;
+    const gn = ctx.createGain(); gn.gain.value = g;
+    src.connect(f).connect(gn).connect(uscita); src.start(); nodi.push(src);
+    return gn;
+  }
+  function drone(freq, g, uscita, tipo = 'sine') { const o = ctx.createOscillator(); o.type = tipo; o.frequency.value = freq; const gn = ctx.createGain(); gn.gain.value = g; o.connect(gn).connect(uscita); o.start(); nodi.push(o); return gn; }
+  function nota(freq, durata, tipo = 'triangle', g = 0.08, uscita = bus, quando = 0, scivola) {
+    if (!ctx) return;
+    const t = ctx.currentTime + quando, o = ctx.createOscillator(), gn = ctx.createGain();
+    o.type = tipo; o.frequency.setValueAtTime(freq, t); if (scivola) o.frequency.exponentialRampToValueAtTime(scivola, t + durata);
+    gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(g, t + 0.01); gn.gain.exponentialRampToValueAtTime(0.0001, t + durata);
+    o.connect(gn).connect(uscita); o.start(t); o.stop(t + durata + 0.05);
+  }
+  function ogni(min, max, fn) { const giro = () => { if (!attivo) return; fn(); timer.push(setTimeout(giro, min + Math.random() * (max - min))); }; timer.push(setTimeout(giro, min * Math.random())); }
+  const SCENE = {
+    taverna: u => { rumore('bandpass', 450, 0.8, 0.08, u); ogni(900, 2600, () => { const f = PENTA[Math.floor(Math.random() * PENTA.length)]; nota(f, 0.9, 'triangle', 0.05, u); nota(f * 1.5, 0.6, 'sine', 0.02, u, 0.05); }); },
+    dungeon: u => { drone(55, 0.05, u); drone(82.4, 0.03, u); ogni(2000, 5000, () => nota(1800 + Math.random() * 600, 0.25, 'sine', 0.05, u, 0, 700)); },
+    grotta: u => { drone(49, 0.05, u); rumore('lowpass', 200, 0.5, 0.03, u); ogni(1500, 4000, () => nota(1500 + Math.random() * 900, 0.3, 'sine', 0.06, u, 0, 500)); },
+    foresta: u => { rumore('lowpass', 600, 0.3, 0.05, u); ogni(1500, 4500, () => { const f = 2200 + Math.random() * 1400; nota(f, 0.12, 'sine', 0.04, u, 0, f * 1.3); nota(f * 1.1, 0.1, 'sine', 0.03, u, 0.15, f * 1.4); }); },
+    citta: u => { rumore('bandpass', 700, 0.6, 0.06, u); ogni(12000, 20000, () => [0, 0.9].forEach(d => nota(392, 2.5, 'sine', 0.05, u, d))); },
+    villaggio: u => { rumore('lowpass', 500, 0.4, 0.04, u); ogni(2500, 6000, () => nota(2600, 0.1, 'sine', 0.03, u, 0, 3200)); },
+    porto: u => { const onde = rumore('lowpass', 500, 0.4, 0.07, u); const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.12; lg.gain.value = 0.05; lfo.connect(lg).connect(onde.gain); lfo.start(); nodi.push(lfo); ogni(5000, 11000, () => nota(950, 0.5, 'sawtooth', 0.015, u, 0, 620)); },
+    castello: u => { drone(65.4, 0.04, u); drone(98, 0.025, u, 'triangle'); ogni(14000, 24000, () => [0, 0.5, 1].forEach((d, i) => nota([220, 277, 330][i], 1.1, 'sawtooth', 0.02, u, d))); },
+    aperto: u => { rumore('lowpass', 400, 0.3, 0.035, u); ogni(4000, 9000, () => nota(2400, 0.12, 'sine', 0.03, u, 0, 3000)); },
+    interno: u => { rumore('lowpass', 250, 0.3, 0.02, u); ogni(6000, 14000, () => nota(140, 0.4, 'square', 0.01, u, 0, 90)); },
+    combattimento: u => { drone(73.4, 0.04, u, 'sawtooth'); let k = 0; ogni(420, 440, () => { nota(k % 4 === 0 ? 55 : 70, 0.25, 'sine', k % 4 === 0 ? 0.22 : 0.12, u, 0, 40); k++; }); }
+  };
+  function cambiaScena(nome) {
+    if (!attivo || !ctx || nome === scena) return;
+    const vecchi = nodi, vecchio = gainScena; nodi = []; timer.forEach(clearTimeout); timer = [];
+    if (vecchio) { vecchio.gain.setTargetAtTime(0, ctx.currentTime, 0.4); setTimeout(() => { vecchi.forEach(n => { try { n.stop(); } catch {} }); vecchio.disconnect(); }, 2000); }
+    scena = nome;
+    if (!SCENE[nome]) return;
+    gainScena = ctx.createGain(); gainScena.gain.value = 0; gainScena.connect(bus); gainScena.gain.setTargetAtTime(1, ctx.currentTime, 0.8);
+    SCENE[nome](gainScena);
+  }
+  function effetto(tipo) {
+    if (!attivo || !ctx) return;
+    if (tipo === 'dado') for (let i = 0; i < 4; i++) nota(300 + Math.random() * 500, 0.05, 'square', 0.04, bus, i * 0.07);
+    if (tipo === 'critico') [523, 659, 784, 1047].forEach((f, i) => nota(f, 0.35, 'triangle', 0.09, bus, i * 0.09));
+    if (tipo === 'fallimento') [392, 330, 262, 196].forEach((f, i) => nota(f, 0.4, 'sawtooth', 0.04, bus, i * 0.12));
+    if (tipo === 'livello') [523, 659, 784].forEach(f => nota(f, 1.4, 'sine', 0.06, bus, 0));
+    if (tipo === 'turno') nota(880, 0.6, 'sine', 0.07, bus);
+  }
+  return {
+    avvia, effetto,
+    scena: n => cambiaScena(n),
+    set attivo(b) { attivo = b; if (b) { avvia(); const s = scena; scena = null; cambiaScena(s || 'aperto'); } else { timer.forEach(clearTimeout); timer = []; nodi.forEach(n => { try { n.stop(); } catch {} }); nodi = []; gainScena?.disconnect(); gainScena = null; } },
+    get attivo() { return attivo; },
+    set volume(v) { volume = v; if (bus) bus.gain.value = v * 0.5; },
+    get scenaAttuale() { return scena; }
+  };
+})();

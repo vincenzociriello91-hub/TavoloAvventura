@@ -1,7 +1,7 @@
 /* Voce: chat vocale tra i giocatori (WebRTC, da telefono a telefono), ascolto dei comandi (riconoscimento vocale
    del browser) e narratore che legge ad alta voce il master e i PNG. L'audio non viene mai registrato né salvato. */
 const Voce = (() => {
-  const ICE = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
+  let ICE = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
   let stream = null, io = null, invia = () => {}, muto = false, log = () => {}, onParlante = () => {}, onStato = () => {};
   const peers = {}; const analisi = {}; const iceInAttesa = {};
   let actx = null, risolviMicro; const microPronto = new Promise(r => { risolviMicro = r; });
@@ -93,7 +93,7 @@ const Voce = (() => {
     } catch (e) { log('microfono', { ok: false, errore: e.name, dopo: 'pausa' }); onStato('Non riesco a riprendere il microfono della chat vocale'); }
   }
   function riattivaAudio() { actx?.resume?.().catch(() => {}); Object.values(peers).forEach(p => p.audio?.play().catch(() => {})); }
-  return { avvia, collegaTutti, crea, segnale, chiudi, setMuto, stato, riattivaAudio, pausaMicrofono, riprendiMicrofono, get muto() { return muto; }, get attivo() { return !!stream; }, get stream() { return micInPausa ? null : stream; }, analizza };
+  return { impostaIce: l => { if (Array.isArray(l) && l.length) ICE = l; }, get conInoltro() { return ICE.some(x => JSON.stringify(x.urls).includes('turn')); }, avvia, collegaTutti, crea, segnale, chiudi, setMuto, stato, riattivaAudio, pausaMicrofono, riprendiMicrofono, get muto() { return muto; }, get attivo() { return !!stream; }, get stream() { return micInPausa ? null : stream; }, analizza };
 })();
 
 /* Ascolto dei comandi e delle frasi per il master (riconoscimento vocale del browser, italiano). */
