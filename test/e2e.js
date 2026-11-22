@@ -1,0 +1,254 @@
+// Prova completa nel browser: Vincenzo crea la campagna, Marco entra dal link, schede, comandi vocali, dadi, mappa, master AI, voce.
+const { chromium } = require('playwright');
+const OUT = process.env.OUT || require('path').join(require('os').tmpdir(), 'tavolo-shot');
+require('fs').mkdirSync(OUT, { recursive: true });
+let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  ' : 'FAIL', n); };
+(async () => {
+  const browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'] });
+  const errori = [];
+  const nuovo = async (vp) => {
+    const ctx = await browser.newContext({ viewport: vp, permissions: ['microphone'], deviceScaleFactor: 1 });
+    const p = await ctx.newPage();
+    p.on('pageerror', e => errori.push('pageerror: ' + e.message));
+    p.on('console', m => { if (m.type() === 'error' && !/fonts.g|favicon|ERR_TUNNEL|ERR_CONNECTION|net::|rapporti-vincenzo|Failed to load resource/.test(m.text())) errori.push('console: ' + m.text()); });
+    return p;
+  };
+  const A = await nuovo({ width: 412, height: 915 });
+  await A.goto('http://localhost:8765/');
+  v(await A.isVisible('#cartaCrea'), 'schermata di ingresso visibile');
+  await A.fill('#cNome', 'La Torre di Smeraldo');
+  await A.click('#chipsAmb .chip >> nth=1');
+  await A.fill('#cMioNome', 'Vincenzo');
+  await A.screenshot({ path: OUT + '/1-ingresso.png', fullPage: true });
+  await A.click('#btnCrea');
+  await A.waitForSelector('#gioco:not([hidden])', { timeout: 8000 });
+  v(await A.textContent('#tCampagna') === 'La Torre di Smeraldo', 'campagna creata, siamo nella stanza');
+  await A.click('#nav button[data-v="vAltro"]');
+  await A.waitForSelector('#qr svg');
+  v(true, 'QR di invito generato');
+  const link = await A.evaluate(() => linkInvito());
+  v(/\?c=[A-Z0-9]{8}&i=[A-Z0-9]{8}/.test(link), 'link di invito: ' + link);
+  await A.screenshot({ path: OUT + '/2-invito.png', fullPage: true });
+
+  // Marco entra dal link (desktop)
+  const B = await nuovo({ width: 1440, height: 900 });
+  await B.goto(link);
+  v(await B.inputValue('#eCodice') !== '' && await B.isHidden('#cartaCrea'), 'dal link: codici già compilati, solo "entra"');
+  await B.fill('#eNome', 'Marco');
+  await B.click('#btnEntra');
+  await B.waitForSelector('#gioco:not([hidden])', { timeout: 8000 });
+  await A.waitForFunction(() => S.st.online.length === 2, null, { timeout: 5000 });
+  v(true, 'Vincenzo vede Marco online');
+
+  // Marco crea il personaggio
+  await B.waitForSelector('#cpNome');
+  await B.fill('#cpNome', 'Brann Barbaferro');
+  await B.selectOption('#cpRazza', 'Nano');
+  await B.selectOption('#cpClasse', 'Guerriero');
+  await B.click('#cpAuto');
+  await B.click('[data-cpab="Atletica"]'); await B.click('[data-cpab="Percezione"]');
+  await B.screenshot({ path: OUT + '/3-creazione-desktop.png', fullPage: true });
+  await B.click('#cpCrea');
+  await B.waitForSelector('.pg-testa h2');
+  const pgB = await B.evaluate(() => mioPg());
+  v(pgB.nome === 'Brann Barbaferro' && pgB.car.for === 15 && pgB.car.cos === 16 && pgB.pfMax === 13 && pgB.ca === 18, `scheda calcolata: FOR ${pgB.car.for} COS ${pgB.car.cos} PF ${pgB.pfMax} CA ${pgB.ca}`);
+  await A.waitForFunction(() => Object.values(S.st.pg).some(p => p.nome === 'Brann Barbaferro'), null, { timeout: 5000 });
+  v(true, 'Vincenzo riceve la scheda di Marco');
+
+  // Comandi vocali (frasi come le darebbe il riconoscimento vocale)
+  await B.evaluate(() => sentitaFrase('subisco 6 danni'));
+  await B.waitForTimeout(300);
+  let p = await B.evaluate(() => mioPg());
+  v(p.pf === 7 && p.ferite.length === 1, 'a voce "subisco 6 danni": PF 7/13 e benda sul ritratto');
+  await B.evaluate(() => sentitaFrase("equipaggio l'ascia bipenne"));
+  await B.waitForTimeout(300);
+  p = await B.evaluate(() => mioPg());
+  v(p.equip.find(e => e.nome === 'Ascia bipenne')?.indossato && p.ca === 16, 'a voce "equipaggio l\'ascia bipenne": impugnata, scudo riposto, CA 16');
+  await B.evaluate(() => sentitaFrase('annulla'));
+  await B.waitForTimeout(300);
+  p = await B.evaluate(() => mioPg());
+  v(!p.equip.find(e => e.nome === 'Ascia bipenne') && p.ca === 18, 'a voce "annulla": torna come prima');
+  await B.evaluate(() => sentitaFrase('salgo di livello'));
+  await B.waitForTimeout(200);
+  await B.evaluate(() => { sentitaFrase('salgo di livello'); sentitaFrase('salgo di livello'); });
+  await B.waitForTimeout(300);
+  p = await B.evaluate(() => mioPg());
+  v(p.livello === 4 && p.puntiCar === 2, 'a voce "salgo di livello" ×3: livello 4 con 2 punti caratteristica');
+  await B.evaluate(() => sentitaFrase('aumenta di due punti intelligenza'));
+  await B.waitForTimeout(300);
+  p = await B.evaluate(() => mioPg());
+  v(p.car.int === 10 && p.puntiCar === 0, `a voce "aumenta di due punti intelligenza": INT ${p.car.int}, punti usati`);
+  await B.waitForSelector('#annullaBar:not([hidden])');
+  v(true, 'barra "Annulla" mostrata dopo il comando');
+  await B.screenshot({ path: OUT + '/4-scheda-desktop.png' });
+
+  // Dadi
+  await B.evaluate(() => sentitaFrase('tiro per percezione con vantaggio'));
+  await A.waitForFunction(() => S.st.dadi.some(d => d.motivo === 'Percezione'), null, { timeout: 5000 });
+  const tiro = await A.evaluate(() => S.st.dadi.find(d => d.motivo === 'Percezione'));
+  v(tiro.modo === 'vantaggio' && tiro.scartati.length === 1, `tiro con vantaggio visto da tutti: ${tiro.totale}`);
+  await A.click('#nav button[data-v="vDadi"]');
+  await A.click('#dadiTasti button[data-f="20"]');
+  await A.waitForSelector('#ultimoTiro .tot');
+  v(true, 'Vincenzo tira un d20 dal tasto');
+
+  // Master AI (finto) e mappa
+  await A.click('#nav button[data-v="vDiario"]');
+  await A.fill('#chatTesto', 'Entriamo nella città e cerchiamo una locanda');
+  await A.click('#formChat button');
+  await A.waitForFunction(() => S.st.luogo && S.st.diario.some(d => d.tipo === 'narrazione'), null, { timeout: 10000 });
+  v(true, 'il master AI risponde e porta il gruppo in un luogo');
+  await A.click('#nav button[data-v="vMappa"]');
+  await A.waitForTimeout(400);
+  const dim = await A.evaluate(() => { const c = document.querySelector('#mappa'); return [c.width, c.height, getComputedStyle(c).display]; });
+  v(dim[0] > 300 && dim[2] !== 'none', 'mappa disegnata sul telefono: ' + dim.join('x'));
+  await A.screenshot({ path: OUT + '/5-mappa-telefono.png', fullPage: true });
+  p = await B.evaluate(() => mioPg());
+  v(p.equip.some(e => e.nome === 'Chiave arrugginita'), 'l\'oggetto dato dal master compare nella scheda');
+  // Vincenzo (amministratore) brucia un edificio
+  await A.evaluate(() => invia({ t: 'vai', nome: 'Città di Argentea' }));
+  await A.waitForFunction(() => S.st.luogo?.nome === 'Città di Argentea', null, { timeout: 5000 });
+  const ed = await A.evaluate(() => S.st.luogo.edifici.find(e => e.nome === 'Locanda').id);
+  await A.evaluate(id => invia({ t: 'modifica_luogo', edificio: id, stato: 'bruciato' }), ed);
+  await B.waitForFunction(id => S.st.luogo?.edifici.find(e => e.id === id)?.stato === 'bruciato', ed, { timeout: 5000 });
+  v(true, 'la locanda bruciata si vede anche da Marco');
+  await B.waitForTimeout(400);
+  await B.screenshot({ path: OUT + '/6-mappa-desktop.png' });
+  const seg = await B.evaluate(() => S.st.segnalini[S.io]);
+  await B.evaluate(s => invia({ t: 'segnalino', x: s.x + 3, y: s.y }), seg);
+  await A.waitForFunction(([id, x]) => S.st.segnalini[id]?.x === x, [await B.evaluate(() => S.io), seg.x + 3], { timeout: 5000 });
+  v(true, 'segnalino spostato e visto dagli altri');
+
+  // Voce WebRTC tra i due browser
+  await A.waitForTimeout(2500);
+  const voceA = await A.evaluate(() => Voce.stato());
+  v(Object.values(voceA).includes('connected'), 'chat vocale collegata: ' + JSON.stringify(voceA));
+
+  // Riconnessione
+  await B.reload();
+  await B.waitForSelector('#gioco:not([hidden])', { timeout: 8000 });
+  p = await B.evaluate(() => mioPg());
+  v(p && p.livello === 4, 'ricaricando la pagina Marco rientra da solo con la sua scheda');
+
+  // TV
+  const T = await nuovo({ width: 1920, height: 1080 });
+  await T.goto(link + '&tv=1');
+  await T.waitForSelector('#gioco:not([hidden])', { timeout: 8000 });
+  await T.waitForTimeout(600);
+  v(await T.evaluate(() => document.body.classList.contains('tv') && me().ruolo === 'spettatore'), 'modalità TV: entra come spettatore');
+  await T.screenshot({ path: OUT + '/7-tv.png' });
+
+  const pacc = await A.evaluate(async () => Report.cifra({ prova: 1 }));
+  v(pacc.key && pacc.iv && pacc.data && pacc.app === 'TavoloAvventura', 'rapporto cifrato pronto');
+  require('fs').writeFileSync(OUT + '/pacchetto.json', JSON.stringify(pacc));
+
+  await A.click('#nav button[data-v="vScheda"]');
+  await A.screenshot({ path: OUT + '/8-scheda-telefono-vincenzo.png', fullPage: true });
+
+  // 1.1.0: microfono liberato e ripreso, voce ancora collegata
+  await A.evaluate(async () => { Voce.pausaMicrofono(); await new Promise(r => setTimeout(r, 300)); await Voce.riprendiMicrofono(); });
+  await A.waitForTimeout(800);
+  v(await A.evaluate(() => Voce.stream?.getAudioTracks()[0]?.readyState === 'live' && Object.values(Voce.stato()).includes('connected')), 'microfono liberato e ripreso: chat vocale ancora collegata');
+  v(await A.isVisible('#btnParla'), 'tasto "tieni premuto e parla" visibile');
+  await A.click('#nav button[data-v="vDadi"]');
+  v(await A.locator('#rapidi button').count() > 0, 'tiri rapidi mostrati');
+  await A.click('#btnPreferito'); 
+  v((await A.evaluate(() => leggi(chiavePref(), []))).length === 1, 'tiro salvato nei preferiti');
+  // bot di prova
+  await A.click('#nav button[data-v="vAltro"]');
+  v(await A.isVisible('#btnBot'), 'tasto bot visibile all\'amministratore');
+  await A.click('#btnBot');
+  await A.waitForFunction(() => /Finito/.test(document.querySelector('#botLog').textContent), null, { timeout: 150000 });
+  const esitoBot = await A.textContent('#botLog li:last-child');
+  console.log('     ', esitoBot);
+  v(/mappe persistenti: sì/.test(esitoBot) && /non capiti 0/.test(esitoBot), 'bot di prova completato senza problemi');
+  await A.waitForTimeout(800);
+  v(!Object.values(await A.evaluate(() => S.st.membri)).some(m => m.nome === 'Bot di prova'), 'il bot esce dalla campagna');
+  v(await A.evaluate(() => S.st.costi?.totale?.chiamate > 0) && /chiamate/.test(await A.textContent('#costi')), 'pannello uso AI aggiornato');
+  // 1.2.0: combattimento, aree, nebbia, tesoro, volti
+  await A.click('#nav button[data-v="vMappa"]');
+  await A.click('#btnCombat');
+  await B.waitForFunction(() => S.st.combattimento?.attivo, null, { timeout: 5000 });
+  v(await B.isVisible('#combat') && /Round 1/.test(await B.textContent('#combat')), 'combattimento iniziato, ordine visibile a Marco');
+  const primoTurno = await B.evaluate(() => S.st.combattimento.ordine[S.st.combattimento.turno].nome);
+  await A.evaluate(() => invia({ t: 'combattimento', azione: 'prossimo' }));
+  await B.waitForFunction(p => S.st.combattimento.ordine[S.st.combattimento.turno].nome !== p || S.st.combattimento.round > 1, primoTurno, { timeout: 5000 });
+  v(true, 'turno successivo');
+  await A.evaluate(() => invia({ t: 'area', forma: 'cerchio', x: 10, y: 8, dim: 3, nome: 'Palla di fuoco' }));
+  await B.waitForFunction(() => S.st.aree?.length === 1, null, { timeout: 5000 });
+  v(true, 'area dell\'incantesimo visibile a tutti');
+  v(await B.evaluate(() => /1/.test(S.st.luogo.visto || '') && /0/.test(S.st.luogo.visto || '')), 'nebbia di guerra: parte della mappa esplorata, parte no');
+  await B.evaluate(() => sentitaFrase('metti 3 monete nel tesoro comune'));
+  await A.waitForFunction(() => S.st.gruppo?.oro === 3, null, { timeout: 5000 });
+  await A.evaluate(() => invia({ t: 'gruppo', op: 'oggetto', nome: 'Corda', qta: 1 }));
+  await B.waitForFunction(() => S.st.gruppo?.oggetti?.some(o => o.nome === 'Corda'), null, { timeout: 5000 });
+  await B.evaluate(() => invia({ t: 'gruppo', op: 'prendi', nome: 'Corda' }));
+  await B.waitForFunction(() => mioPg().equip.some(e => e.nome === 'Corda'), null, { timeout: 5000 });
+  v(true, 'tesoro comune: monete a voce, oggetto messo e preso');
+  await A.evaluate(() => invia({ t: 'combattimento', azione: 'fine' }));
+  await A.evaluate(() => mostraNarrazione('Benvenuti nella mia locanda, forestieri.', 'Oste Bruno'));
+  v(await A.locator('#narrVolto svg').count() === 1, 'volto del PNG nella vignetta');
+  await B.click('#nav button[data-v="vMappa"]').catch(() => {});
+  await B.screenshot({ path: OUT + '/9-combat-desktop.png' });
+  // 1.3.0: incantesimi, talenti, multiclasse, oggetti magici
+  await B.click('#nav button[data-v="vScheda"]').catch(() => {});
+  for (const f of ['imparo l\'incantesimo palla di fuoco', 'raccolgo una spada lunga +2 rara', 'aggiungi il talento lottatore']) { await B.evaluate(x => sentitaFrase(x), f); await B.waitForTimeout(250); }
+  let q = await B.evaluate(() => mioPg());
+  v(q.incantesimi?.some(i => i.nome === 'Palla di fuoco') && q.equip.some(e => e.bonus === 2 && e.rarita === 'raro') && q.talenti?.includes('Lottatore'), 'incantesimo, oggetto +2 raro e talento aggiunti a voce');
+  await B.evaluate(() => sentitaFrase('salgo di livello come mago'));
+  await B.waitForTimeout(300);
+  q = await B.evaluate(() => mioPg());
+  v(q.classi?.some(c => c.classe === 'Mago' && c.livello === 1) && q.livello === 5, 'multiclasse: Guerriero 4 / Mago 1');
+  v(await B.locator('.slot').count() > 0, 'slot degli incantesimi mostrati nella scheda');
+  await B.evaluate(() => sentitaFrase('lancio dardo incantato'));
+  await B.waitForTimeout(300);
+  v((await B.evaluate(() => mioPg().slotUsati?.[1])) === 1, 'lanciare un incantesimo consuma uno slot');
+  await B.screenshot({ path: OUT + '/10-scheda-magia.png', fullPage: true });
+  // 1.4.0: relazioni, fazioni, valute, mappa del mondo
+  await A.evaluate(() => invia({ t: 'scheda', pg: Regole.nuovo('5e', { nome: 'Elara', razza: 'Elfo', classe: 'Mago', carBase: { for: 8, des: 14, cos: 13, int: 15, sag: 12, car: 10 } }) }));
+  const idA = await A.evaluate(() => S.io);
+  await B.waitForFunction(id => !!S.st.pg[id], idA, { timeout: 5000 });
+  await B.evaluate(id => { S.viewPg = id; renderScheda(); }, idA);
+  v(/vedi solo l'aspetto/.test(await B.textContent('#scheda')), 'scheda di uno sconosciuto: si vede solo l\'aspetto');
+  const idB = await B.evaluate(() => S.io);
+  await A.evaluate(id => invia({ t: 'relazione', con: id, livello: 'amici stretti' }), idB);
+  await B.waitForFunction(id => S.st.relazioni?.[id], idA, { timeout: 5000 });
+  await B.evaluate(id => { S.viewPg = id; renderScheda(); }, idA);
+  v(/Caratteristiche/.test(await B.textContent('#scheda')) && !/vedi solo/.test(await B.textContent('#scheda')), 'amici stretti: si vede tutta la scheda');
+  await B.evaluate(() => { S.viewPg = S.io; renderScheda(); });
+  await A.evaluate(() => { invia({ t: 'mondo', fazione: 'Gilda dei Ladri', reputazione: -20 }); invia({ t: 'mondo', valuta: 'Corone di Argentea', cambio: 0.5 }); });
+  await B.waitForFunction(() => S.st.mondo?.valute?.['Corone di Argentea'], null, { timeout: 5000 });
+  await B.evaluate(() => sentitaFrase('trovo 30 corone di argentea'));
+  await B.waitForTimeout(300);
+  v((await B.evaluate(() => mioPg().valute?.['Corone di Argentea'])) === 30, 'valuta locale a voce: 30 corone');
+  await B.click('#nav button[data-v="vDiario"]').catch(() => {});
+  v(/Gilda dei Ladri/.test(await B.textContent('#mondo')), 'fazione e reputazione visibili nel diario');
+  await A.click('#nav button[data-v="vMappa"]');
+  await A.click('#btnMondo');
+  v(await A.locator('#mondoSvg circle').count() >= 3, 'mappa del mondo con i luoghi visitati');
+  await A.screenshot({ path: OUT + '/11-mondo.png' });
+  await A.click('#btnMondo');
+  // 1.5.0: suoni, edifici in cui entrare
+  await A.click('#nav button[data-v="vAltro"]');
+  await A.check('#optSuoni');
+  await A.evaluate(() => invia({ t: 'vai', nome: 'Città di Argentea' }));
+  await A.waitForFunction(() => S.st.luogo?.nome === 'Città di Argentea', null, { timeout: 5000 });
+  await A.waitForTimeout(300);
+  v(await A.evaluate(() => Suoni.attivo && Suoni.scenaAttuale === 'citta'), 'musica d\'ambiente della città attiva');
+  const edCasa = await A.evaluate(() => S.st.luogo.edifici.find(e => /Fabbro|Tempio|Mercato|Casa|Biblioteca/.test(e.nome) && e.stato === 'integro'));
+  await A.evaluate(id => invia({ t: 'entra_edificio', edificio: id }), edCasa.id);
+  await A.waitForFunction(n => S.st.luogo?.nome?.startsWith(n), edCasa.nome, { timeout: 15000 });
+  const interno = await A.evaluate(() => S.st.luogo);
+  v(interno.genitore && interno.edifici.length >= 3 && (interno.tipo === 'interno' || interno.tipo === 'taverna'), `entrati in "${interno.nome}" (${interno.tipo}, ${interno.edifici.length} stanze)`);
+  await A.click('#nav button[data-v="vMappa"]');
+  await A.waitForTimeout(300);
+  v(await A.isVisible('#btnEsciEd'), 'tasto "Esci all\'aperto" visibile');
+  await A.screenshot({ path: OUT + '/12-interno.png' });
+  await A.click('#btnEsciEd');
+  await A.waitForFunction(() => S.st.luogo?.nome === 'Città di Argentea', null, { timeout: 5000 });
+  v(true, 'usciti di nuovo in città');
+  v(errori.length === 0, 'nessun errore JavaScript' + (errori.length ? ': ' + errori.slice(0, 5).join(' | ') : ''));
+  await browser.close();
+  console.log(`\n${ok} ok, ${ko} falliti`);
+  process.exit(ko ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(2); });

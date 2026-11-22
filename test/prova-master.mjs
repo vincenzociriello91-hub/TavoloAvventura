@@ -1,0 +1,37 @@
+import WebSocket from 'ws';
+const codice = 'MAST' + Math.random().toString(36).slice(2, 7).toUpperCase();
+let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  ' : 'FAIL', n); };
+function client() {
+  const ws = new WebSocket(`ws://localhost:8787/tavolo/${codice}/ws`, { origin: 'http://localhost:8765' });
+  const coda = [], attese = [];
+  ws.on('message', d => { const m = JSON.parse(d); const i = attese.findIndex(a => a.f(m)); if (i >= 0) { attese[i].r(m); attese.splice(i, 1); } else coda.push(m); });
+  const aspetta = (f, ms = 8000) => new Promise((r, j) => { const i = coda.findIndex(f); if (i >= 0) return r(coda.splice(i, 1)[0]); const a = { f, r }; attese.push(a); setTimeout(() => { const k = attese.indexOf(a); if (k >= 0) { attese.splice(k, 1); j(new Error('timeout')); } }, ms); });
+  return { ws, aspetta, pronto: new Promise(r => ws.on('open', r)), invia: o => ws.send(JSON.stringify(o)), coda };
+}
+const A = client(); await A.pronto;
+A.invia({ t: 'crea', nome: 'Master AI', regole: '5e', masterTipo: 'ai', mioNome: 'Vincenzo' });
+const b = await A.aspetta(m => m.t === 'benvenuto');
+A.invia({ t: 'scheda', pg: { nome: 'Elara', classe: 'Mago', livello: 1, pf: 8, pfMax: 8, ca: 12, car: { int: 16 }, equip: [] } });
+await A.aspetta(m => m.t === 'scheda');
+A.invia({ t: 'parlato', testo: 'entriamo nella locanda e ordiniamo da bere', alMaster: true });
+const n = await A.aspetta(m => m.t === 'narra');
+v(n.testo.includes('rissa') && n.png === 'Oste Bruno', 'il master AI narra con il PNG');
+const coda = A.coda;
+v(coda.some(m => m.t === 'luogo' && m.luogo.tipo === 'taverna'), 'il master porta il gruppo in un luogo (taverna generata)');
+const sch = coda.filter(m => m.t === 'scheda' && m.da === 'master').map(m => m.pg).pop();
+v(sch && sch.pf === 4 && sch.ferite?.[0]?.zona === 'testa', 'danno applicato alla scheda con ferita alla testa');
+v(sch && sch.equip.some(e => e.nome === 'Chiave arrugginita'), 'oggetto aggiunto all\'inventario');
+v(coda.some(m => m.t === 'richiesta_tiro' && m.prova === 'Percezione' && m.cd === 12), 'richiesta di tiro inviata');
+v(coda.some(m => m.t === 'segnalini' && Object.values(m.segnalini).some(s => s.tipo === 'nemico')), 'nemico piazzato sulla mappa');
+A.coda.length = 0;
+A.invia({ t: 'interpreta', id: 7, testo: 'metti un punto in saggezza', regole: '5e' });
+const it = await A.aspetta(m => m.t === 'interpretato');
+v(it.id === 7 && it.ops[0].car === 'sag', 'frase vocale tradotta in operazioni sulla scheda');
+A.invia({ t: 'regola', testo: 'come funziona un attacco di opportunità?' });
+v((await A.aspetta(m => m.t === 'regola')).testo.includes('reazione'), 'domanda sulle regole');
+A.invia({ t: 'dado', formula: 'd20+3', motivo: 'Percezione' });
+await A.aspetta(m => m.t === 'dado');
+const n2 = await A.aspetta(m => m.t === 'narra' || m.t === 'master_zitto', 10000);
+v(n2, 'dopo un tiro il master risponde da solo');
+v(A.coda.some(m => m.t === 'luogo_mod' && m.luogo.edifici[0].stato === 'bruciato'), 'il master può bruciare un edificio del luogo attuale');
+console.log(`\n${ok} ok, ${ko} falliti`); process.exit(ko ? 1 : 0);

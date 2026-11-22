@@ -1,0 +1,118 @@
+// Prova del server delle stanze: due giocatori, invito, schede, dadi, luoghi, voce, riconnessione.
+import WebSocket from 'ws';
+const BASE = process.env.BASE || 'ws://localhost:8787';
+const codice = 'PROVA' + Math.random().toString(36).slice(2, 7).toUpperCase();
+const ORIGIN = 'http://localhost:8765';
+let ok = 0, ko = 0;
+const verifica = (cond, nome) => { if (cond) { ok++; console.log('OK  ', nome); } else { ko++; console.log('FAIL', nome); } };
+
+function client(origin = ORIGIN) {
+  const ws = new WebSocket(`${BASE}/tavolo/${codice}/ws`, { origin });
+  const coda = [];
+  const attese = [];
+  ws.on('message', d => { const m = JSON.parse(d); const i = attese.findIndex(a => a.f(m)); if (i >= 0) { attese[i].r(m); attese.splice(i, 1); } else coda.push(m); });
+  const aspetta = (f, ms = 4000) => new Promise((r, j) => { const i = coda.findIndex(f); if (i >= 0) return r(coda.splice(i, 1)[0]); const a = { f, r }; attese.push(a); setTimeout(() => { const k = attese.indexOf(a); if (k >= 0) { attese.splice(k, 1); j(new Error('timeout')); } }, ms); });
+  const pronto = new Promise((r, j) => { ws.on('open', r); ws.on('error', j); ws.on('unexpected-response', (q, res) => j(new Error('http ' + res.statusCode))); });
+  return { ws, aspetta, pronto, invia: o => ws.send(JSON.stringify(o)), coda };
+}
+
+const A = client(); await A.pronto;
+A.invia({ t: 'crea', nome: 'Prova', regole: '5e', ambientazione: 'Fantasy classico', masterTipo: 'ai', mioNome: 'Vincenzo' });
+const bA = await A.aspetta(m => m.t === 'benvenuto');
+verifica(bA.io && bA.chiave && bA.stato.campagna.invito, 'creazione campagna con chiave e invito');
+verifica(bA.stato.membri[bA.io].admin === true, 'il creatore è amministratore');
+
+const X = client(); await X.pronto;
+X.invia({ t: 'entra', invito: 'SBAGLIATO', nome: 'Intruso' });
+const eX = await X.aspetta(m => m.t === 'errore');
+verifica(eX.codice === 'invito', 'invito sbagliato rifiutato');
+
+const B = client(); await B.pronto;
+B.invia({ t: 'entra', invito: bA.stato.campagna.invito, nome: 'Marco' });
+const bB = await B.aspetta(m => m.t === 'benvenuto');
+verifica(bB.io && bB.stato.membri[bB.io].ruolo === 'giocatore', 'secondo giocatore entra con invito');
+const pres = await A.aspetta(m => m.t === 'presenza' && m.entrato === bB.io);
+verifica(pres.online.length === 2, 'presenza aggiornata (2 online)');
+
+B.invia({ t: 'scheda', pg: { nome: 'Brann', razza: 'Nano', classe: 'Guerriero', livello: 1, pf: 12, pfMax: 12, ca: 16, car: { for: 16, des: 12, cos: 15, int: 10, sag: 10, car: 8 } }, nota: 'scheda creata' });
+const sA = await A.aspetta(m => m.t === 'scheda' && m.per === bB.io);
+verifica(sA.pg.nome === 'Brann', 'scheda condivisa con gli altri');
+B.invia({ t: 'scheda', per: bA.io, pg: { nome: 'hack' } });
+await new Promise(r => setTimeout(r, 300));
+A.invia({ t: 'stato' }); const st = await A.aspetta(m => m.t === 'stato');
+verifica(!st.stato.pg[bA.io], 'un giocatore non può modificare la scheda di un altro');
+
+B.invia({ t: 'dado', formula: '1d20+5', motivo: 'Attacco', alMaster: false });
+const dA = await A.aspetta(m => m.t === 'dado');
+verifica(dA.tiro.totale >= 6 && dA.tiro.totale <= 25 && dA.tiro.nome === 'Marco', 'tiro di dado dal server visibile a tutti');
+B.invia({ t: 'dado', formula: 'd20', modo: 'vantaggio', alMaster: false });
+const dv = await B.aspetta(m => m.t === 'dado' && m.tiro.modo === 'vantaggio');
+verifica(dv.tiro.scartati.length === 1 && dv.tiro.dadi[0] >= dv.tiro.scartati[0], 'vantaggio tiene il più alto');
+B.invia({ t: 'dado', formula: 'd20', segreto: true, alMaster: false });
+const dsB = await B.aspetta(m => m.t === 'dado' && m.tiro.segreto === false && m.tiro.formula === 'd20' && !m.tiro.modo);
+verifica(dsB, 'un giocatore non può fare tiri segreti (diventa pubblico)');
+A.invia({ t: 'dado', formula: '2d6', segreto: true });
+const dsA = await A.aspetta(m => m.t === 'dado' && m.tiro.segreto);
+verifica(dsA && dsA.tiro.dadi.length === 2, 'tiro segreto del capo');
+await new Promise(r => setTimeout(r, 300));
+verifica(!B.coda.some(m => m.t === 'dado' && m.tiro.segreto), 'il tiro segreto non arriva ai giocatori');
+
+A.invia({ t: 'vai', nome: 'Città di Argentea' });
+const lA = await A.aspetta(m => m.t === 'luogo');
+verifica(lA.luogo.tipo === 'citta' && lA.luogo.celle.length === 20 && lA.luogo.edifici.length >= 6, `mappa città generata (${lA.luogo.edifici.length} edifici)`);
+verifica(lA.segnalini[bB.io], 'segnalino del giocatore piazzato');
+console.log(lA.luogo.celle.join('\n'));
+const locanda = lA.luogo.edifici.find(e => e.nome === 'Locanda');
+A.invia({ t: 'modifica_luogo', edificio: locanda.id, stato: 'bruciato' });
+const mA = await B.aspetta(m => m.t === 'luogo_mod');
+verifica(mA.luogo.edifici.find(e => e.id === locanda.id).stato === 'bruciato', 'locanda bruciata');
+B.invia({ t: 'modifica_luogo', edificio: locanda.id, stato: 'integro' });
+A.invia({ t: 'vai', nome: 'Taverna del Drago Ubriaco' });
+B.coda.length = 0; const t1 = await B.aspetta(m => m.t === 'luogo' && m.luogo.nome.startsWith('Taverna'));
+verifica(t1.luogo.tipo === 'taverna', 'taverna generata');
+console.log(t1.luogo.celle.join('\n'));
+A.invia({ t: 'vai', nome: 'città di argentea' });
+const lA2 = await B.aspetta(m => m.t === 'luogo' && m.luogo.nome === 'Città di Argentea');
+verifica(JSON.stringify(lA2.luogo.celle) === JSON.stringify(lA.luogo.celle), 'tornando nella città la mappa è identica');
+verifica(lA2.luogo.edifici.find(e => e.id === locanda.id).stato === 'bruciato', 'la locanda resta bruciata (il giocatore non ha potuto ripararla)');
+for (const n of ['Cripta del Re Lich', 'Foresta di Mirkwood', 'Grotta dei Cristalli', 'Castello Nero', 'Porto di Salmastro', 'Villaggio di Brina', 'Passo del Lupo']) {
+  A.coda.length = 0; A.invia({ t: 'vai', nome: n }); const l = await A.aspetta(m => m.t === 'luogo' && m.luogo.nome === n);
+  verifica(l.luogo.celle.every(r => r.length === 32), `${n}: ${l.luogo.tipo}, ${l.luogo.edifici.length} elementi`);
+  if (n.startsWith('Cripta') || n.startsWith('Foresta')) console.log(l.luogo.celle.join('\n'));
+}
+B.invia({ t: 'segnalino', x: 5, y: 6 });
+const sg = await A.aspetta(m => m.t === 'segnalini');
+verifica(sg.segnalini[bB.io].x === 5, 'segnalino spostato');
+
+B.invia({ t: 'rtc', a: bA.io, dati: { tipo: 'offerta', sdp: 'x' } });
+const r = await A.aspetta(m => m.t === 'rtc');
+verifica(r.da === bB.io && r.dati.tipo === 'offerta', 'segnale voce inoltrato solo al destinatario');
+
+B.ws.close();
+await A.aspetta(m => m.t === 'presenza' && m.uscito === bB.io);
+const B2 = client(); await B2.pronto;
+B2.invia({ t: 'ciao', membro: bB.io, chiave: bB.chiave });
+const bB2 = await B2.aspetta(m => m.t === 'benvenuto');
+verifica(bB2.stato.pg[bB.io]?.nome === 'Brann', 'riconnessione con chiave: la scheda è ancora lì');
+const B3 = client(); await B3.pronto;
+B3.invia({ t: 'ciao', membro: bB.io, chiave: 'falsa' });
+verifica((await B3.aspetta(m => m.t === 'errore')).codice === 'accesso', 'chiave falsa rifiutata');
+
+A.invia({ t: 'nuovo_invito' });
+const ni = await A.aspetta(m => m.t === 'invito');
+verifica(ni.invito && ni.invito !== bA.stato.campagna.invito, 'nuovo invito generato');
+const C = client(); await C.pronto;
+C.invia({ t: 'entra', invito: bA.stato.campagna.invito, nome: 'Vecchio QR' });
+verifica((await C.aspetta(m => m.t === 'errore')).codice === 'invito', 'il vecchio QR non funziona più');
+
+B2.invia({ t: 'suggerimento', testo: 'Aggiungere i famigli' });
+verifica((await B2.aspetta(m => m.t === 'ok')).cosa === 'suggerimento', 'suggerimento salvato');
+B2.invia({ t: 'parlato', testo: 'apro la porta della cripta' });
+const dp = await A.aspetta(m => m.t === 'diario' && m.ev.tipo === 'parlato');
+verifica(dp.ev.testo.includes('apro la porta'), 'parlato registrato nel diario');
+
+const Z = client('https://sito-cattivo.example');
+verifica(await Z.pronto.then(() => false, e => /403/.test(e.message)), 'origine sconosciuta rifiutata');
+
+console.log(`\n${ok} ok, ${ko} falliti`);
+process.exit(ko ? 1 : 0);

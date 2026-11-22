@@ -1,0 +1,14 @@
+# Prove di Tavolo d'Avventura
+
+Servono: Node 20+, `npm i ws playwright wrangler@4`, il repository `rapporti-vincenzo` accanto a questo.
+
+1. Gemini finto: `node test/gemini-finto.mjs` (porta 8799)
+2. Server delle stanze, dalla cartella `rapporti-vincenzo`:
+   `npx wrangler dev --local --port 8787 --var GEMINI_KEY:finta --var GEMINI_BASE:http://localhost:8799 --var MCP_CHIAVE:segreta`
+3. App, da questa cartella: `python3 -m http.server 8765`
+4. Prove:
+   - `node test/comandi.test.js` (regole 5e/3.5 e comandi vocali)
+   - `node test/prova-server.mjs` e `node test/prova-master.mjs` (server e master AI)
+   - `node test/e2e.js` (app intera nel browser: due giocatori, TV, voce, bot di prova)
+
+Devono passare tutte prima di pubblicare.

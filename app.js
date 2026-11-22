@@ -1,6 +1,12 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 const CHANGELOG = [
+  { v: '1.6.0', data: '22/11/2026', voci: [
+    'Maestro e allievo: il master usa il modello migliore (Claude, se attivato, oppure Gemini Flash), i compiti leggeri usano Gemini Flash-Lite, più veloce.',
+    'Server di inoltro per la voce: se attivato, la chat vocale funziona anche fra reti mobili diverse.',
+    'Connettore "D&D" per Claude: si può leggere la campagna e preparare la sessione dalla chat di Claude.',
+    'Due canali: pubblico per gli amici, prova per le versioni nuove.'
+  ] },
   { v: '1.5.0', data: '22/11/2026', voci: [
     'Musica e suoni d\'ambiente generati dall\'app: cambiano da soli con il luogo e durante il combattimento; suoni per dadi, critici e livelli.',
     'Edifici in cui entrare: l\'interno viene creato una volta (stanze e descrizione dall\'IA gratuita di Cloudflare) e poi resta sempre uguale.',
@@ -758,8 +764,9 @@ $('#formNarra').addEventListener('submit', e => { e.preventDefault(); const t = 
 $('#formRegola').addEventListener('submit', e => { e.preventDefault(); const t = $('#regolaTesto').value.trim(); if (!t) return; invia({ t: 'regola', testo: t }); $('#rispostaRegola').hidden = false; $('#rispostaRegola').textContent = 'Cerco nel regolamento…'; $('#regolaTesto').value = ''; Report.log('regola', { testo: t }); });
 
 /* ============ VOCE ============ */
-function avviaVoce() {
+async function avviaVoce() {
   if (document.body.classList.contains('tv')) return;
+  try { const j = await fetch(SERVER_WS.replace(/^ws/, 'http') + '/turn').then(r => r.json()); Voce.impostaIce(j.iceServers); Report.log('voce-inoltro', { attivo: !!j.turn }); } catch {}
   Voce.avvia({
     io: S.io, invia, log: (t, d) => Report.log(t, d),
     onParlante: (id, p) => { const el = id === S.io ? $(`#av-${S.io}`) : $(`#av-${id}`); el?.classList.toggle('parla', p); },
@@ -863,6 +870,7 @@ function renderAltro() {
     $('#ruoliBox').innerHTML = me()?.admin ? `<h3>Ruoli</h3>${Object.entries(S.st.membri).map(([id, m]) => `<div class="riga"><label style="flex:1">${esc(m.nome)}${id === S.io ? ' (tu)' : ''}<select data-ruolo="${id}">${['giocatore', 'master', 'spettatore'].map(r => `<option ${r === m.ruolo ? 'selected' : ''}>${r}</option>`).join('')}</select></label>${id !== S.io ? `<button type="button" data-rimuovi="${id}">Togli</button>` : ''}</div>`).join('')}` : '';
   }
   $('#cartaBot').hidden = !me()?.admin;
+  if (me()?.admin && !$('#linkCanale')) $('#ver').insertAdjacentHTML('afterend', ` · <a id="linkCanale" href="${CANALE === 'prova' ? location.pathname.replace(/prova\/.*$/, '') : location.pathname.replace(/[^/]*$/, '') + 'prova/'}">${CANALE === 'prova' ? 'vai al canale pubblico' : 'vai al canale di prova'}</a>`);
   renderCosti();
   $('#optNome').value = me()?.nome || '';
   $('#optSuoni').checked = OPZ.suoni; $('#optVolume').value = OPZ.volume;
@@ -1009,7 +1017,9 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:' && location.ho
 }
 
 /* ============ AVVIO ============ */
-$('#ver').textContent = VERSION;
+const CANALE = /\/prova\//.test(location.pathname) ? 'prova' : 'pubblico';
+$('#ver').textContent = VERSION + (CANALE === 'prova' ? ' (canale di prova)' : '');
+Report.sessione.canale = CANALE;
 $('#changelog').innerHTML = CHANGELOG.map(c => `<p><strong>${c.v}</strong> <span class="piccolo">${c.data}</span></p><ul>${c.voci.map(v => `<li>${esc(v)}</li>`).join('')}</ul>`).join('');
 Narratore.attivo = OPZ.narratore; applicaGrandi();
 Suoni.volume = OPZ.volume;
