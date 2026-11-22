@@ -985,7 +985,7 @@ const Mappa = (() => {
     if (!luogo) return { meteo: '', esterno: false, fuoco: 0 };
     const io = segnalini[opz.io?.()]; let fuoco = 0;
     if (io) for (const f of fiamme) fuoco = Math.max(fuoco, 1 - Math.hypot(f.x - io.x - 0.5, f.y - io.y - 0.5) / 6);
-    return { meteo: meteo(), esterno: esterno(), fuoco: Math.max(0, fuoco) };
+    return { meteo: meteo(), esterno: esterno(), fuoco: Math.max(0, fuoco), notte: notte() };
   }
   function setVisto(id, visto) { if (luogo && luogo.id === id) { luogo.visto = visto; if (opz.vediTutto?.()) zoom('tutta'); disegna(); cambiato(); } }
   /* ---------------- per la vista 3D (mappa3d.js): stessi dati, stesse regole ---------------- */

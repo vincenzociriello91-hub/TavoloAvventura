@@ -56,10 +56,13 @@ function numero(n) {
   if (n === 6 || n === 9) x.fillRect(20, 54, 24, 4);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return (cacheNumeri[n] = t);
 }
+let stileTiro = null; // colore e materiale scelti dal giocatore che tira
+const MATERIALI = { opaco: { roughness: 0.55, metalness: 0.05 }, lucido: { roughness: 0.2, metalness: 0.1 }, metallo: { roughness: 0.25, metalness: 0.85 }, gemma: { roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.82 } };
 function dado(facce, valore, i, n, critico, fallimento, zero) {
   const g = geometria(facce), elenco = facceDi(g);
   const colore = critico ? 0xd4a838 : fallimento ? 0x6a1e1e : { 4: 0x3f7a4a, 6: 0xb8433a, 8: 0x2f5d9e, 10: 0x7a4fa0, 12: 0xa0602a, 20: 0x2a2a30, 100: 0x7a4fa0 }[facce] || 0x2a2a30;
-  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: colore, roughness: 0.35, metalness: 0.15, flatShading: true }));
+  const scelto = stileTiro?.colore && !critico && !fallimento ? new THREE.Color(stileTiro.colore) : colore;
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: scelto, roughness: 0.35, metalness: 0.15, flatShading: true, ...(MATERIALI[stileTiro?.materiale] || {}) }));
   m.castShadow = true;
   const dim = facce === 20 ? 0.34 : facce === 4 || facce === 12 ? 0.42 : 0.5;
   // d100: le facce valgono 10, 20 ... 90, 00
@@ -93,7 +96,8 @@ function ciclo() {
   else { attivi.forEach(d => scena.remove(d.m)); attivi = []; tela.style.display = 'none'; }
 }
 // tiro del server: { formula: '2d6+3', dadi: [...], scartati: [...], critico, fallimento }
-export function lancia(tiro) {
+export function lancia(tiro, stile) {
+  stileTiro = stile || null;
   const facce = Number(String(tiro.formula).match(/d(\d+)/)?.[1]) || 20;
   prepara();
   cancelAnimationFrame(idFrame); attivi.forEach(d => scena.remove(d.m)); attivi = [];

@@ -40,13 +40,29 @@ const Suoni = (() => {
     interno: u => { rumore('lowpass', 250, 0.3, 0.02, u); ogni(6000, 14000, () => nota(140, 0.4, 'square', 0.01, u, 0, 90)); },
     combattimento: u => { drone(73.4, 0.04, u, 'sawtooth'); let k = 0; ogni(420, 440, () => { nota(k % 4 === 0 ? 55 : 70, 0.25, 'sine', k % 4 === 0 ? 0.22 : 0.12, u, 0, 40); k++; }); }
   };
+  // musica vera (JP Soundworks, CC BY 4.0): un brano per scena, con dissolvenza; i suoni generati restano sotto, più bassi
+  const BRANI = { taverna: 'taverna', dungeon: 'dungeon', grotta: 'dungeon', combattimento: 'fantasy_combattimento', boss: 'fantasy_boss', interno: 'taverna' };
+  let brano = null, nomeBrano = '', notte = false;
+  function suonaBrano(nome) {
+    const file = BRANI[nome] || (notte ? 'notte' : 'fantasy');
+    if (file === nomeBrano) return;
+    nomeBrano = file;
+    const vecchio = brano, nuovo = new Audio('audio/musica/' + file + '.ogg'); nuovo.loop = true; nuovo.volume = 0;
+    nuovo.play().catch(() => {}); brano = nuovo;
+    let k = 0; const giro = setInterval(() => { k++; nuovo.volume = Math.min(1, k / 20) * volume * 0.45; if (vecchio) vecchio.volume = Math.max(0, (1 - k / 20) * volume * 0.45); if (k >= 20) { clearInterval(giro); if (vecchio) { vecchio.pause(); vecchio.src = ''; } } }, 100);
+  }
+  function fermaBrano() { if (brano) { brano.pause(); brano.src = ''; brano = null; } nomeBrano = ''; }
+  const CAMPIONI = ['colpo', 'critico', 'ferito', 'livello', 'magia', 'monete', 'porta', 'pozione', 'raro', 'sconfitta', 'successo', 'tocco', 'vittoria'];
+  function campione(nome, g = 0.8) { if (!CAMPIONI.includes(nome)) return false; const a = new Audio('audio/effetti/' + nome + '.ogg'); a.volume = Math.min(1, volume * g); a.play().catch(() => {}); return true; }
+  SCENE.boss = SCENE.combattimento;
   function cambiaScena(nome) {
+    if (attivo) suonaBrano(nome);
     if (!attivo || !ctx || nome === scena) return;
     const vecchi = nodi, vecchio = gainScena; nodi = []; timer.forEach(clearTimeout); timer = [];
     if (vecchio) { vecchio.gain.setTargetAtTime(0, ctx.currentTime, 0.4); setTimeout(() => { vecchi.forEach(n => { try { n.stop(); } catch {} }); vecchio.disconnect(); }, 2000); }
     scena = nome;
     if (!SCENE[nome]) return;
-    gainScena = ctx.createGain(); gainScena.gain.value = 0; gainScena.connect(bus); gainScena.gain.setTargetAtTime(1, ctx.currentTime, 0.8);
+    gainScena = ctx.createGain(); gainScena.gain.value = 0; gainScena.connect(bus); gainScena.gain.setTargetAtTime(0.45, ctx.currentTime, 0.8);
     SCENE[nome](gainScena);
   }
   // colpo di rumore breve (gocce, scoppiettii, tuono)
@@ -83,10 +99,13 @@ const Suoni = (() => {
     }
     gFuoco.gain.setTargetAtTime(Math.min(1, amb.fuoco) * 0.9, ctx.currentTime, 0.6);
   }
-  function ambiente(a) { amb = { ...amb, ...a }; aggiornaAmbiente(); }
+  function ambiente(a) { amb = { ...amb, ...a }; if (attivo && a.notte !== undefined && a.notte !== notte) { notte = a.notte; if (!BRANI[scena]) { nomeBrano = ''; suonaBrano(scena); } } aggiornaAmbiente(); }
   function effetto(tipo) {
     if (!attivo || !ctx) return;
     if (tipo === 'tuono') { const r = 0.4 + Math.random() * 1.6; botto(180, 2.8, 0.5, bus, r); botto(90, 3.5, 0.4, bus, r + 0.15); return; }
+    if (tipo === 'critico' && campione('critico')) return;
+    if (tipo === 'livello' && campione('livello')) return;
+    if (campione(tipo)) return;
     if (tipo === 'dado') for (let i = 0; i < 4; i++) nota(300 + Math.random() * 500, 0.05, 'square', 0.04, bus, i * 0.07);
     if (tipo === 'critico') [523, 659, 784, 1047].forEach((f, i) => nota(f, 0.35, 'triangle', 0.09, bus, i * 0.09));
     if (tipo === 'fallimento') [392, 330, 262, 196].forEach((f, i) => nota(f, 0.4, 'sawtooth', 0.04, bus, i * 0.12));
@@ -96,9 +115,10 @@ const Suoni = (() => {
   return {
     avvia, effetto, ambiente,
     scena: n => cambiaScena(n),
-    set attivo(b) { attivo = b; if (b) { avvia(); const s = scena; scena = null; cambiaScena(s || 'aperto'); meteoAttivo = null; aggiornaAmbiente(); } else { timer.forEach(clearTimeout); timer = []; nodi.forEach(n => { try { n.stop(); } catch {} }); nodi = []; gainScena?.disconnect(); gainScena = null; nodiAmb.forEach(n => { try { n.stop(); } catch {} }); nodiAmb = []; timerAmb.forEach(clearTimeout); timerAmb = []; gMeteo?.disconnect(); gMeteo = null; gFuoco?.disconnect(); gFuoco = null; meteoAttivo = ''; } },
+    set attivo(b) { attivo = b; if (b) { avvia(); const s = scena; scena = null; cambiaScena(s || 'aperto'); meteoAttivo = null; aggiornaAmbiente(); } else { fermaBrano(); timer.forEach(clearTimeout); timer = []; nodi.forEach(n => { try { n.stop(); } catch {} }); nodi = []; gainScena?.disconnect(); gainScena = null; nodiAmb.forEach(n => { try { n.stop(); } catch {} }); nodiAmb = []; timerAmb.forEach(clearTimeout); timerAmb = []; gMeteo?.disconnect(); gMeteo = null; gFuoco?.disconnect(); gFuoco = null; meteoAttivo = ''; } },
     get attivo() { return attivo; },
-    set volume(v) { volume = v; if (bus) bus.gain.value = v * 0.5; },
+    set volume(v) { volume = v; if (bus) bus.gain.value = v * 0.5; if (brano) brano.volume = v * 0.45; },
+    CAMPIONI,
     get scenaAttuale() { return scena; }
   };
 })();
