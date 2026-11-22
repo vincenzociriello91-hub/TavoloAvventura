@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.0.4';
+const VERSION = '3.0.5';
 const CHANGELOG = [
+  { v: '3.0.5', data: '22/11/2026', voci: [
+    'Illustrazioni anche quando le immagini gratuite del server sono finite: la scena la disegna uno dei vostri telefoni con un servizio di riserva gratuito e la manda a tutti.'
+  ] },
   { v: '3.0.4', data: '22/11/2026', voci: [
     'Gli avvisi sono più piccoli, stanno sulla barra in alto (non coprono più il nome del luogo) e sono rossi quando qualcosa non è riuscito. Si chiudono toccandoli.'
   ] },
@@ -404,6 +407,7 @@ function gestisci(m) {
     }
     case 'diario': S.st.diario = [...(S.st.diario || []), m.ev].slice(-200); renderDiario(); if (m.ev.tipo === 'chat' && m.ev.chi !== S.io) traduciTesto(m.ev.testo); return;
     case 'serate': S.st.serate = m.serate; renderSerate(); return;
+    case 'disegna_tu': disegnaDalTelefono(m); return;
     case 'reazione': reazioneVola(m.emoji, m.nome); return;
     case 'traduzione': { const cb = S.attesaTrad?.[m.id]; if (cb) { delete S.attesaTrad[m.id]; cb(m); } return; }
     case 'note_mappa': S.st.noteMappa = { luogo: m.luogo, note: m.note }; renderNoteMappa(); return;
@@ -1574,6 +1578,21 @@ window.addEventListener('resize', () => { if (largo() && S.vista === 'vMappa') m
   }
 })();
 
+/* ============ Illustrazione di riserva: la disegna questo telefono quando le quote del server sono finite ============ */
+async function disegnaDalTelefono(m) {
+  // la disegna un solo telefono: il primo (in ordine) tra i giocatori collegati; TV e spettatori no
+  const chi = (S.st.online || []).filter(id => S.st.membri?.[id] && S.st.membri[id].ruolo !== 'spettatore' && !/^TV /.test(S.st.membri[id].nome)).sort()[0];
+  if (chi !== S.io || document.body.classList.contains('tv')) return;
+  toast('Disegno la scena con il servizio di riserva…');
+  try {
+    const r = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(m.prompt.slice(0, 900))}?width=768&height=432&nologo=true&model=flux&seed=${Math.floor(Math.random() * 1e6)}`, { signal: AbortSignal.timeout(90000) });
+    if (!r.ok || !/^image\//.test(r.headers.get('content-type') || '')) throw new Error('HTTP ' + r.status);
+    const bmp = await createImageBitmap(await r.blob()), c = Object.assign(document.createElement('canvas'), { width: Math.min(768, bmp.width), height: Math.round(Math.min(768, bmp.width) * bmp.height / bmp.width) });
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const dati = c.toDataURL('image/jpeg', 0.82).split(',')[1];
+    invia({ t: 'immagine_esterna', id: m.id, dati }); Report.log('illustrazione-riserva', { esito: 'ok', kb: Math.round(dati.length * 0.75 / 1024) });
+  } catch (e) { Report.log('illustrazione-riserva', { esito: 'errore', errore: String(e?.message || e).slice(0, 200) }); toast("Immagini gratuite finite per oggi: tornano dopo l'una di notte.", true, 6000); }
+}
 /* ============ Traduzione automatica di master e chat ============ */
 function tradotto(t) { const x = OPZ.lingua && S.trad.get(t); return x ? `<p class="trad">🌐 ${esc(x)}</p>` : ''; }
 function traduciTesto(t) {
