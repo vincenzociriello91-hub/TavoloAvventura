@@ -331,6 +331,10 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
     const p = await A.evaluate(() => Mappa.controllo()); v(!p.length, `mappa "${nome}" senza problemi grafici${p.length ? ': ' + p.join(' | ') : ''}`);
   }
   await A.screenshot({ path: OUT + '/viadotto.png' }).catch(() => {});
+  // la vignetta degli avvisi non deve coprire il contenuto (nome del luogo, mappa) né essere enorme, e un fallimento è rosso
+  await A.click('#nav button[data-v="vMappa"]').catch(() => {});
+  const vign = await A.evaluate(() => { toast("Immagini gratuite finite per oggi: tornano dopo l'una di notte.", true, 5000); const t = $('#toast').getBoundingClientRect(), barra = document.querySelector('.barra').getBoundingClientRect(), titolo = document.querySelector('#vMappa h2, #vMappa .luogo-titolo, #luogoNome')?.getBoundingClientRect(); return { alto: t.height, fondo: t.bottom, barra: barra.bottom, titolo: titolo?.top ?? 999, rosso: $('#toast').classList.contains('errore') }; });
+  v(vign.alto <= 60 && vign.fondo <= vign.barra + 6 && vign.rosso, `vignetta avvisi compatta, sopra la barra, rossa se è un errore (${JSON.stringify(vign)})`);
   v(errori.length === 0, 'nessun errore JavaScript' + (errori.length ? ': ' + errori.slice(0, 5).join(' | ') : ''));
   await browser.close();
   console.log(`\n${ok} ok, ${ko} falliti`);
