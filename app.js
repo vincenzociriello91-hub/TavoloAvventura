@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const CHANGELOG = [
+  { v: '1.3.0', data: '22/11/2026', voci: [
+    'Incantesimi: slot per livello calcolati da soli (5e e 3.5, anche patto del warlock e incantesimi bonus), CD e attacco, "lancio palla di fuoco" a voce.',
+    'Talenti nella scheda, con il conteggio dei talenti disponibili in 3.5; in 5e un talento può sostituire l\'aumento di caratteristica.',
+    'Multiclasse: quando sali di livello scegli la classe; BAB, tiri salvezza, slot e PF seguono le regole.',
+    'Oggetti magici con bonus e rarità ("trovo una spada lunga +1 rara"): il bonus conta per colpire, danni e CA, e l\'arma brilla nel ritratto.',
+    'Aspetto con altezza e peso, capacità di carico calcolata; il master AI ne tiene conto nel racconto.'
+  ] },
   { v: '1.2.0', data: '22/11/2026', voci: [
     'Combattimento a turni: iniziativa tirata in automatico, ordine sullo schermo, "fine turno" anche a voce, avviso quando tocca a te.',
     'Gittata di movimento evidenziata sulla mappa nel tuo turno e aree degli incantesimi (cerchio, quadrato, cono, linea) visibili a tutti.',
@@ -401,7 +408,7 @@ function renderScheda() {
   const puo = S.viewPg === S.io || capo();
   const set = Regole.set(pg.regole);
   const r = pg.pfMax ? pg.pf / pg.pfMax : 1;
-  const comp = pg.regole === '3.5' ? `<div class="stat"><b>${segno(Regole.bab('3.5', pg.classe, pg.livello))}</b><span>BAB</span></div>` : `<div class="stat"><b>+${Regole.competenza(pg.livello)}</b><span>COMPETENZA</span></div>`;
+  const comp = pg.regole === '3.5' ? `<div class="stat"><b>${segno(Regole.bab('3.5', pg.classe, pg.livello, pg))}</b><span>BAB</span></div>` : `<div class="stat"><b>+${Regole.competenza(pg.livello)}</b><span>COMPETENZA</span></div>`;
   const ts = pg.regole === '3.5' ? [['tem', 'Tempra'], ['rif', 'Riflessi'], ['vol', 'Volontà']] : CAR.map(k => [k, CAR_SIGLE[k]]);
   const armi = (pg.equip || []).filter(e => e.indossato && (ARMI[e.nome] || tipoOggetto(e.nome) === 'arma'));
   box.innerHTML = `
@@ -410,7 +417,7 @@ function renderScheda() {
       <div class="ritratto">${Ritratto.svg(pg, { dim: largo() ? 130 : 120 })}</div>
       <div class="pg-info">
         <h2>${esc(pg.nome)}</h2>
-        <div class="piccolo">${esc(pg.razza)} · ${esc(pg.classe)} · livello ${pg.livello} · ${esc(pg.allineamento || '')}</div>
+        <div class="piccolo">${esc(pg.razza)} · ${esc(Regole.nomeClassi(pg))} · livello ${pg.livello} · ${esc(pg.allineamento || '')}</div>
         <div class="barra-pf" role="meter" aria-valuemin="0" aria-valuemax="${pg.pfMax}" aria-valuenow="${pg.pf}" aria-label="Punti ferita"><div class="${r <= 0.25 ? 'basso' : r <= 0.5 ? 'meta' : ''}" style="width:${Math.max(0, Math.min(100, r * 100))}%"></div></div>
         <div><strong>${pg.pf}</strong> / ${pg.pfMax} PF${(pg.condizioni || []).length ? ' · <span style="color:#ffb199">' + esc(pg.condizioni.join(', ')) + '</span>' : ''}</div>
         ${puo ? `<div class="pf-tasti"><button data-pf="-5">−5</button><button data-pf="-1">−1</button><button data-pf="1">+1</button><button data-pf="5">+5</button><button data-pf="?">Altro…</button></div>` : ''}
@@ -436,10 +443,16 @@ function renderScheda() {
     <ul class="lista-ab">${Object.keys(set.abilita).map(ab => `<li><span class="nome">${pg.regole === '5e' ? `<input type="checkbox" class="comp" data-comp="${esc(ab)}" ${(pg.competenze || []).includes(ab) ? 'checked' : ''} ${puo ? '' : 'disabled'} aria-label="Competenza in ${esc(ab)}"> ` : ''}${esc(ab)} <span class="piccolo">${CAR_SIGLE[set.abilita[ab]]}${pg.regole === '3.5' ? ' · gradi ' + (pg.gradi?.[ab] || 0) : ''}</span></span><b class="b">${segno(Regole.abilita(pg, ab))}</b>${pg.regole === '3.5' && puo && pg.puntiAbilita ? `<button data-grado="${esc(ab)}" aria-label="Aggiungi un grado a ${esc(ab)}">+</button>` : ''}<button data-prova="ab:${esc(ab)}" aria-label="Tira ${esc(ab)}">Tira</button></li>`).join('')}</ul>
   </div>
   <div class="carta"><h3 style="margin-top:0">Equipaggiamento</h3>
-    <ul class="equip">${(pg.equip || []).map((e, i) => `<li class="${e.indossato ? 'ind' : ''}"><span class="n">${esc(e.nome)}${e.qta > 1 ? ' ×' + e.qta : ''}${e.indossato ? ' <span class="piccolo">· indossato</span>' : ''}</span>${puo ? `${tipoOggetto(e.nome) ? `<button data-ind="${i}">${e.indossato ? 'Riponi' : 'Indossa'}</button>` : ''}<button data-tog="${i}" aria-label="Togli ${esc(e.nome)}">Togli</button>` : ''}</li>`).join('') || '<li class="piccolo">Zaino vuoto</li>'}</ul>
+    <ul class="equip">${(pg.equip || []).map((e, i) => `<li class="${e.indossato ? 'ind' : ''}"><span class="n">${esc(e.nome)}${e.bonus ? ' +' + e.bonus : ''}${e.qta > 1 ? ' ×' + e.qta : ''}${e.rarita ? ` <span class="piccolo" style="color:${COLORI_RARITA[e.rarita] || '#bcae96'}">${esc(e.rarita)}</span>` : ''}${e.indossato ? ' <span class="piccolo">· indossato</span>' : ''}</span>${puo ? `${tipoOggetto(e.nome) ? `<button data-ind="${i}">${e.indossato ? 'Riponi' : 'Indossa'}</button>` : ''}<button data-modogg="${i}" aria-label="Modifica ${esc(e.nome)}">✎</button><button data-tog="${i}" aria-label="Togli ${esc(e.nome)}">Togli</button>` : ''}</li>`).join('') || '<li class="piccolo">Zaino vuoto</li>'}</ul>
+    <p class="piccolo">Capacità di carico: ${Regole.caricoMax(pg)} kg${pg.aspetto?.altezza ? ` · altezza ${esc(pg.aspetto.altezza)} cm` : ''}${pg.aspetto?.peso ? ` · peso ${esc(pg.aspetto.peso)} kg` : ''}</p>
     ${puo ? `<form id="formOggetto" class="riga" autocomplete="off" style="margin-top:8px"><input id="nuovoOggetto" maxlength="60" placeholder="Aggiungi oggetto (es. Pozione di guarigione)" list="listaOggetti"><button class="pieno">Aggiungi</button></form>
     <datalist id="listaOggetti">${[...Object.keys(ARMI), ...Object.keys(ARMATURE), ...Object.keys(SCUDI), ...ELMI, 'Mantello', 'Amuleto', 'Pozione di guarigione', 'Torcia', 'Corda (15 m)', 'Razioni'].map(n => `<option value="${esc(n)}">`).join('')}</datalist>` : ''}
     <div class="riga" style="margin-top:10px"><span>Monete d'oro: <strong>${pg.oro || 0}</strong></span>${puo ? '<button data-oro="?">Modifica</button>' : ''}<span>PX: <strong>${pg.px || 0}</strong></span>${puo ? '<button data-px="?">Aggiungi PX</button>' : ''}</div>
+  </div>
+  ${cartaMagia(pg, puo)}
+  <div class="carta"><h3 style="margin-top:0">Talenti${Regole.talentiDisponibili(pg) ? ` <span class="piccolo">(${(pg.talenti || []).length} su ${Regole.talentiDisponibili(pg)} disponibili)</span>` : ''}</h3>
+    <div class="chips">${(pg.talenti || []).map((t, i) => `<span class="chip">${esc(t)}${puo ? ` <button class="testo-btn" data-togtal="${i}" aria-label="Togli ${esc(t)}" style="min-height:24px;padding:0 4px">×</button>` : ''}</span>`).join('') || '<span class="piccolo">Nessun talento</span>'}</div>
+    ${puo ? `<form id="formTalento" class="riga" autocomplete="off" style="margin-top:8px"><input id="nuovoTalento" maxlength="60" placeholder="${pg.regole === '5e' ? 'Es. Lottatore' : 'Es. Arma focalizzata'}"><button class="pieno">Aggiungi</button></form>${pg.regole === '5e' && pg.puntiCar >= 2 ? '<p class="piccolo">In 5e puoi scegliere un talento al posto dei 2 punti caratteristica: aggiungilo qui e i punti verranno usati.</p>' : ''}` : ''}
   </div>
   <div class="carta"><h3 style="margin-top:0">Condizioni</h3>
     <div class="cond">${CONDIZIONI.map(c => `<button class="chip ${(pg.condizioni || []).includes(c) ? 'on' : ''}" data-cond="${esc(c)}" ${puo ? '' : 'disabled'}>${esc(c)}</button>`).join('')}</div>
@@ -448,6 +461,18 @@ function renderScheda() {
     <details><summary>Aspetto del personaggio</summary>${puo ? formAspetto(pg.aspetto || {}, pg.razza) : ''}</details>
     <label>Note<textarea id="pgNote" rows="3" maxlength="4000" ${puo ? '' : 'readonly'}>${esc(pg.note || '')}</textarea></label>
     <div class="riga"><button id="btnStampa">Stampa o salva in PDF</button>${puo ? '<button id="btnAnnullaScheda">Annulla ultima modifica</button>' : ''}</div>
+  </div>`;
+}
+function cartaMagia(pg, puo) {
+  const max = Regole.slotMax(pg); const cd = Regole.cd(pg);
+  const usati = pg.slotUsati || [];
+  if (!cd && !(pg.incantesimi || []).length && !max.some(x => x)) return '';
+  const righe = max.map((n, l) => n ? `<div class="riga slot-riga"><span class="piccolo" style="min-width:56px">${l ? l + '° livello' : 'trucchi'}</span><span class="slot">${'●'.repeat(Math.max(0, n - (usati[l] || 0)))}${'○'.repeat(Math.min(n, usati[l] || 0))}</span>${puo && l ? `<button data-usaslot="${l}" aria-label="Usa uno slot di ${l}° livello">−</button><button data-ridaislot="${l}" aria-label="Recupera uno slot di ${l}° livello">+</button>` : ''}</div>` : '').join('');
+  return `<div class="carta"><h3 style="margin-top:0">Incantesimi${cd ? ` <span class="piccolo">CD ${cd.cd}${cd.nota ? ' ' + cd.nota : ''}${cd.attacco !== undefined ? ' · attacco ' + segno(cd.attacco) : ''} (${CAR_SIGLE[cd.car]})</span>` : ''}</h3>
+    ${righe || '<p class="piccolo">Nessuno slot a questo livello.</p>'}${pg.patto ? `<p class="piccolo">Slot del patto: ${pg.patto.n} di ${pg.patto.livello}° livello, tornano con un riposo breve.</p>` : ''}
+    <ul class="equip">${(pg.incantesimi || []).map((inc, i) => `<li><span class="n">${esc(inc.nome)} <span class="piccolo">${inc.livello ? inc.livello + '°' : 'trucchetto'}</span></span>${puo ? `<button data-lancia="${i}">Lancia</button><button data-toginc="${i}" aria-label="Togli ${esc(inc.nome)}">×</button>` : ''}</li>`).join('') || '<li class="piccolo">Nessun incantesimo: aggiungili qui sotto o di\' "imparo l\'incantesimo dardo incantato".</li>'}</ul>
+    ${puo ? `<form id="formIncantesimo" class="riga" autocomplete="off" style="margin-top:8px"><input id="nuovoInc" maxlength="60" list="listaInc" placeholder="Nome dell'incantesimo"><input id="nuovoIncLiv" type="number" min="0" max="9" value="1" style="width:76px;flex:0 0 76px" aria-label="Livello"><button class="pieno">Aggiungi</button></form><datalist id="listaInc">${Object.keys(INCANTESIMI_NOTI).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+    <div class="riga" style="margin-top:8px"><button data-riposo="lungo">Riposo lungo (tutto)</button><button data-riposo="breve">Riposo breve</button></div>` : ''}
   </div>`;
 }
 function formAspetto(a, razza) {
@@ -460,6 +485,8 @@ function formAspetto(a, razza) {
     ${sel('occhi', 'Occhi', Object.keys(Ritratto.OCCHI), a.occhi || 'marroni')}
     ${sel('corporatura', 'Corporatura', ['normale', 'snella', 'robusta'], a.corporatura || 'normale')}
     ${razza === 'Dragonide' ? sel('drago', 'Scaglie', Object.keys(Ritratto.DRAGO), a.drago || 'rosso') : ''}
+    <label>Altezza (cm)<input type="number" min="60" max="260" data-asp="altezza" value="${esc(a.altezza || '')}" inputmode="numeric"></label>
+    <label>Peso (kg)<input type="number" min="10" max="300" data-asp="peso" value="${esc(a.peso || '')}" inputmode="numeric"></label>
   </div>`;
 }
 function renderCreazione(box) {
@@ -532,14 +559,39 @@ $('#scheda').addEventListener('click', async e => {
   if (b.dataset.grado) { modifica(p => { p.gradi = { ...(p.gradi || {}), [b.dataset.grado]: (p.gradi?.[b.dataset.grado] || 0) + 1 }; p.puntiAbilita = Math.max(0, (p.puntiAbilita || 0) - 1); return `+1 grado in ${b.dataset.grado}`; }); return; }
   if (b.dataset.ind !== undefined) { const it = pg.equip[Number(b.dataset.ind)]; modifica([{ op: it.indossato ? 'ripon' : 'indossa', nome: it.nome }]); return; }
   if (b.dataset.tog !== undefined) { const it = pg.equip[Number(b.dataset.tog)]; modifica(p => { p.equip.splice(Number(b.dataset.tog), 1); return `rimuove ${it.nome}`; }); return; }
+  if (b.dataset.usaslot) { modifica([{ op: 'slot', livello: Number(b.dataset.usaslot) }]); return; }
+  if (b.dataset.ridaislot) { modifica(p => { const l = Number(b.dataset.ridaislot); p.slotUsati = p.slotUsati || []; p.slotUsati[l] = Math.max(0, (p.slotUsati[l] || 0) - 1); return `recupera uno slot di ${l}° livello`; }); return; }
+  if (b.dataset.lancia !== undefined) { const inc = pg.incantesimi[Number(b.dataset.lancia)]; modifica([{ op: 'lancia', nome: inc.nome }]); return; }
+  if (b.dataset.toginc !== undefined) { const inc = pg.incantesimi[Number(b.dataset.toginc)]; modifica(p => { p.incantesimi.splice(Number(b.dataset.toginc), 1); return `dimentica ${inc.nome}`; }); return; }
+  if (b.dataset.togtal !== undefined) { const t = pg.talenti[Number(b.dataset.togtal)]; modifica(p => { p.talenti.splice(Number(b.dataset.togtal), 1); return `toglie il talento ${t}`; }); return; }
+  if (b.dataset.riposo) { modifica([{ op: b.dataset.riposo === 'lungo' ? 'riposo' : 'riposobreve' }]); return; }
+  if (b.dataset.modogg !== undefined) {
+    const it = pg.equip[Number(b.dataset.modogg)];
+    const i = await chiedi(`<h2>${esc(it.nome)}</h2><label>Bonus magico<select id="ogBonus">${[0, 1, 2, 3].map(n => `<option value="${n}" ${Number(it.bonus || 0) === n ? 'selected' : ''}>${n ? '+' + n : 'nessuno'}</option>`).join('')}</select></label><label>Rarità<select id="ogRar"><option value="">—</option>${RARITA.map(r => `<option ${it.rarita === r ? 'selected' : ''}>${r}</option>`).join('')}</select></label><label>Quantità<input id="ogQta" type="number" min="1" max="999" value="${it.qta || 1}"></label>`, [{ testo: 'Salva', pieno: true }, { testo: 'Annulla' }]);
+    if (i === 0) { const bonus = Number($('#ogBonus').value), rarita = $('#ogRar').value || undefined, qta = Math.max(1, Number($('#ogQta').value) || 1); modifica(p => { const o = p.equip[Number(b.dataset.modogg)]; o.bonus = bonus || undefined; o.rarita = rarita; o.qta = qta; return `${o.nome}: ${bonus ? '+' + bonus + ' ' : ''}${rarita || ''}`.trim(); }); }
+    return;
+  }
   if (b.dataset.cond) { const on = (pg.condizioni || []).includes(b.dataset.cond); modifica([{ op: 'condizione', nome: b.dataset.cond, attiva: !on }]); return; }
   if (b.dataset.oro) { const v = parseInt(prompt('Monete d\'oro da aggiungere (usa il meno per togliere, es. -10)'), 10); if (v) modifica([{ op: 'oro', delta: v }]); return; }
   if (b.dataset.px) { const v = parseInt(prompt('Punti esperienza guadagnati'), 10); if (v) modifica([{ op: 'px', delta: v }]); return; }
-  if (b.id === 'btnLivello') { const i = await chiedi(`<h2>Sali al livello ${pg.livello + 1}</h2><p>Punti ferita: media del dado vita (${Regole.mediaPf(pg)}) oppure tira 1d${Regole.dadoVita(pg)}. In entrambi i casi si aggiunge il modificatore di Costituzione.</p>`, [{ testo: 'Media', pieno: true }, { testo: `Tira 1d${Regole.dadoVita(pg)}` }, { testo: 'Annulla' }]); if (i === 0) modifica([{ op: 'livello', delta: 1 }]); if (i === 1) { const d = 1 + Math.floor(Math.random() * Regole.dadoVita(pg)); modifica(p => Regole.saliLivello(p, d).msg + ` (tiro ${d})`); } return; }
+  if (b.id === 'btnLivello') {
+    const classi = Object.keys(Regole.set(pg.regole).classi);
+    const i = await chiedi(`<h2>Sali al livello ${pg.livello + 1}</h2><label>Classe (per la multiclasse scegline un'altra)<select id="lvClasse">${classi.map(c => `<option ${c === pg.classe ? 'selected' : ''}>${c}</option>`).join('')}</select></label><p>Punti ferita: media del dado vita della classe oppure tiro del dado. Si aggiunge il modificatore di Costituzione.</p>`, [{ testo: 'Media', pieno: true }, { testo: 'Tira il dado' }, { testo: 'Annulla' }]);
+    const classe = $('#lvClasse')?.value;
+    if (i === 0) modifica([{ op: 'livello', delta: 1, classe }]);
+    if (i === 1) { const dv = Regole.set(pg.regole).classi[classe]?.dv || 8; const d = 1 + Math.floor(Math.random() * dv); modifica(p => Regole.saliLivello(p, d, classe).msg + ` (tiro 1d${dv}: ${d})`); }
+    return;
+  }
   if (b.id === 'btnStampa') { window.print(); return; }
   if (b.id === 'btnAnnullaScheda') { annulla(); return; }
 });
-$('#scheda').addEventListener('submit', e => { if (e.target.id !== 'formOggetto') return; e.preventDefault(); const n = $('#nuovoOggetto').value.trim(); if (n) modifica([{ op: 'oggetto', nome: n, qta: 1 }]); });
+$('#scheda').addEventListener('submit', e => {
+  e.preventDefault();
+  if (e.target.id === 'formOggetto') { const n = $('#nuovoOggetto').value.trim(); if (n) modifica([{ op: 'oggetto', nome: n, qta: 1 }]); }
+  if (e.target.id === 'formIncantesimo') { const n = $('#nuovoInc').value.trim(); if (n) modifica([{ op: 'impara', nome: n, livello: Number($('#nuovoIncLiv').value) }]); }
+  if (e.target.id === 'formTalento') { const n = $('#nuovoTalento').value.trim(); if (n) modifica([{ op: 'talento', nome: n }]); }
+});
+$('#scheda').addEventListener('input', e => { if (e.target.id === 'nuovoInc' && INCANTESIMI_NOTI[e.target.value] !== undefined) $('#nuovoIncLiv').value = INCANTESIMI_NOTI[e.target.value]; });
 $('#selPg').addEventListener('change', e => { S.viewPg = e.target.value; renderScheda(); });
 
 // Ogni modifica: copia per "annulla", applica, ricalcola, invia a tutti

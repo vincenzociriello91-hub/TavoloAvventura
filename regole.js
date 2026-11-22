@@ -92,13 +92,56 @@ const ARMI = {
   'Balestra leggera': { danno: '1d8', look: 'balestra', dist: true }, 'Balestra': { danno: '1d8', look: 'balestra', dist: true },
   'Giavellotti': { danno: '1d6', look: 'lancia' }, 'Dardi': { danno: '1d4', look: 'nessuna', dist: true }, 'Falcione': { danno: '1d10', look: 'lancia' }
 };
+// Slot degli incantesimi (SRD). 5e: tabella dei lanciatori completi; i mezzi lanciatori usano metà livello (per eccesso, dal 2°).
+const SLOT5 = [[], [2], [3], [4, 2], [4, 3], [4, 3, 2], [4, 3, 3], [4, 3, 3, 1], [4, 3, 3, 2], [4, 3, 3, 3, 1], [4, 3, 3, 3, 2], [4, 3, 3, 3, 2, 1], [4, 3, 3, 3, 2, 1], [4, 3, 3, 3, 2, 1, 1], [4, 3, 3, 3, 2, 1, 1], [4, 3, 3, 3, 2, 1, 1, 1], [4, 3, 3, 3, 2, 1, 1, 1], [4, 3, 3, 3, 2, 1, 1, 1, 1], [4, 3, 3, 3, 3, 1, 1, 1, 1], [4, 3, 3, 3, 3, 2, 1, 1, 1], [4, 3, 3, 3, 3, 2, 2, 1, 1]];
+const COMPLETI5 = ['Bardo', 'Chierico', 'Druido', 'Mago', 'Stregone'], MEZZI5 = ['Paladino', 'Ranger'];
+// 3.5: incantesimi al giorno di base (dal livello 0); -1 = nessuno
+const T35 = {
+  mago: ['31', '42', '421', '432', '4321', '4332', '44321', '44332', '444321', '444332', '4444321', '4444332', '44444321', '44444332', '444444321', '444444332', '4444444321', '4444444332', '4444444433', '4444444444'],
+  stregone: ['53', '64', '65', '663', '664', '6653', '6664', '66653', '66664', '666653', '666664', '6666653', '6666664', '66666653', '66666664', '666666653', '666666664', '6666666653', '6666666664', '6666666666'],
+  bardo: ['2', '30', '31', '320', '331', '332', '3320', '3331', '3332', '33320', '33331', '33332', '333320', '433331', '443332', '4443320', '4444331', '4444432', '4444443', '4444444'],
+  mezzo: ['', '', '', 'x0', 'x0', 'x1', 'x1', 'x10', 'x10', 'x11', 'x110', 'x111', 'x111', 'x2110', 'x2111', 'x2211', 'x2221', 'x3221', 'x3332', 'x3333']
+};
+const CLASSI35 = { Mago: 'mago', Chierico: 'mago', Druido: 'mago', Stregone: 'stregone', Bardo: 'bardo', Paladino: 'mezzo', Ranger: 'mezzo' };
+const RARITA = ['comune', 'non comune', 'raro', 'molto raro', 'leggendario', 'artefatto'];
+const COLORI_RARITA = { comune: '#bcae96', 'non comune': '#57b47a', raro: '#5b8fd9', 'molto raro': '#a98be8', leggendario: '#e8b04b', artefatto: '#e2735f' };
+const INCANTESIMI_NOTI = { 'Luce': 0, 'Mano magica': 0, 'Prestidigitazione': 0, 'Fiotto acido': 0, 'Raggio di gelo': 0, 'Dardo incantato': 1, 'Scudo': 1, 'Cura ferite': 1, 'Parola guaritrice': 1, 'Sonno': 1, 'Charme su persone': 1, 'Benedizione': 1, 'Mani brucianti': 1, 'Individuazione del magico': 1, 'Invisibilità': 2, 'Passo velato': 2, 'Ristorare inferiore': 2, 'Ragnatela': 2, 'Palla di fuoco': 3, 'Fulmine': 3, 'Volare': 3, 'Controincantesimo': 3, 'Dissolvi magie': 3, 'Rianimare morti': 3, 'Porta dimensionale': 4, 'Muro di fuoco': 4, 'Cono di freddo': 5, 'Rianimare i morti': 5, 'Disintegrazione': 6, 'Teletrasporto': 7, 'Parola del potere stordire': 8, 'Desiderio': 9 };
 const ELMI = ['Elmo', 'Elmo d\'acciaio', 'Cappuccio', 'Cappello da mago', 'Corona'];
 const CONDIZIONI = ['accecato', 'affascinato', 'afferrato', 'assordato', 'avvelenato', 'incapacitato', 'invisibile', 'paralizzato', 'pietrificato', 'prono', 'spaventato', 'stordito', 'trattenuto', 'privo di sensi', 'esausto'];
 
 const Regole = {
   set(r) { return REGOLE[r === '3.5' ? '3.5' : '5e']; },
+  classi(pg) { return pg.classi?.length ? pg.classi : [{ classe: pg.classe, livello: pg.livello }]; },
+  nomeClassi(pg) { const c = this.classi(pg); return c.length > 1 ? c.map(x => `${x.classe} ${x.livello}`).join(' / ') : pg.classe; },
+  // Slot degli incantesimi per livello (indice 1..9; in 3.5 anche lo 0)
+  slotMax(pg) {
+    const c = this.classi(pg);
+    if (pg.regole === '3.5') {
+      const tot = []; const sett = this.set('3.5');
+      for (const x of c) {
+        const tab = T35[CLASSI35[x.classe]]; if (!tab) continue;
+        const riga = tab[Math.min(19, x.livello - 1)] || '';
+        const k = sett.classi[x.classe]?.magia; const m = mod(pg.car?.[k] || 10);
+        [...riga].forEach((ch, i) => { const liv = CLASSI35[x.classe] === 'mezzo' ? i : i; if (ch === 'x') return; const base = Number(ch); const bonus = liv >= 1 && m >= liv ? Math.floor((m - liv) / 4) + 1 : 0; tot[liv] = (tot[liv] || 0) + base + bonus + (x.classe === 'Chierico' && liv >= 1 ? 1 : 0); });
+      }
+      return Array.from(tot, v => v || 0);
+    }
+    let lv = 0; for (const x of c) { if (COMPLETI5.includes(x.classe)) lv += x.livello; else if (MEZZI5.includes(x.classe)) lv += c.length > 1 ? Math.floor(x.livello / 2) : (x.livello >= 2 ? Math.ceil(x.livello / 2) : 0); }
+    const out = [0, ...(SLOT5[Math.min(20, lv)] || [])];
+    const w = c.find(x => x.classe === 'Warlock');
+    if (w) { const n = w.livello >= 17 ? 4 : w.livello >= 11 ? 3 : w.livello >= 2 ? 2 : 1; const l = Math.min(5, Math.ceil(w.livello / 2)); out[l] = (out[l] || 0) + n; pg.patto = { livello: l, n }; }
+    return Array.from(out, v => v || 0);
+  },
+  cd(pg) { const k = this.set(pg.regole).classi[this.classi(pg).find(x => this.set(pg.regole).classi[x.classe]?.magia)?.classe]?.magia; if (!k) return null; return pg.regole === '3.5' ? { cd: 10 + mod(pg.car[k]), car: k, nota: '+ livello dell\'incantesimo' } : { cd: 8 + this.competenza(pg.livello) + mod(pg.car[k]), attacco: this.competenza(pg.livello) + mod(pg.car[k]), car: k }; },
+  talentiDisponibili(pg) {
+    if (pg.regole !== '3.5') return null;
+    let n = 1 + Math.floor(pg.livello / 3) + (pg.razza === 'Umano' ? 1 : 0);
+    const g = this.classi(pg).find(x => x.classe === 'Guerriero'); if (g) n += 1 + Math.floor(g.livello / 2);
+    return n;
+  },
+  caricoMax(pg) { const f = pg.car?.for || 10; return pg.regole === '3.5' ? Math.round(f * 5 * (pg.taglia === 'piccola' ? 0.75 : 1)) : Math.round(f * 7.5); },
   competenza(livello) { return 2 + Math.floor((Math.max(1, livello) - 1) / 4); },
-  bab(r, classe, livello) { const c = this.set(r).classi[classe]; return c ? Math.floor((c.bab || 0.75) * livello) : 0; },
+  bab(r, classe, livello, pg) { if (pg && this.classi(pg).length > 1) return this.classi(pg).reduce((s, x) => s + Math.floor((this.set(r).classi[x.classe]?.bab || 0.75) * x.livello), 0); const c = this.set(r).classi[classe]; return c ? Math.floor((c.bab || 0.75) * livello) : 0; },
   tsBase35(buono, livello) { return buono ? 2 + Math.floor(livello / 2) : Math.floor(livello / 3); },
   // Caratteristiche finali = base + razza + aumenti ottenuti salendo di livello
   carFinali(pg) {
@@ -121,7 +164,7 @@ const Regole = {
     const arm = ind.map(e => ARMATURE[e.nome]).find(Boolean);
     const scudo = ind.some(e => SCUDI[e.nome] !== undefined);
     const d = mod(pg.car.des);
-    const bonusMagico = ind.reduce((s, e) => s + (Number(e.bonusCa) || 0), 0);
+    const bonusMagico = ind.reduce((s, e) => s + (Number(e.bonusCa) || 0) + ((ARMATURE[e.nome] || SCUDI[e.nome] !== undefined) ? Number(e.bonus) || 0 : 0), 0);
     if (pg.regole === '3.5') return 10 + (arm ? arm.ca35 : 0) + Math.min(d, arm ? arm.dmax : 99) + (scudo ? 1 : 0) + bonusMagico + (pg.taglia === 'piccola' ? 1 : 0) + (pg.caExtra || 0);
     let base;
     if (arm) base = arm.ca5 + Math.min(d, arm.dmax);
@@ -141,7 +184,8 @@ const Regole = {
     if (pg.regole === '3.5') {
       const c = this.set('3.5').classi[pg.classe];
       const car = { tem: 'cos', rif: 'des', vol: 'sag' }[k];
-      return this.tsBase35(c?.ts.includes(k), pg.livello) + mod(pg.car[car]) + (pg.razza === 'Halfling' ? 1 : 0);
+      const base = this.classi(pg).reduce((s, x) => s + this.tsBase35(this.set('3.5').classi[x.classe]?.ts.includes(k), x.livello), 0);
+      return base + mod(pg.car[car]) + (pg.razza === 'Halfling' ? 1 : 0);
     }
     const c = this.set('5e').classi[pg.classe];
     return mod(pg.car[k]) + (c?.ts.includes(k) ? this.competenza(pg.livello) : 0);
@@ -149,8 +193,10 @@ const Regole = {
   attacco(pg, arma) {
     const a = ARMI[arma?.nome] || {};
     const k = a.dist ? 'des' : a.fin ? (mod(pg.car.des) > mod(pg.car.for) ? 'des' : 'for') : 'for';
-    const bonus = pg.regole === '3.5' ? this.bab(pg.regole, pg.classe, pg.livello) + mod(pg.car[k]) : this.competenza(pg.livello) + mod(pg.car[k]);
-    return { colpire: bonus, danno: `${a.danno || '1d4'}${mod(pg.car[k]) ? segno(mod(pg.car[k])) : ''}` };
+    const magico = Number(arma?.bonus) || 0;
+    const bonus = (pg.regole === '3.5' ? this.bab(pg.regole, pg.classe, pg.livello, pg) + mod(pg.car[k]) : this.competenza(pg.livello) + mod(pg.car[k])) + magico;
+    const dm = mod(pg.car[k]) + magico;
+    return { colpire: bonus, danno: `${a.danno || '1d4'}${dm ? segno(dm) : ''}` };
   },
   iniziativa(pg) { return mod(pg.car.des) + (pg.iniziativaExtra || 0); },
   prossimoLivelloPx(pg) { return this.set(pg.regole).px[Math.min(pg.livello, 19)] ?? Infinity; },
@@ -162,29 +208,49 @@ const Regole = {
     pg.vel = this.set(pg.regole).razze[pg.razza]?.vel || 9;
     pg.ca = this.ca(pg);
     pg.pf = Math.min(pg.pf, pg.pfMax);
+    pg.slotUsati = pg.slotUsati || [];
     return pg;
   },
+  // Incantesimi: lanciarne uno consuma uno slot del livello scelto (o superiore)
+  lancia(pg, nome, livelloSlot) {
+    const inc = (pg.incantesimi || []).find(i => i.nome.toLowerCase() === String(nome).toLowerCase()) || { nome, livello: INCANTESIMI_NOTI[nome] ?? livelloSlot ?? 1 };
+    if (!inc.livello) return { ok: true, msg: `lancia ${inc.nome} (trucchetto, nessuno slot)` };
+    const max = this.slotMax(pg); pg.slotUsati = pg.slotUsati || [];
+    for (let l = Math.max(inc.livello, livelloSlot || 0); l < max.length; l++) {
+      if ((max[l] || 0) - (pg.slotUsati[l] || 0) > 0) { pg.slotUsati[l] = (pg.slotUsati[l] || 0) + 1; return { ok: true, msg: `lancia ${inc.nome} usando uno slot di ${l}° livello (restano ${max[l] - pg.slotUsati[l]})` }; }
+    }
+    return { ok: false, msg: `nessuno slot libero per ${inc.nome}` };
+  },
+  recuperaSlot(pg, soloPatto) { if (soloPatto && pg.patto) pg.slotUsati[pg.patto.livello] = 0; else pg.slotUsati = []; },
   // Sale di un livello: punti ferita, aumenti di caratteristica, gradi di abilità (3.5)
-  saliLivello(pg, tiroDado) {
+  saliLivello(pg, tiroDado, classeScelta) {
     if (pg.livello >= 20) return { ok: false, msg: 'Sei già al livello massimo' };
+    const set = this.set(pg.regole);
+    pg.classi = this.classi(pg).map(x => ({ ...x }));
+    const nuova = classeScelta && set.classi[classeScelta] ? classeScelta : pg.classe;
+    let voce = pg.classi.find(x => x.classe === nuova);
+    if (!voce) { voce = { classe: nuova, livello: 0 }; pg.classi.push(voce); }
+    voce.livello++;
     pg.livello++;
-    const guadagno = Math.max(1, (tiroDado || this.mediaPf(pg)) + mod(pg.car.cos));
+    const dv = set.classi[nuova]?.dv || 8;
+    const guadagno = Math.max(1, (tiroDado || Math.floor(dv / 2) + 1) + mod(pg.car.cos));
     pg.pfMax += guadagno; pg.pf += guadagno;
-    const note = [`livello ${pg.livello}`, `+${guadagno} punti ferita massimi`];
-    if (this.livelliAumento(pg.regole, pg.classe).includes(pg.livello)) {
+    const note = [`livello ${pg.livello}${pg.classi.length > 1 ? ' (' + nuova + ' ' + voce.livello + ')' : ''}`, `+${guadagno} punti ferita massimi`];
+    if (pg.regole === '3.5' ? this.livelliAumento('3.5').includes(pg.livello) : this.livelliAumento('5e', nuova).includes(voce.livello)) {
       const punti = pg.regole === '3.5' ? 1 : 2;
       pg.puntiCar = (pg.puntiCar || 0) + punti;
       note.push(`${punti} punt${punti > 1 ? 'i' : 'o'} caratteristica da assegnare`);
     }
     if (pg.regole === '3.5') {
-      const c = this.set('3.5').classi[pg.classe];
+      const c = this.set('3.5').classi[nuova];
       const gr = Math.max(1, (c?.gradi || 2) + mod(pg.car.int) + (pg.razza === 'Umano' ? 1 : 0));
       pg.puntiAbilita = (pg.puntiAbilita || 0) + gr;
       note.push(`${gr} gradi di abilità`);
       if ([3, 6, 9, 12, 15, 18].includes(pg.livello)) note.push('nuovo talento');
     }
     if (pg.regole === '5e' && [5, 9, 13, 17].includes(pg.livello)) note.push(`bonus di competenza +${this.competenza(pg.livello)}`);
-    pg.storiaLivelli = [...(pg.storiaLivelli || []), { livello: pg.livello, pf: guadagno, t: Date.now() }];
+    if (voce.livello === 1 && pg.classi.length > 1) note.push(`nuova classe: ${nuova}`);
+    pg.storiaLivelli = [...(pg.storiaLivelli || []), { livello: pg.livello, classe: nuova, pf: guadagno, t: Date.now() }];
     this.ricalcola(pg);
     return { ok: true, msg: note.join(', ') };
   },

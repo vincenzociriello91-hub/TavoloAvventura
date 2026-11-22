@@ -108,7 +108,11 @@ const Ritratto = (() => {
     // scudo (braccio sinistro di chi guarda)
     if (scudo) { const sc = /legno/i.test(scudo.nome) ? ['#8a5a2b', '#6b4420', '#b07a3c'] : ['#7d1f1f', '#5b1616', '#c9a227']; r(bx1 - 4, 19, 6, 10, sc[0]); r(bx1 - 4, 19, 6, 1, sc[2]); r(bx1 - 4, 28, 6, 1, sc[1]); r(bx1 - 2, 22, 2, 4, sc[2]); r(bx1 - 4, 19, 1, 10, sc[1]); }
     // arma (mano destra)
-    if (arma) disegnaArma(r, (ARMI[arma.nome]?.look) || indovinaLook(arma.nome), bx2 + 1, 28);
+    if (arma) {
+      disegnaArma(r, (ARMI[arma.nome]?.look) || indovinaLook(arma.nome), bx2 + 1, 28);
+      // arma magica: scintille del colore della rarità
+      if (arma.bonus || (arma.rarita && arma.rarita !== 'comune')) { const c = (typeof COLORI_RARITA !== 'undefined' && COLORI_RARITA[arma.rarita]) || '#5b8fd9'; [[bx2 + 3, 16], [bx2, 20], [bx2 + 4, 23], [bx2 + 2, 12]].forEach(([x, y]) => r(x, y, 1, 1, c)); }
+    }
     // ferite e bende
     for (const fe of (pg?.ferite || []).slice(-4)) {
       if (fe.zona === 'testa') { r(10, 7, 12, 2, '#efe9dc'); r(18, 7, 2, 2, '#b3261e'); }

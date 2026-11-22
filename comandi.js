@@ -1,6 +1,7 @@
 /* Comandi vocali per la scheda: "aumenta di due punti intelligenza", "subisco 7 danni", "equipaggio l'ascia bipenne"...
    Se la frase non è un comando, torna null e la frase va al master. */
 const NUMERI_PAROLE = { zero: 0, un: 1, uno: 1, una: 1, due: 2, tre: 3, quattro: 4, cinque: 5, sei: 6, sette: 7, otto: 8, nove: 9, dieci: 10, undici: 11, dodici: 12, tredici: 13, quattordici: 14, quindici: 15, sedici: 16, diciassette: 17, diciotto: 18, diciannove: 19, venti: 20, trenta: 30, quaranta: 40, cinquanta: 50, sessanta: 60, settanta: 70, ottanta: 80, novanta: 90, cento: 100, mille: 1000 };
+const ORDINALI = { primo: 1, secondo: 2, terzo: 3, quarto: 4, quinto: 5, sesto: 6, settimo: 7, ottavo: 8, nono: 9 };
 const CAR_PAROLE = { forza: 'for', destrezza: 'des', costituzione: 'cos', intelligenza: 'int', saggezza: 'sag', carisma: 'car' };
 const pulisci = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[.,;:!?"]/g, ' ').replace(/'/g, "' ").replace(/\s+/g, ' ').trim();
 
@@ -71,7 +72,8 @@ const Comandi = {
     if (/\b(salgo|sali|salire|passo|aumenta|alza|aumento)\b.{0,20}\blivell/.test(f) || /\blivello successivo\b|\blevel up\b/.test(f)) {
       const target = f.match(/livello (\w+)/); const t = target ? parolaNumero(target[1]) : null;
       const delta = t && pg && t > pg.livello ? t - pg.livello : 1;
-      return { ops: [{ op: 'livello', delta }] };
+      const cl = f.match(/\bcome\s+(\w+)/); const classe = cl && Object.keys(Regole.set(regole || pg?.regole).classi).find(c => pulisci(c) === cl[1]);
+      return { ops: [{ op: 'livello', delta, ...(classe ? { classe } : {}) }] };
     }
 
     // --- caratteristiche ---
@@ -107,6 +109,22 @@ const Comandi = {
     const ca = f.match(/\b(classe armatura|ca)\b.*?\b(piu|meno)\b\s*(\w+)/);
     if (ca) { const v = parolaNumero(ca[3]) || 1; return { ops: [{ op: 'ca', delta: ca[2] === 'meno' ? -v : v }] }; }
 
+    // --- incantesimi e talenti ---
+    if (/\b(riposo breve|breve riposo)\b/.test(f)) return { ops: [{ op: 'riposobreve' }] };
+    if (/\brecuper\w* (gli |tutti gli )?slot\b/.test(f)) return { ops: [{ op: 'recuperaslot' }] };
+    const slot = f.match(/\bslot di (\w+) livello\b/);
+    if (slot && /\b(uso|usa|consumo|spendo)\b/.test(f)) { const l = ORDINALI[slot[1]] || parolaNumero(slot[1]); if (l) return { ops: [{ op: 'slot', livello: l }] }; }
+    const impara = f.match(/\b(imparo|impara|aggiungi|preparo|aggiungo) (l' ?)?incantesimo\s+(.+?)(?:\s+di (\w+) livello)?$/);
+    if (impara) return { ops: [{ op: 'impara', nome: pulisciNome(impara[3]), livello: impara[4] ? (ORDINALI[impara[4]] || parolaNumero(impara[4])) : undefined }] };
+    const tal = f.match(/\b(aggiungi|aggiungo|prendo|scelgo|imparo) (il )?talento\s+(.+)/);
+    if (tal) return { ops: [{ op: 'talento', nome: pulisciNome(tal[3]) }] };
+    const lan = f.match(/\b(lancio|lancia|casto|uso) (l' ?)?(incantesimo\s+)?(.+?)(?:\s+(?:con uno slot|al|di) (\w+) livello)?$/);
+    if (lan && pg) {
+      const nome = pulisciNome(lan[4]);
+      const noto = (pg.incantesimi || []).find(i => pulisci(i.nome) === pulisci(nome)) || Object.keys(INCANTESIMI_NOTI).find(k => pulisci(k) === pulisci(nome));
+      if (noto || lan[3]) return { ops: [{ op: 'lancia', nome: noto?.nome || noto || nome, livello: lan[5] ? (ORDINALI[lan[5]] || parolaNumero(lan[5])) : undefined }] };
+    }
+
     // --- equipaggiamento ---
     const eq = f.match(/\b(equipaggio|equipaggia|equipaggiami|indosso|indossa|impugno|impugna|imbraccio|sfodero|mi metto|metto addosso|brandisco)\s+(.+)/);
     if (eq) return { ops: [{ op: 'indossa', nome: pulisciNome(eq[2]) }] };
@@ -131,13 +149,29 @@ const Comandi = {
         case 'car': { const r = Regole.aumentaCar(pg, o.car, Number(o.delta) || 0); if (r) note.push(r); break; }
         case 'pf': { const d = Number(o.delta) || 0; pg.pf = Math.max(-pg.pfMax, Math.min(pg.pfMax, pg.pf + d)); if (d < 0) pg.ferite = [...(pg.ferite || []), { zona: ['torso', 'braccio', 'gamba', 'testa'][(pg.ferite || []).length % 4], t: Date.now() }].slice(-6); else if (pg.pf >= pg.pfMax) pg.ferite = []; else pg.ferite = (pg.ferite || []).slice(1); note.push(`${d < 0 ? 'subisce ' + -d + ' danni' : 'recupera ' + d + ' punti ferita'} (PF ${pg.pf}/${pg.pfMax})`); break; }
         case 'pfmax': { const d = Number(o.delta) || 0; pg.pfMax = Math.max(1, pg.pfMax + d); pg.pf = Math.min(pg.pfMax, pg.pf + Math.max(0, d)); note.push(`PF massimi ${d > 0 ? '+' : ''}${d} (ora ${pg.pfMax})`); break; }
-        case 'livello': { for (let i = 0; i < Math.min(5, o.delta || 1); i++) { const r = Regole.saliLivello(pg); note.push(r.msg); if (!r.ok) break; } break; }
+        case 'livello': { for (let i = 0; i < Math.min(5, o.delta || 1); i++) { const r = Regole.saliLivello(pg, null, o.classe); note.push(r.msg); if (!r.ok) break; } break; }
+        case 'lancia': { const r = Regole.lancia(pg, o.nome, o.livello); note.push(r.msg); break; }
+        case 'slot': { const max = Regole.slotMax(pg); pg.slotUsati = pg.slotUsati || []; if ((max[o.livello] || 0) > (pg.slotUsati[o.livello] || 0)) { pg.slotUsati[o.livello] = (pg.slotUsati[o.livello] || 0) + 1; note.push(`usa uno slot di ${o.livello}° livello`); } else note.push(`nessuno slot di ${o.livello}° livello libero`); break; }
+        case 'recuperaslot': { Regole.recuperaSlot(pg); note.push('recupera tutti gli slot degli incantesimi'); break; }
+        case 'riposobreve': { if (pg.patto) { Regole.recuperaSlot(pg, true); note.push('riposo breve: recupera gli slot del patto'); } else note.push('riposo breve'); break; }
+        case 'impara': { const liv = o.livello ?? INCANTESIMI_NOTI[Object.keys(INCANTESIMI_NOTI).find(k => pulisci(k) === pulisci(o.nome))] ?? 1; if (!(pg.incantesimi || []).some(i => pulisci(i.nome) === pulisci(o.nome))) pg.incantesimi = [...(pg.incantesimi || []), { nome: o.nome, livello: liv }]; note.push(`impara ${o.nome} (${liv ? liv + '° livello' : 'trucchetto'})`); break; }
+        case 'talento': { if (!(pg.talenti || []).includes(o.nome)) pg.talenti = [...(pg.talenti || []), o.nome]; if (pg.regole === '5e' && (pg.puntiCar || 0) >= 2) pg.puntiCar -= 2; note.push(`nuovo talento: ${o.nome}`); break; }
         case 'oro': { const d = Number(o.delta) || 0; pg.oro = Math.max(0, (pg.oro || 0) + d); note.push(`${d >= 0 ? '+' : ''}${d} monete d'oro (totale ${pg.oro})`); break; }
         case 'px': { pg.px = Math.max(0, (pg.px || 0) + (Number(o.delta) || 0)); note.push(`+${o.delta} punti esperienza (totale ${pg.px})${Regole.puoSalire(pg) ? ' — puoi salire di livello!' : ''}`); break; }
         case 'ca': { pg.caExtra = (pg.caExtra || 0) + (Number(o.delta) || 0); Regole.ricalcola(pg); note.push(`Classe Armatura ${pg.ca}`); break; }
-        case 'riposo': { pg.pf = pg.pfMax; pg.ferite = []; pg.condizioni = (pg.condizioni || []).filter(c => c === 'invisibile'); note.push('riposo lungo: punti ferita al massimo'); break; }
+        case 'riposo': { pg.pf = pg.pfMax; pg.ferite = []; pg.slotUsati = []; pg.condizioni = (pg.condizioni || []).filter(c => c === 'invisibile'); note.push('riposo lungo: punti ferita al massimo'); break; }
         case 'condizione': { const s = new Set(pg.condizioni || []); const nome = CONDIZIONI.find(c => pulisci(c) === pulisci(o.nome)) || o.nome; o.attiva === false ? s.delete(nome) : s.add(nome); pg.condizioni = [...s]; note.push(`${o.attiva === false ? 'non è più' : 'è'} ${nome}`); break; }
-        case 'oggetto': { const es = trovaOggetto(pg, o.nome); if (es) es.qta = (es.qta || 1) + (o.qta || 1); else pg.equip = [...(pg.equip || []), { nome: normalizzaNomeOggetto(o.nome), qta: o.qta || 1, indossato: false }]; note.push(`aggiunge ${o.qta > 1 ? o.qta + ' × ' : ''}${normalizzaNomeOggetto(o.nome)} all'inventario`); break; }
+        case 'oggetto': {
+          // "spada lunga +1 rara": bonus magico e rarità dal nome
+          let nome = String(o.nome); const bm = nome.match(/\s*(?:\+|piu\s*|più\s*)(\d|uno|due|tre)\b/i); let bonus = o.bonus || 0;
+          if (bm) { bonus = parolaNumero(bm[1].toLowerCase()) || Number(bm[1]) || 0; nome = nome.replace(bm[0], ''); }
+          let rarita = o.rarita || null; for (const r of [...RARITA].reverse()) { const re = new RegExp('\\s+' + r.replace(/o$/, '[oa]') + '$', 'i'); if (re.test(nome)) { rarita = r; nome = nome.replace(re, ''); break; } }
+          const n2 = normalizzaNomeOggetto(nome.trim());
+          const es = !bonus && !rarita && trovaOggetto(pg, n2);
+          if (es) es.qta = (es.qta || 1) + (o.qta || 1);
+          else pg.equip = [...(pg.equip || []), { nome: n2, qta: o.qta || 1, indossato: false, ...(bonus ? { bonus } : {}), ...(rarita || bonus ? { rarita: rarita || (bonus >= 3 ? 'molto raro' : bonus === 2 ? 'raro' : 'non comune') } : {}) }];
+          note.push(`aggiunge ${o.qta > 1 ? o.qta + ' × ' : ''}${n2}${bonus ? ' +' + bonus : ''}${rarita ? ' (' + rarita + ')' : ''} all'inventario`); break;
+        }
         case 'togli': { const es = trovaOggetto(pg, o.nome); if (es) { pg.equip = pg.equip.filter(e => e !== es); Regole.ricalcola(pg); note.push(`rimuove ${es.nome}`); } else note.push(`non trovo "${o.nome}" nell'inventario`); break; }
         case 'ripon': { const es = trovaOggetto(pg, o.nome); if (es) { es.indossato = false; Regole.ricalcola(pg); note.push(`ripone ${es.nome}`); } break; }
         case 'indossa': {
