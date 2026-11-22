@@ -320,3 +320,8 @@ main { padding-bottom: calc(var(--navh) + 96px + env(safe-area-inset-bottom)); }
 .annulla-bar { z-index: 57; bottom: calc(var(--navh) + 96px + env(safe-area-inset-bottom)); }
 @media (min-width: 1100px) { .annulla-bar { bottom: 24px; left: calc(50% - 220px); } #sottotitoli { bottom: 96px; width: min(60vw, 900px); left: calc(50% - 220px); } }
 .nav { background: #16120f; box-shadow: 0 -6px 18px rgba(0,0,0,.35); } /* barra in basso piena: il testo sotto non traspare */
+
+/* TV: niente comandi sotto la mappa né titoli vuoti */
+body.tv .strumenti-mappa, body.tv #vDadi h3:first-of-type, body.tv #rapidi { display: none !important; }
+/* computer: "Annulla" sopra il tasto per parlare, sottotitoli più in alto */
+@media (min-width: 1100px) { .annulla-bar { bottom: 100px; } #sottotitoli { bottom: 170px; } }

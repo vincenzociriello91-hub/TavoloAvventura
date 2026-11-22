@@ -115,7 +115,7 @@ const Mappa = (() => {
     cv.style.width = luogo.w * tile + 'px'; cv.style.height = luogo.h * tile + 'px';
     cacheChiave = ''; disegna();
   }
-  function imposta(l, s, m) { const nuovo = !luogo || !l || luogo.id !== l.id; if (l !== luogo) { cacheChiave = ''; gCache = null; } if (nuovo) tileManuale = 0; luogo = l; segnalini = s || {}; membri = m || membri; if (nuovo) adatta(); else disegna(); cambiato(); }
+  function imposta(l, s, m) { const nuovo = !luogo || !l || luogo.id !== l.id; if (l !== luogo) { cacheChiave = ''; gCache = null; } if (nuovo) tileManuale = 0; luogo = l; segnalini = s || {}; membri = m || membri; if (nuovo) adatta(); else disegna(); if (opz.vediTutto?.()) zoom('tutta'); cambiato(); }
   function aggiornaSegnalini(s) { segnalini = s || {}; disegna(); cambiato(); }
   function cella(x, y) { return luogo.celle[y]?.[x] ?? '#'; }
   const muro = c => c === '#' || c === 'w' || c === 'R';
@@ -915,7 +915,7 @@ const Mappa = (() => {
     if (io) for (const f of fiamme) fuoco = Math.max(fuoco, 1 - Math.hypot(f.x - io.x - 0.5, f.y - io.y - 0.5) / 6);
     return { meteo: meteo(), esterno: esterno(), fuoco: Math.max(0, fuoco) };
   }
-  function setVisto(id, visto) { if (luogo && luogo.id === id) { luogo.visto = visto; disegna(); cambiato(); } }
+  function setVisto(id, visto) { if (luogo && luogo.id === id) { luogo.visto = visto; if (opz.vediTutto?.()) zoom('tutta'); disegna(); cambiato(); } }
   /* ---------------- per la vista 3D (mappa3d.js): stessi dati, stesse regole ---------------- */
   // terreno piatto (pavimenti, strade, erba, acqua, porte, bancone, camino, scale, tappeti) a [px] pixel per casella
   function terreno3D(px) {
