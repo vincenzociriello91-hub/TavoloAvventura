@@ -8,8 +8,7 @@ const CHANGELOG = [
     'Traduzione automatica del master e della chat (inglese, spagnolo, francese, tedesco, italiano), da Altro.',
     'Note sulla mappa: tocca 📌 Nota e scrivi "trappola", "porta chiusa"… restano sul luogo per tutti.',
     'Giochi di taverna: dadi o carte con le monete della scheda, chi vince prende il piatto (nel Tesoro).',
-    'Cornici intorno al nome per chi viene alle serate (bronzo, argento, oro, leggenda), sfida della settimana da giocare da soli e guida "Come si gioca" per chi non ha mai giocato.',
-    'Illustrazioni più affidabili: un servizio di riserva in più quando le quote del giorno sono finite.'
+    'Cornici intorno al nome per chi viene alle serate (bronzo, argento, oro, leggenda), sfida della settimana da giocare da soli e guida "Come si gioca" per chi non ha mai giocato.'
   ] },
   { v: '2.9.0', data: '22/11/2026', voci: [
     'Il mondo è vivo: bacheca delle missioni, nemesi che torna, minacce che crescono se le ignorate e scelte morali che cambiano il finale (nel Diario).',
