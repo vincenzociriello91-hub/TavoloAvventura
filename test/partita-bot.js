@@ -7,6 +7,7 @@ const esiti = [];
 const t0 = Date.now();
 const segna = (ok, nome, dettagli) => { esiti.push({ ok, nome, dettagli, s: Math.round((Date.now() - t0) / 1000) }); console.log(ok ? 'OK  ' : 'FAIL', nome, dettagli ? JSON.stringify(dettagli).slice(0, 300) : ''); };
 // ogni passo è indipendente: un errore viene segnato e la partita continua
+const OUT = process.env.OUT || require('os').tmpdir();
 const passo = async (nome, fn) => { try { const r = await fn(); segna(r !== false && r !== null, nome, typeof r === 'object' ? r : undefined); } catch (e) { segna(false, nome, { errore: String(e.message || e).split('\n')[0] }); } };
 // richiesta al server e attesa della risposta di quel tipo
 const chiedi = (p, msg, tipo, ms = 45000) => p.evaluate(([msg, tipo, ms]) => new Promise(res => {
@@ -79,6 +80,16 @@ const chiedi = (p, msg, tipo, ms = 45000) => p.evaluate(([msg, tipo, ms]) => new
 
   // mappa: percorsi, muri, zoom, vista 3D
   await A.click('#nav button[data-v="vMappa"]').catch(() => {});
+  await passo('controllo grafico delle mappe (caselle nere, figure, nome e disegno)', async () => {
+    const esiti = {};
+    for (const nome of ['Viadotto Spezzato', 'Ponte del Re', 'Passo dei Corvi', 'Bosco dei Corvi', 'Villaggio di Brina', 'Città di Argentea', 'Porto di Salmastro', 'Castello Nero']) {
+      await A.evaluate(n => invia({ t: 'vai', nome: n }), nome); await A.waitForFunction(n => S.st.luogo?.nome === n, nome, { timeout: 30000 });
+      await A.waitForTimeout(1200); const p = await A.evaluate(() => Mappa.controllo()); if (p.length) esiti[nome] = p;
+      await A.screenshot({ path: `${OUT}/mappa-${nome.replace(/\W+/g, '_')}.png` }).catch(() => {});
+    }
+    if (Object.keys(esiti).length) throw new Error(JSON.stringify(esiti).slice(0, 900));
+    return true;
+  });
   await passo('un bot cammina fino a una casella raggiungibile', async () => {
     const meta = await D.evaluate(() => { const s = S.st.segnalini[S.io], occ = Object.values(S.st.segnalini); for (let r = 2; r < 9; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const q = { x: s.x + dx, y: s.y + dy }; if (!occ.some(o => o.x === q.x && o.y === q.y) && Mappa.percorso(s, q)) return q; } });
     await D.evaluate(m => invia({ t: 'segnalino', x: m.x, y: m.y }), meta);
@@ -122,6 +133,7 @@ const chiedi = (p, msg, tipo, ms = 45000) => p.evaluate(([msg, tipo, ms]) => new
   await passo('combattimento: inizia, turni, area dell\'incantesimo, fine', async () => {
     await A.evaluate(() => invia({ t: 'combattimento', azione: 'inizia' })); await B.waitForFunction(() => S.st.combattimento?.attivo, null, { timeout: 10000 });
     const ordine = await B.evaluate(() => S.st.combattimento.ordine.map(o => o.nome).join(', '));
+    if (!await B.evaluate(() => S.st.combattimento.ordine.length && !/nessuno in ordine/.test(document.querySelector('#combat').textContent))) throw new Error('combattimento senza nessuno di turno');
     await A.evaluate(() => invia({ t: 'combattimento', azione: 'prossimo' })); await A.waitForTimeout(600);
     const s = await B.evaluate(() => S.st.segnalini[S.io]); await B.evaluate(s => invia({ t: 'area', forma: 'cerchio', x: s.x + 3, y: s.y, dim: 2, nome: 'Palla di fuoco' }), s);
     await C.waitForFunction(() => (S.st.aree || []).length, null, { timeout: 10000 });

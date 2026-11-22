@@ -324,6 +324,13 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await A.click('#btnEsciEd');
   await A.waitForFunction(() => S.st.luogo?.nome === 'Città di Argentea', null, { timeout: 5000 });
   v(true, 'usciti di nuovo in città');
+  // controllo grafico automatico: le mappe all'aperto non devono avere caselle nere, figure mancanti o nomi che non c'entrano
+  await A.click('#nav button[data-v="vMappa"]').catch(() => {});
+  for (const nome of ['Viadotto Spezzato', 'Passo del Lupo', 'Bosco dei Corvi', 'Villaggio di Brina']) {
+    await A.evaluate(n => invia({ t: 'vai', nome: n }), nome); await A.waitForFunction(n => S.st.luogo?.nome === n, nome, { timeout: 10000 });
+    const p = await A.evaluate(() => Mappa.controllo()); v(!p.length, `mappa "${nome}" senza problemi grafici${p.length ? ': ' + p.join(' | ') : ''}`);
+  }
+  await A.screenshot({ path: OUT + '/viadotto.png' }).catch(() => {});
   v(errori.length === 0, 'nessun errore JavaScript' + (errori.length ? ': ' + errori.slice(0, 5).join(' | ') : ''));
   await browser.close();
   console.log(`\n${ok} ok, ${ko} falliti`);

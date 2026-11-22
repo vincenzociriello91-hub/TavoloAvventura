@@ -18,9 +18,12 @@ let prove = 0;
 const errori = [];
 const ok = (cond, msg) => { prove++; if (!cond) errori.push(msg); };
 
-for (const tipo of TIPI) for (let seme = 1; seme <= 8; seme++) {
-  const l = generaLuogo('Prova ' + tipo, tipo, seme * 7919);
-  const nome = `${tipo}#${seme}`, { blocco } = griglia(l), W = l.w, H = l.h;
+// anche i nomi che chiedono un disegno preciso (ponti, guadi): il disegno deve corrispondere al nome
+const CASI = [...TIPI.map(t => ['Prova ' + t, t]), ['Viadotto Spezzato', 'aperto'], ['Ponte del Re', 'aperto'], ['Guado del Mulino', 'aperto']];
+for (const [nomeL, tipo] of CASI) for (let seme = 1; seme <= 8; seme++) {
+  const l = generaLuogo(nomeL, tipo, seme * 7919);
+  if (/ponte|viadott|guado/i.test(nomeL)) { ok(l.celle.some(r => r.includes('~')) && l.edifici.some(e => /ponte|viadotto/i.test(e.nome)), `${nomeL}#${seme}: niente fiume o ponte`); ok(/spezzat/i.test(nomeL) === l.edifici.some(e => e.stato === 'distrutto'), `${nomeL}#${seme}: ponte rotto sbagliato`); }
+  const nome = `${nomeL}#${seme}`, { blocco } = griglia(l), W = l.w, H = l.h;
   // oggetti: mai su muri, porte o acqua (la barca sì), mai due nella stessa casella
   const prese = new Set();
   for (const o of l.oggetti || []) for (const [x, y] of celleOggetto(o)) {
