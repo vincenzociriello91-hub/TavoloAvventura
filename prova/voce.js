@@ -144,7 +144,7 @@ const Ascolto = (() => {
 
 /* Narratore: legge ad alta voce il master e i PNG, ognuno con un timbro diverso; avvisi brevi in cuffia. */
 const Narratore = (() => {
-  let attivo = true, voce = null, coda = [], parlando = false, onInizio = () => {}, onFine = () => {};
+  let attivo = true, voce = null, coda = [], parlando = false, onInizio = () => {}, onFine = () => {}, audio = null;
   function scegliVoce() {
     const v = speechSynthesis.getVoices().filter(v => /^it/i.test(v.lang));
     voce = v.find(x => /google/i.test(x.name)) || v[0] || null;
@@ -152,12 +152,21 @@ const Narratore = (() => {
   if ('speechSynthesis' in window) { scegliVoce(); speechSynthesis.onvoiceschanged = scegliVoce; }
   const hash = s => [...String(s || '')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
   function parla(testo, opz = {}) {
-    if (!attivo || !('speechSynthesis' in window) || !testo) return;
+    if (!attivo || (!opz.audio && !('speechSynthesis' in window)) || !testo) return;
     coda.push({ testo, opz }); if (!parlando) prossimo();
   }
   function prossimo() {
     const el = coda.shift(); if (!el) { parlando = false; onFine(); return; }
     parlando = true; onInizio();
+    // voce naturale già pronta dal server (Gemini TTS); se non parte, si legge con la voce del telefono
+    if (el.opz.audio) {
+      audio = new Audio(el.opz.audio);
+      audio.onended = () => { URL.revokeObjectURL(el.opz.audio); audio = null; setTimeout(prossimo, 120); };
+      audio.onerror = () => { audio = null; coda.unshift({ testo: el.testo, opz: { ...el.opz, audio: null } }); prossimo(); };
+      audio.play().catch(() => audio?.onerror?.());
+      return;
+    }
+    if (!('speechSynthesis' in window)) return setTimeout(prossimo, 0);
     const u = new SpeechSynthesisUtterance(el.testo);
     u.lang = 'it-IT'; if (voce) u.voice = voce;
     const h = el.opz.png ? hash(el.opz.png) : 0;
@@ -166,6 +175,6 @@ const Narratore = (() => {
     u.onend = u.onerror = () => setTimeout(prossimo, 120);
     speechSynthesis.speak(u);
   }
-  function zitto() { coda = []; try { speechSynthesis.cancel(); } catch {} parlando = false; onFine(); }
+  function zitto() { coda = []; try { speechSynthesis.cancel(); } catch {} if (audio) { audio.onended = audio.onerror = null; audio.pause(); audio = null; } parlando = false; onFine(); }
   return { parla, zitto, avviso: t => parla(t, { avviso: true }), set attivo(b) { attivo = b; if (!b) zitto(); }, get attivo() { return attivo; }, set onInizio(f) { onInizio = f; }, set onFine(f) { onFine = f; }, get parlando() { return parlando; } };
 })();

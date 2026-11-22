@@ -162,6 +162,9 @@ details summary { cursor: pointer; color: var(--oro2); min-height: 44px; display
 .diario li .chi { color: var(--tenue); font-size: .78rem; }
 .diario li.narrazione-ev { border-color: #5a4630; background: #231b14; }
 .diario li.narrazione-ev p { margin: 2px 0 0; font-style: italic; }
+.diario li.illustrazione-ev { border-color: #5a4630; background: #1d1712; }
+.diario li.illustrazione-ev img { display: block; width: 100%; max-width: 640px; border-radius: 10px; margin: 6px 0 4px; cursor: zoom-in; aspect-ratio: 1; object-fit: cover; background: #120e0b; }
+.diario li.illustrazione-ev p { margin: 0; font-style: italic; color: #e8d9b8; }
 .diario li.sistema, .diario li.luogo { color: var(--tenue); font-size: .85rem; }
 .diario li.dado b { color: var(--oro2); }
 .diario li.scheda-ev, .diario li.comando { border-left: 3px solid var(--verde); }

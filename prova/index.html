@@ -104,7 +104,7 @@
         <div class="vuoto" id="mappaVuota"><p>Il gruppo non è ancora in nessun luogo.</p><p class="piccolo" id="mappaVuotaSugg">Il master AI vi porterà nel primo luogo appena iniziate a giocare. Potete anche scrivere un luogo qui sopra.</p></div>
       </div>
       <div class="mondo-box" id="mondoBox" hidden><svg id="mondoSvg" role="img" aria-label="Mappa del mondo: luoghi conosciuti e viaggi del gruppo"></svg></div>
-      <div class="riga strumenti-mappa"><button id="btnMondo" type="button">Mappa del mondo</button><button id="btnArea" type="button">Area incantesimo</button><button id="btnPulisciAree" type="button" hidden>Togli le aree</button><button id="btnCombat" type="button" hidden>Inizia combattimento</button></div>
+      <div class="riga strumenti-mappa"><button id="btnMondo" type="button">Mappa del mondo</button><button id="btnArea" type="button">Area incantesimo</button><button id="btnPulisciAree" type="button" hidden>Togli le aree</button><button id="btnCombat" type="button" hidden>Inizia combattimento</button><button id="btnIllustra" type="button" hidden>Illustra la scena</button></div>
       <p class="piccolo aiuto-mappa">Tocca una casella per muovere il tuo segnalino (o trascinalo). Tieni premuto su un edificio per vederlo<span id="aiutoCapo" hidden> o cambiarne lo stato</span>.</p>
     </div>
 
@@ -182,6 +182,7 @@
       <div class="carta">
         <h2>Gioco</h2>
         <button id="btnRiassunto" type="button" class="largo">Nella puntata precedente…</button>
+        <button id="btnRiepilogo" type="button" class="largo" hidden>Fine serata: riepilogo illustrato</button>
         <label class="spunta"><input type="checkbox" id="optNarratore" checked> Leggi ad alta voce il master</label>
         <label class="spunta"><input type="checkbox" id="optAvvisi" checked> Avvisi vocali in cuffia (tocca a te, poca vita)</label>
         <label class="spunta"><input type="checkbox" id="optMaster" checked> Il master AI ascolta quello che dico</label>
@@ -222,6 +223,7 @@
         <div class="riga"><button id="btnEsci" type="button" class="testo-btn">Esci dalla stanza</button><button id="btnLascia" type="button" class="testo-btn">Lascia la campagna</button></div>
         <details><summary>Novità</summary><div id="changelog"></div></details>
         <p class="piccolo">Regole tratte dal System Reference Document di D&amp;D 5.1 (CC-BY-4.0) e 3.5 (OGL). Dungeons &amp; Dragons è un marchio di Wizards of the Coast: app non ufficiale, fatta da fan.</p>
+        <p class="piccolo">Personaggi animati: Universal LPC Spritesheet Character Generator (OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0), autori in <a href="lpc/crediti.json" target="_blank" rel="noopener">crediti LPC</a>.</p>
       </div>
     </div>
 
@@ -244,6 +246,7 @@
 <script src="regole.js"></script>
 <script src="comandi.js"></script>
 <script src="ritratto.js"></script>
+<script src="lpc.js"></script>
 <script src="mappa.js"></script>
 <script src="voce.js"></script>
 <script src="bot.js"></script>

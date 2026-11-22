@@ -1,6 +1,14 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.8.0';
+const VERSION = '1.9.0';
 const CHANGELOG = [
+  { v: '1.9.0', data: '22/11/2026', voci: [
+    'Voce naturale del master: narratore e personaggi parlano con voci vere e diverse (Gemini). Se non arriva in tempo, legge la voce del telefono.',
+    'Illustrazioni realistiche: quando scoprite un luogo nuovo o succede qualcosa di memorabile compare un\'immagine nel diario; il master può chiederne una con "Illustra la scena".',
+    'Fine serata: riepilogo illustrato con racconto, nemici sconfitti, bottino, PX e livelli, da condividere nel gruppo.',
+    'Suoni della scena: pioggia, vento, tuoni coi lampi, crepitio del fuoco più forte quando ci siete vicini.',
+    'Vista del personaggio: vedete solo ciò che il vostro personaggio vede davvero; al buio serve una torcia, nani ed elfi hanno la scurovisione.',
+    'Personaggi animati come nelle Cronache dei Varchi: camminano sulla mappa e mostrano armatura e armi; in scena anche l\'oste, gli abitanti e i nemici con forma umana. Nuova scelta "Figura" nell\'aspetto.'
+  ] },
   { v: '1.8.0', data: '22/11/2026', voci: [
     'Mappe con la tecnologia delle Cronache dei Varchi: luci vere che proiettano le ombre dei muri, buio di notte, lanterne accese davanti alle porte, fiamme che tremolano.',
     'Ombre del sole che cambiano con l\'ora: lunghe verso ovest al mattino, corte a mezzogiorno, lunghe verso est la sera.',
@@ -84,6 +92,7 @@ const CHANGELOG = [
   ] }
 ];
 const SERVER_WS = location.hostname === 'localhost' ? 'ws://localhost:8787' : 'wss://rapporti-vincenzo.vincenzociriello91.workers.dev';
+const urlMedia = (tipo, id) => `${SERVER_WS.replace(/^ws/, 'http')}/tavolo/${S.codice}/media/${tipo}/${id}`;
 let REPORT_URL = (() => { try { return localStorage.getItem('ta_report_url') || 'https://rapporti-vincenzo.vincenzociriello91.workers.dev'; } catch { return ''; } })();
 const REPORT_PUBKEY = {"key_ops":["encrypt"],"ext":true,"alg":"RSA-OAEP-256","kty":"RSA","n":"sFS_s5aqCnKSiQM9bFXHWIQkxaihGR1p8Quwtd7Tz07giEL7RGaOSa8sEF7OEJGmS0fxvrHch74oQOuS7O4UnTxNfKOFAoVWALB4R4vT-Vl6ke5ql1i9jmCbUPvHjz9XCnlpX7vDurnpHPsVSaDl0Tk7ofhj8zkHBlSb2YuvIu45LippEh-nb98fru9-B6Ezc-Cwd69piNcBLTGjwoxWjBMJxkKUB0IPm60FkvlNr0NcI8fJNMWRVSuh5yhkG4GO0r-_tP2lId0ttkESO7TsOXHG1BzuOfyC-rPI6B15LEVftPyM990C2cRVxnuXmYke0n9O7sX3XCkKSIB3IwzCWCYlEKTN_16JENZCV4rLMEB4dKH8BBZLwXyGBXbrizMyovPqHhcVWpheBfZneYt9C9L2ZUekLxiFLwQHZAoRjsZOR9VgWvrTdDuOGhcNQPULIlWkRhu25jMP3_gIMA10QoQD9iwdKmjchkn_HWw7DyXSVfZnJvG8JNGAd4fJ889j","e":"AQAB"};
 
@@ -243,7 +252,19 @@ function gestisci(m) {
       if (S.ultimoParlato) { Report.log('master-risposta', { ms: Date.now() - S.ultimoParlato, modello: m.modello, parole: m.testo.split(' ').length }); S.ultimoParlato = 0; }
       Report.log('narrazione', { png: m.png || null, testo: m.testo, modello: m.modello || null, riassunto: !!m.riassunto });
       mostraNarrazione(m.testo, m.png); renderDiario();
-      if (OPZ.narratore) Narratore.parla(m.testo, { png: m.png || null });
+      if (OPZ.narratore && m.voce) { // la voce naturale arriva tra poco: si aspetta al massimo 12 secondi, poi voce del telefono
+        S.vociAttese = S.vociAttese || {};
+        S.vociAttese[m.voce] = { testo: m.testo, png: m.png || null, timer: setTimeout(() => { delete S.vociAttese[m.voce]; Narratore.parla(m.testo, { png: m.png || null }); Report.log('voce-master', { esito: 'scaduta' }); }, 12000) };
+      } else if (OPZ.narratore) Narratore.parla(m.testo, { png: m.png || null });
+      return;
+    }
+    case 'voce': {
+      const a = S.vociAttese?.[m.id]; if (!a) return;
+      clearTimeout(a.timer); delete S.vociAttese[m.id];
+      if (!m.ok) { Narratore.parla(a.testo, { png: a.png }); Report.log('voce-master', { esito: 'non generata' }); return; }
+      const t0 = Date.now();
+      fetch(urlMedia('voce', m.id)).then(r => r.ok ? r.blob() : Promise.reject(r.status)).then(b => { Narratore.parla(a.testo, { png: a.png, audio: URL.createObjectURL(b) }); Report.log('voce-master', { esito: 'ok', kb: Math.round(b.size / 1024), ms: Date.now() - t0 }); })
+        .catch(e => { Narratore.parla(a.testo, { png: a.png }); Report.log('voce-master', { esito: 'scaricamento fallito', errore: String(e) }); });
       return;
     }
     case 'master_pensa': { const n = $('#narrazione'); n.hidden = false; n.classList.add('pensa'); $('#narrChi').textContent = 'Il master'; $('#narrTesto').textContent = 'Il master sta pensando…'; return; }
@@ -256,6 +277,9 @@ function gestisci(m) {
       } else toast(`${m.nome || 'Un personaggio'} deve fare una prova di ${m.prova}`);
       return;
     }
+    case 'avviso': toast(m.msg); return;
+    case 'riepilogo': Report.log('riepilogo', { titolo: m.r.titolo, immagine: !!m.r.img }); mostraRiepilogo(m.r); return;
+    case 'riepiloghi': { const r = m.elenco.find(x => x.t === S.apriRiepilogo); if (r) mostraRiepilogo(r); return; }
     case 'rtc': Voce.segnale(m.da, m.dati); return;
     case 'invito': S.st.campagna.invito = m.invito; renderInvito(); toast('Nuovo codice invito creato: i vecchi QR non funzionano più'); return;
     case 'interpretato': {
@@ -339,7 +363,7 @@ function renderTutto() {
   $('#formVai').hidden = !(capo() || masterAI());
   $('#mappaVuotaSugg').textContent = masterAI() ? 'Il master AI vi porterà nel primo luogo appena iniziate a giocare: salutatelo o scrivete un luogo qui sopra.' : 'Il master sceglierà il primo luogo.';
   $('#optMaster').closest('label').hidden = !masterAI();
-  $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo();
+  $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
   renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderMondo(); renderAltro();
 }
 function renderPresenza() {
@@ -374,6 +398,7 @@ Mappa.init($('#mappa'), {
   pg: id => S.st?.pg?.[id],
   puoMuovereOggetti: () => me()?.ruolo === 'master',
   onMuoviOggetto: (id, x, y) => invia({ t: 'scena', azione: 'sposta', oggetto: id, x, y }),
+  onLampo: () => Suoni.effetto('tuono'),
   altezzaMax: () => largo() || document.body.classList.contains('tv') ? window.innerHeight - 200 : 9999,
   onEdificio: async ed => {
     const puoEntrare = (capo() || masterAI()) && !['dungeon', 'grotta', 'taverna', 'interno'].includes(S.st.luogo?.tipo) && ed.stato !== 'distrutto' && !/pozzo|torre|radura/i.test(ed.nome);
@@ -586,6 +611,8 @@ function renderMappaMondo() {
     + Object.entries(tratte).map(([k, n]) => { const [a, b] = k.split('|'); return `<line x1="${pos[a][0]}" y1="${pos[a][1]}" x2="${pos[b][0]}" y2="${pos[b][1]}" stroke="#8a6640" stroke-width="${Math.min(8, 1 + n)}" stroke-dasharray="6 5" stroke-linecap="round"/>`; }).join('')
     + ids.map(id => `<g data-luogo="${esc(idx[id].nome)}" style="cursor:pointer"><circle cx="${pos[id][0]}" cy="${pos[id][1]}" r="${id === attuale ? 16 : 12}" fill="${COLT[idx[id].tipo] || '#bcae96'}" stroke="${id === attuale ? '#fff' : '#14110f'}" stroke-width="3"/><text x="${pos[id][0]}" y="${pos[id][1] + 30}" text-anchor="middle" fill="#f3ead9" font-size="13" font-family="Inter, sans-serif">${esc(idx[id].nome.length > 20 ? idx[id].nome.slice(0, 19) + '…' : idx[id].nome)}<title>${esc(idx[id].nome)}</title></text></g>`).join('');
 }
+$('#btnIllustra').addEventListener('click', () => invia({ t: 'illustra' }));
+$('#diario').addEventListener('click', e => { const im = e.target.closest('img[data-img]'); if (im) window.open(im.src, '_blank'); const rb = e.target.closest('[data-riepilogo]'); if (rb) { S.apriRiepilogo = Number(rb.dataset.riepilogo); invia({ t: 'riepiloghi' }); } });
 $('#btnMondo').addEventListener('click', () => { const b = $('#mondoBox'); b.hidden = !b.hidden; $('#btnMondo').textContent = b.hidden ? 'Mappa del mondo' : 'Mappa del luogo'; $('#mappaBox').hidden = !b.hidden; if (!b.hidden) renderMappaMondo(); else Mappa.adatta(); });
 $('#mondoSvg').addEventListener('click', e => { const g = e.target.closest('[data-luogo]'); if (!g) return; if (capo() || masterAI()) invia({ t: 'vai', nome: g.dataset.luogo }); else toast(g.dataset.luogo); });
 function cartaMagia(pg, puo) {
@@ -609,6 +636,7 @@ function formAspetto(a, razza) {
     ${sel('barba', 'Barba', ['nessuna', 'corta', 'lunga'], a.barba || (razza === 'Nano' ? 'lunga' : 'nessuna'))}
     ${sel('occhi', 'Occhi', Object.keys(Ritratto.OCCHI), a.occhi || 'marroni')}
     ${sel('corporatura', 'Corporatura', ['normale', 'snella', 'robusta'], a.corporatura || 'normale')}
+    ${sel('figura', 'Figura', ['maschile', 'femminile'], a.figura || 'maschile')}
     ${razza === 'Dragonide' ? sel('drago', 'Scaglie', Object.keys(Ritratto.DRAGO), a.drago || 'rosso') : ''}
     <label>Altezza (cm)<input type="number" min="60" max="260" data-asp="altezza" value="${esc(a.altezza || '')}" inputmode="numeric"></label>
     <label>Peso (kg)<input type="number" min="10" max="300" data-asp="peso" value="${esc(a.peso || '')}" inputmode="numeric"></label>
@@ -782,6 +810,8 @@ function renderDiario() {
   const ora = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
   $('#diario').innerHTML = l.map(d => {
     if (d.tipo === 'narrazione') return `<li class="narrazione-ev"><span class="chi">${ora(d.t)} · ${esc(d.png || (d.chi === 'master' ? 'Master AI' : S.st.membri[d.chi]?.nome || 'Master'))}</span><p>${esc(d.testo)}</p></li>`;
+    if (d.tipo === 'riepilogo') return `<li class="illustrazione-ev"><span class="chi">${ora(d.t)} · Riepilogo della serata</span><p><button type="button" data-riepilogo="${d.riepilogo}">${esc(d.testo)}</button></p></li>`;
+    if (d.tipo === 'illustrazione' && d.img) return `<li class="illustrazione-ev"><span class="chi">${ora(d.t)} · Illustrazione</span><img src="${urlMedia('img', d.img)}" alt="${esc(d.testo)}" loading="lazy" data-img="${esc(d.img)}"><p>${esc(d.testo)}</p></li>`;
     const cls = { scheda: 'scheda-ev', comando: 'comando' }[d.tipo] || d.tipo;
     const chi = d.tipo === 'chat' ? `<strong>${esc(S.st.membri[d.chi]?.nome || '?')}:</strong> ` : '';
     return `<li class="${esc(cls)}"><span class="chi">${ora(d.t)}</span> ${chi}${esc(d.testo)}</li>`;
@@ -921,6 +951,21 @@ $('#btnSalvaCamp').addEventListener('click', () => {
   toast('Impostazioni salvate');
 });
 $('#btnNuovaSessione').addEventListener('click', async () => { const i = await chiedi('<h2>Nuova sessione</h2><p>Si apre una nuova sessione e si crea un nuovo codice invito: i vecchi QR smettono di funzionare. La campagna, le schede e le mappe restano.</p>', [{ testo: 'Inizia', pieno: true }, { testo: 'Annulla' }]); if (i === 0) { invia({ t: 'impostazioni', nuovaSessione: true }); if (masterAI()) setTimeout(() => invia({ t: 'riassunto' }), 800); } });
+$('#btnRiepilogo').addEventListener('click', () => invia({ t: 'riepilogo' }));
+// riepilogo della serata: racconto, immagine e numeri, da condividere nel gruppo
+async function mostraRiepilogo(r) {
+  const s = r.stats || {}, img = r.img ? urlMedia('img', r.img) : null;
+  const righe = [s.nemici?.length ? `Nemici sconfitti: ${s.nemici.join(', ')}` : '', s.combattimenti ? `Combattimenti: ${s.combattimenti}` : '', s.luoghi?.length ? `Luoghi: ${s.luoghi.join(', ')}` : '', ...Object.entries(s.px || {}).map(([n, v]) => `${n}: +${v} PX`), ...(s.livelli || []), ...(s.bottino || []).slice(-6)].filter(Boolean);
+  const testoCondiviso = `${r.titolo}\n\n${r.racconto}\n\n${righe.join('\n')}`;
+  const i = await chiedi(`<h2>${esc(r.titolo)}</h2>${img ? `<img src="${img}" alt="" style="width:100%;border-radius:10px;margin:4px 0 8px">` : ''}<p style="white-space:pre-wrap">${esc(r.racconto)}</p>${righe.length ? `<ul class="piccolo">${righe.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`, [{ testo: 'Condividi', pieno: true }, { testo: 'Chiudi' }]);
+  if (i !== 0) return;
+  try {
+    const files = img ? [new File([await fetch(img).then(x => x.blob())], 'serata.jpg', { type: 'image/jpeg' })] : [];
+    if (navigator.canShare?.({ files, text: testoCondiviso })) await navigator.share({ title: r.titolo, text: testoCondiviso, files });
+    else if (navigator.share) await navigator.share({ title: r.titolo, text: testoCondiviso });
+    else { await navigator.clipboard.writeText(testoCondiviso); toast('Riepilogo copiato: incollalo nel gruppo'); }
+  } catch {}
+}
 $('#btnRiassunto').addEventListener('click', () => { invia({ t: 'riassunto' }); toast('Il master prepara il riassunto…'); });
 $('#optNarratore').addEventListener('change', e => { OPZ.narratore = e.target.checked; Narratore.attivo = OPZ.narratore; scrivi('ta_opzioni', OPZ); });
 $('#optAvvisi').addEventListener('change', e => { OPZ.avvisi = e.target.checked; scrivi('ta_opzioni', OPZ); });
@@ -1057,6 +1102,9 @@ Report.sessione.canale = CANALE;
 $('#changelog').innerHTML = CHANGELOG.map(c => `<p><strong>${c.v}</strong> <span class="piccolo">${c.data}</span></p><ul>${c.voci.map(v => `<li>${esc(v)}</li>`).join('')}</ul>`).join('');
 Narratore.attivo = OPZ.narratore; applicaGrandi();
 Suoni.volume = OPZ.volume;
+Lpc.suPronto = () => Mappa.disegna();
+Lpc.carica();
+setInterval(() => { if (Suoni.attivo) Suoni.ambiente(Mappa.ambienteSonoro()); }, 1000);
 document.addEventListener('pointerdown', () => { if (OPZ.suoni && !Suoni.attivo) { Suoni.attivo = true; aggiornaScenaSonora(); } }, { once: true });
 (() => { const d = new Date(), m = d.getMonth() + 1, g = d.getDate(); const st = m === 12 || (m === 1 && g <= 6) ? 'inverno' : (m === 10 && g >= 20) || (m === 11 && g <= 2) ? 'ombre' : m === 2 ? 'carnevale' : ''; if (st) document.body.classList.add('st-' + st); })();
 window.addEventListener('resize', () => { if (largo() && S.vista === 'vMappa') mostraVista('vScheda'); });
