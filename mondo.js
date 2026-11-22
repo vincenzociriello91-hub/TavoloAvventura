@@ -116,6 +116,8 @@ const MappaMondo = (() => {
     c.strokeStyle = '#4a3420'; c.lineWidth = 6; c.strokeRect(5, 5, LW - 10, LH - 10); c.lineWidth = 1.5; c.strokeRect(14, 14, LW - 28, LH - 28);
     if (!luoghi.length) { c.font = 'italic 22px Georgia, serif'; c.textAlign = 'center'; c.fillStyle = '#6a5434'; c.fillText('Nessun luogo ancora scoperto', LW / 2, LH / 2); }
     ultimo = { sc, idx };
+    const p = posizioni[attuale] || posizioni[ids[ids.length - 1]], box = cv.parentElement; // sul telefono la mappa è più larga dello schermo: si centra sul luogo attuale
+    if (p && box) { box.scrollLeft = p[0] * sc - box.clientWidth / 2; box.scrollTop = p[1] * sc - box.clientHeight / 2; }
   }
   function icona(c, tipo, x, y, s) {
     c.save(); c.translate(x, y); c.scale(s, s); c.lineWidth = 1.6; c.strokeStyle = '#2a1a0c';

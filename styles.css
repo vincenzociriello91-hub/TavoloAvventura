@@ -382,3 +382,6 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .av.cornice-leggenda { box-shadow: 0 0 0 3px #b48cff, 0 0 14px rgba(180,140,255,.8); animation: leggenda 3s ease-in-out infinite; }
 @keyframes leggenda { 50% { box-shadow: 0 0 0 3px var(--oro2), 0 0 16px rgba(240,196,106,.8); } }
 @media (prefers-reduced-motion: reduce) { .av.cornice-leggenda { animation: none; } }
+/* sottotitoli sotto le finestre aperte; niente reazioni sulla TV */
+body:has(dialog[open]) #sottotitoli { display: none; }
+body.tv #reazioni { display: none !important; }

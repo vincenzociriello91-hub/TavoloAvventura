@@ -1142,6 +1142,7 @@ $('#formRegola').addEventListener('submit', e => { e.preventDefault(); const t =
 
 /* ============ VOCE ============ */
 async function avviaVoce() {
+  $('#btnParla').hidden = me()?.ruolo === 'spettatore' || document.body.classList.contains('tv') || !Ascolto.supportato();
   if (document.body.classList.contains('tv') || me()?.ruolo === 'spettatore') return; // TV e amici spettatori: niente microfono, la voce dei giocatori resta tra loro
   try { const j = await fetch(SERVER_WS.replace(/^ws/, 'http') + '/turn').then(r => r.json()); Voce.impostaIce(j.iceServers); Report.log('voce-inoltro', { attivo: !!j.turn }); } catch {}
   Voce.avvia({
@@ -1404,7 +1405,7 @@ $('#optAvvisi').addEventListener('change', e => { OPZ.avvisi = e.target.checked;
 $('#optMaster').addEventListener('change', e => { OPZ.master = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optSuoni').addEventListener('change', e => { OPZ.suoni = e.target.checked; scrivi('ta_opzioni', OPZ); Suoni.attivo = OPZ.suoni; if (OPZ.suoni) aggiornaScenaSonora(); Report.log('suoni', { attivi: OPZ.suoni }); });
 $('#optLingua').value = OPZ.lingua || '';
-$('#optLingua').addEventListener('change', e => { OPZ.lingua = e.target.value; scrivi('ta_opzioni', OPZ); S.trad.clear(); renderDiario(); Report.log('lingua', { lingua: OPZ.lingua }); });
+$('#optLingua').addEventListener('change', e => { OPZ.lingua = e.target.value; scrivi('ta_opzioni', OPZ); S.trad.clear(); renderDiario(); (S.st?.diario || []).filter(d => d.tipo === 'narrazione' || (d.tipo === 'chat' && d.chi !== S.io)).slice(-6).forEach(d => traduciTesto(d.testo)); Report.log('lingua', { lingua: OPZ.lingua }); });
 $('#optSottotitoli').checked = OPZ.sottotitoli !== false;
 $('#optSottotitoli').addEventListener('change', e => { OPZ.sottotitoli = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optDadi3d').checked = OPZ.dadi3d !== false;
