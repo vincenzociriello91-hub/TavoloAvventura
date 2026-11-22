@@ -31,6 +31,17 @@ const Comandi = {
     const meno = /\b(diminuisci|diminuisco|abbassa|abbasso|togli|tolgo|riduci|riduco|meno|perdo|sottrai|leva)\b/.test(f);
 
     if (/^(annulla|annullare|torna indietro|ho sbagliato|cancella l'? ultim)/.test(f)) return { annulla: true };
+    if (/\b(fine turno|finisco il turno|ho finito il (mio )?turno|passo il turno|termino il turno|tocca al prossimo)\b/.test(f)) return { turno: true };
+    if (/\bdividi(amo)? (il )?bottino\b|\bdividiamo le monete\b/.test(f)) return { gruppo: { op: 'dividi' } };
+    const comune = /\b(tesoro|fondo|cassa|forziere|bottino) (comune|del gruppo)\b/.test(f);
+    if (comune && n !== null && /\b(monete|oro|mo)\b/.test(f)) {
+      if (/\b(prendo|prelevo|tolgo|ritiro)\b/.test(f)) return { gruppo: { op: 'oro', delta: -n }, ops: [{ op: 'oro', delta: n }] };
+      return { gruppo: { op: 'oro', delta: n }, ops: [{ op: 'oro', delta: -n }] };
+    }
+    const mettiComune = comune && f.match(/\b(metto|metti|deposito|lascio)\s+(.+?)\s+(nel|nella|in)\s+(tesoro|fondo|cassa|forziere|bottino)/);
+    if (mettiComune) return { gruppo: { op: 'oggetto', nome: pulisciNome(mettiComune[2]), qta: 1 }, ops: [{ op: 'togli', nome: pulisciNome(mettiComune[2]) }] };
+    const prendiComune = comune && f.match(/\b(prendo|ritiro)\s+(.+?)\s+(dal|dalla)\s+(tesoro|fondo|cassa|forziere|bottino)/);
+    if (prendiComune) return { gruppo: { op: 'prendi', nome: pulisciNome(prendiComune[2]) } };
 
     // --- dadi ---
     const md = f.match(/\b(tiro|tira|lancio|lancia|tirare|lanciare)\b.*?\b(?:(\d{1,2}|un|uno|due|tre|quattro|cinque|sei)\s*)?(?:d|dado da|dadi da)\s?(4|6|8|10|12|20|100)\b(?:\s*(piu|\+|meno|-)\s*(\w+))?/);

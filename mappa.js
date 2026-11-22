@@ -7,6 +7,24 @@ const Mappa = (() => {
     '+': ['#c48a3a'], 't': ['#6b4a2b'], 'b': ['#5a3a20'], 'f': ['#d0602a'], 'c': ['#b04848'], '^': ['#9a9a9a'], 'w': ['#76706a', '#6f6963', '#7b756f']
   };
   let cv, ctx, luogo = null, segnalini = {}, membri = {}, opz = {}, tile = 24, trascina = null, dpr = 1, evidenzia = null;
+  let extra = { aree: [], vedeTutto: false, movimento: null }, attesaArea = null;
+  function setExtra(e) { extra = { ...extra, ...e }; disegna(); }
+  function chiediCasella(cb) { attesaArea = cb; cv.style.cursor = 'crosshair'; }
+  function celleArea(a) {
+    const out = [];
+    for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) {
+      const dx = x - a.x, dy = y - a.y; let dentro = false;
+      if (a.forma === 'cerchio') dentro = dx * dx + dy * dy <= a.dim * a.dim;
+      else if (a.forma === 'quadrato') dentro = dx >= 0 && dy >= 0 && dx < a.dim && dy < a.dim;
+      else {
+        const [ax, ay] = { n: [0, -1], s: [0, 1], e: [1, 0], o: [-1, 0] }[a.dir || 'e'];
+        const lungo = dx * ax + dy * ay, lato = Math.abs(dx * ay - dy * ax);
+        dentro = a.forma === 'linea' ? lungo >= 1 && lungo <= a.dim && lato === 0 : lungo >= 1 && lungo <= a.dim && lato <= Math.floor(lungo / 2);
+      }
+      if (dentro) out.push([x, y]);
+    }
+    return out;
+  }
   const h = (x, y) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
 
   function init(canvas, o) {
@@ -87,8 +105,27 @@ const Mappa = (() => {
     for (let x = 0; x <= luogo.w; x++) { ctx.moveTo(x * t + .5, 0); ctx.lineTo(x * t + .5, luogo.h * t); }
     for (let y = 0; y <= luogo.h; y++) { ctx.moveTo(0, y * t + .5); ctx.lineTo(luogo.w * t, y * t + .5); }
     ctx.stroke();
+    // gittata di movimento nel proprio turno
+    if (extra.movimento && segnalini[extra.movimento.id]) {
+      const s0 = segnalini[extra.movimento.id], r = extra.movimento.celle;
+      ctx.fillStyle = 'rgba(91,143,217,.18)'; ctx.strokeStyle = 'rgba(91,143,217,.55)';
+      for (let y = Math.max(0, s0.y - r); y <= Math.min(luogo.h - 1, s0.y + r); y++) for (let x = Math.max(0, s0.x - r); x <= Math.min(luogo.w - 1, s0.x + r); x++) if (!'#wRT~'.includes(cella(x, y))) ctx.fillRect(x * t, y * t, t, t);
+    }
+    // aree degli incantesimi
+    for (const a of extra.aree || []) {
+      ctx.fillStyle = (a.colore || '#e0602a') + '55';
+      for (const [x, y] of celleArea(a)) ctx.fillRect(x * t, y * t, t, t);
+      ctx.strokeStyle = a.colore || '#e0602a'; ctx.lineWidth = 2; ctx.strokeRect(a.x * t + 1, a.y * t + 1, t - 2, t - 2);
+      if (a.nome && t >= 12) { ctx.font = `600 ${Math.max(9, t * 0.42)}px Inter, system-ui, sans-serif`; ctx.fillStyle = '#fff'; ctx.fillText(a.nome, a.x * t + 2, a.y * t - 3); }
+    }
+    // nebbia di guerra: il master vede attraverso
+    if (luogo.visto) {
+      ctx.fillStyle = extra.vedeTutto ? 'rgba(8,6,5,.45)' : '#0b0908';
+      for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) if (luogo.visto[y * luogo.w + x] === '0') ctx.fillRect(x * t, y * t, t, t);
+    }
     // segnalini
     for (const [id, s] of Object.entries(segnalini)) {
+      if (luogo.visto && !extra.vedeTutto && s.tipo === 'nemico' && luogo.visto[s.y * luogo.w + s.x] === '0') continue;
       const pos = trascina?.id === id ? trascina : s;
       const cx = pos.x * t + t / 2, cy = pos.y * t + t / 2, rr = t * 0.42;
       ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(cx, cy + rr * 0.8, rr, rr * 0.35, 0, 0, 7); ctx.fill();
@@ -97,6 +134,7 @@ const Mappa = (() => {
       ctx.fillStyle = '#14110f'; ctx.font = `700 ${Math.max(9, t * 0.5)}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText((s.nome || '?').charAt(0).toUpperCase(), cx, cy + 1);
       ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+      if (s.tipo === 'nemico' && s.pf !== undefined && extra.vedeTutto) { ctx.font = `700 ${Math.max(8, t * 0.32)}px Inter, sans-serif`; ctx.fillStyle = '#ffd6cc'; ctx.fillText(`PF ${s.pf}`, cx - rr, cy - rr - 2); }
       if (t >= 18) { ctx.font = `600 ${Math.max(9, t * 0.38)}px Inter, system-ui, sans-serif`; const nw = ctx.measureText(s.nome || '').width; ctx.fillStyle = 'rgba(20,17,15,.75)'; ctx.fillRect(cx - nw / 2 - 3, cy + rr + 2, nw + 6, t * 0.45); ctx.fillStyle = '#f3ead9'; ctx.fillText(s.nome || '', cx - nw / 2, cy + rr + t * 0.38); }
     }
   }
@@ -104,6 +142,7 @@ const Mappa = (() => {
   function giu(ev) {
     if (!luogo) return;
     const q = posDa(ev);
+    if (attesaArea) { const cb = attesaArea; attesaArea = null; cv.style.cursor = ''; cb(q.x, q.y); return; }
     const id = Object.keys(segnalini).find(k => segnalini[k].x === q.x && segnalini[k].y === q.y && opz.puoMuovere(k));
     if (id) { trascina = { id, x: q.x, y: q.y }; cv.setPointerCapture(ev.pointerId); ev.preventDefault(); return; }
     const ed = luogo.edifici.find(e => q.x >= e.x && q.x < e.x + e.w && q.y >= e.y && q.y < e.y + e.h);
@@ -112,5 +151,6 @@ const Mappa = (() => {
   function muovi(ev) { if (!trascina) return; const q = posDa(ev); if (q.x !== trascina.x || q.y !== trascina.y) { trascina.x = Math.max(0, Math.min(luogo.w - 1, q.x)); trascina.y = Math.max(0, Math.min(luogo.h - 1, q.y)); disegna(); } }
   function su() { if (!trascina) return; const t = trascina; trascina = null; segnalini[t.id] = { ...segnalini[t.id], x: t.x, y: t.y }; disegna(); opz.onMuovi?.(t.id, t.x, t.y); }
   function shade(hex, amt) { const n = parseInt(hex.slice(1), 16); const c = v => Math.max(0, Math.min(255, v + amt)); return '#' + [c(n >> 16), c(n >> 8 & 255), c(n & 255)].map(v => v.toString(16).padStart(2, '0')).join(''); }
-  return { init, imposta, aggiornaSegnalini, adatta, disegna };
+  function setVisto(id, visto) { if (luogo && luogo.id === id) { luogo.visto = visto; disegna(); } }
+  return { init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, chiediCasella, setVisto, celleArea };
 })();

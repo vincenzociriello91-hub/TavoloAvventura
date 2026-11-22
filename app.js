@@ -1,6 +1,14 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const CHANGELOG = [
+  { v: '1.2.0', data: '22/11/2026', voci: [
+    'Combattimento a turni: iniziativa tirata in automatico, ordine sullo schermo, "fine turno" anche a voce, avviso quando tocca a te.',
+    'Gittata di movimento evidenziata sulla mappa nel tuo turno e aree degli incantesimi (cerchio, quadrato, cono, linea) visibili a tutti.',
+    'Nebbia di guerra: si vede solo ciò che il gruppo ha esplorato; il master vede tutto.',
+    'Tesoro del gruppo: monete e oggetti in comune, "dividi il bottino" a voce o col tasto.',
+    'Volti dei PNG nelle vignette del master, sempre uguali per lo stesso personaggio.',
+    'Il master AI gestisce combattimenti, PF dei nemici e bottino.'
+  ] },
   { v: '1.1.0', data: '22/11/2026', voci: [
     'Tasto "Tieni premuto e parla": comandi vocali e azioni per il master anche con la chat vocale accesa (su Android il microfono si libera solo mentre parli).',
     'Prova prima della partita: usa lo stesso microfono della chat vocale, niente più "Non ti sento" falso.',
@@ -209,6 +217,16 @@ function gestisci(m) {
     }
     case 'ok': if (m.cosa === 'suggerimento') toast('Grazie! Suggerimento inviato'); return;
     case 'costi': S.st.costi = m.costi; renderCosti(); return;
+    case 'combattimento': {
+      const prima = S.st.combattimento; S.st.combattimento = m.combattimento; renderCombat();
+      const c = m.combattimento, ora = c?.attivo && c.ordine[c.turno];
+      if (ora && ora.id === S.io && !(prima?.attivo && prima.ordine[prima.turno]?.id === S.io && prima.round === c.round)) { if (OPZ.avvisi) Narratore.avviso('Tocca a te'); toast('È il tuo turno!'); }
+      Report.log('combattimento', { attivo: c?.attivo, round: c?.round, turno: ora?.nome });
+      return;
+    }
+    case 'aree': S.st.aree = m.aree; aggiornaExtraMappa(); return;
+    case 'nebbia': if (S.st.luogo?.id === m.id) { S.st.luogo.visto = m.visto; Mappa.setVisto(m.id, m.visto); } return;
+    case 'gruppo': S.st.gruppo = m.gruppo; renderTesoro(); return;
     case 'pong': S.latenza = Math.round(performance.now() - (S.ping || performance.now())); return;
   }
 }
@@ -262,7 +280,8 @@ function renderTutto() {
   $('#formVai').hidden = !(capo() || masterAI());
   $('#mappaVuotaSugg').textContent = masterAI() ? 'Il master AI vi porterà nel primo luogo appena iniziate a giocare: salutatelo o scrivete un luogo qui sopra.' : 'Il master sceglierà il primo luogo.';
   $('#optMaster').closest('label').hidden = !masterAI();
-  renderPresenza(); renderMappa(); renderSchedaSeServe(true); renderTiri(); renderRapidi(); renderDiario(); renderAltro();
+  $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo();
+  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderAltro();
 }
 function renderPresenza() {
   if (!S.st) return;
@@ -308,10 +327,55 @@ function renderMappa() {
   $('#luogoNome').textContent = l ? l.nome : 'Nessun luogo';
   const TIPI = { citta: 'città', villaggio: 'villaggio', taverna: 'taverna', dungeon: 'dungeon', foresta: 'foresta', grotta: 'grotta', castello: 'castello', porto: 'porto', aperto: 'all\'aperto' };
   $('#luogoTipo').textContent = l ? `${TIPI[l.tipo] || l.tipo}${l.visite > 1 ? ' · visitato ' + l.visite + ' volte' : ''}` : '';
-  if (l) Mappa.imposta(l, S.st.segnalini, S.st.membri);
+  if (l) { Mappa.imposta(l, S.st.segnalini, S.st.membri); aggiornaExtraMappa(); }
 }
+function aggiornaExtraMappa() {
+  const c = S.st?.combattimento, ora = c?.attivo && c.ordine[c.turno];
+  const pg = mioPg();
+  Mappa.setExtra({ aree: S.st?.aree || [], vedeTutto: capo(), movimento: ora && ora.id === S.io && pg ? { id: S.io, celle: Math.max(1, Math.floor((pg.vel || 9) / 1.5)) } : null });
+}
+function renderCombat() {
+  const c = S.st?.combattimento, box = $('#combat');
+  $('#btnCombat').textContent = c?.attivo ? 'Fine combattimento' : 'Inizia combattimento';
+  box.hidden = !c?.attivo;
+  aggiornaExtraMappa();
+  if (!c?.attivo) return;
+  const ora = c.ordine[c.turno];
+  const posso = ora && (ora.id === S.io || capo());
+  box.innerHTML = `<div class="testa"><span>Round ${c.round} · tocca a <strong>${esc(ora?.nome || '—')}</strong></span>${posso ? '<button id="btnFineTurno" class="pieno" type="button">Fine turno</button>' : ''}</div>
+    <ol>${c.ordine.map((o, i) => `<li class="${i === c.turno ? 'ora' : ''} ${o.tipo === 'nemico' ? 'nemico' : ''}">${esc(o.nome)} <span class="piccolo">${o.iniz}</span></li>`).join('')}</ol>`;
+  $('#btnFineTurno')?.addEventListener('click', () => invia({ t: 'combattimento', azione: 'prossimo' }));
+}
+$('#btnCombat').addEventListener('click', () => invia({ t: 'combattimento', azione: S.st?.combattimento?.attivo ? 'fine' : 'inizia' }));
+$('#btnPulisciAree').addEventListener('click', () => invia({ t: 'area', pulisci: true }));
+$('#btnArea').addEventListener('click', async () => {
+  if (!S.st?.luogo) { toast('Prima serve un luogo con la mappa'); return; }
+  const forme = ['cerchio', 'quadrato', 'cono', 'linea'];
+  const i = await chiedi(`<h2>Area incantesimo</h2><label>Nome (facoltativo)<input id="arNome" maxlength="40" placeholder="Es. Palla di fuoco"></label><label>Misura in quadretti (1 quadretto = 1,5 m)<input id="arDim" type="number" min="1" max="20" value="4"></label><label>Direzione (cono e linea)<select id="arDir"><option value="e">Destra</option><option value="o">Sinistra</option><option value="n">Su</option><option value="s">Giù</option></select></label><p class="piccolo">Scegli la forma, poi tocca il punto sulla mappa.</p>`, [...forme.map(f => ({ testo: f.charAt(0).toUpperCase() + f.slice(1) })), { testo: 'Annulla' }]);
+  if (i < 0 || i >= forme.length) return;
+  const cfg = { forma: forme[i], dim: Number($('#arDim').value) || 4, dir: $('#arDir').value, nome: $('#arNome').value.trim() };
+  toast('Tocca il centro o l\'origine dell\'area sulla mappa');
+  Mappa.chiediCasella((x, y) => invia({ t: 'area', ...cfg, x, y, colore: me()?.colore }));
+});
+function renderTesoro() {
+  const g = S.st?.gruppo || { oro: 0, oggetti: [] }, box = $('#tesoro');
+  if (!box) return;
+  const gioca = me()?.ruolo === 'giocatore' || capo();
+  box.innerHTML = `<h3 style="margin-top:0">Tesoro del gruppo</h3>
+    <div class="riga"><span>Monete in comune: <strong>${g.oro}</strong></span>${gioca ? '<button type="button" data-tes="deposita">Metti monete</button><button type="button" data-tes="dividi">Dividi il bottino</button>' : ''}</div>
+    <ul class="tesoro-ogg">${g.oggetti.map(o => `<li><span>${esc(o.nome)}${o.qta > 1 ? ' ×' + o.qta : ''}</span>${gioca ? `<button type="button" data-prendi="${esc(o.nome)}">Prendi</button>` : ''}</li>`).join('') || '<li class="piccolo">Nessun oggetto in comune</li>'}</ul>
+    ${gioca ? '<form id="formTesoro" class="riga" autocomplete="off"><input id="tesOggetto" maxlength="60" placeholder="Metti un oggetto in comune"><button class="pieno">Metti</button></form>' : ''}
+    <p class="piccolo">A voce: "metti 20 monete nel tesoro comune", "dividi il bottino".</p>`;
+}
+$('#tesoro').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.prendi) invia({ t: 'gruppo', op: 'prendi', nome: b.dataset.prendi });
+  if (b.dataset.tes === 'dividi') invia({ t: 'gruppo', op: 'dividi' });
+  if (b.dataset.tes === 'deposita') { const v = parseInt(prompt('Quante monete metti nel tesoro comune?'), 10); if (v > 0) { if (mioPg()) modifica([{ op: 'oro', delta: -v }]); invia({ t: 'gruppo', op: 'oro', delta: v }); } }
+});
+$('#tesoro').addEventListener('submit', e => { e.preventDefault(); const n = $('#tesOggetto').value.trim(); if (n) invia({ t: 'gruppo', op: 'oggetto', nome: n, qta: 1 }); });
 $('#formVai').addEventListener('submit', e => { e.preventDefault(); const n = $('#vaiNome').value.trim(); if (!n) return; invia({ t: 'vai', nome: n }); $('#vaiNome').value = ''; Report.log('vai', { nome: n }); });
-function mostraNarrazione(testo, png) { const n = $('#narrazione'); n.hidden = false; n.classList.remove('pensa'); $('#narrChi').textContent = png ? `${png} (dal master)` : 'Il master'; $('#narrTesto').textContent = testo; }
+function mostraNarrazione(testo, png) { const n = $('#narrazione'); n.hidden = false; n.classList.remove('pensa'); $('#narrChi').textContent = png ? `${png} (dal master)` : 'Il master'; $('#narrTesto').textContent = testo; $('#narrVolto').hidden = !png; if (png) $('#narrVolto').innerHTML = Ritratto.volto(png, 64); }
 $('#btnZitto').addEventListener('click', () => { Narratore.zitto(); $('#narrazione').hidden = true; });
 Narratore.onInizio = () => { Ascolto.pausa(true); $('#av-master')?.classList.add('parla'); };
 Narratore.onFine = () => { Ascolto.pausa(false); $('#av-master')?.classList.remove('parla'); };
@@ -589,6 +653,8 @@ function sentitaFrase(frase) {
 function inviaParlato(frase) { invia({ t: 'parlato', testo: frase }); S.ultimoParlato = Date.now(); }
 function eseguiComando(r, frase, come) {
   if (r.annulla) { annulla(); return; }
+  if (r.turno) { invia({ t: 'combattimento', azione: 'prossimo' }); Report.log('comando-voce', { testo: frase, esito: 'fine turno', come }); return; }
+  if (r.gruppo) { invia({ t: 'gruppo', ...r.gruppo }); Report.log('comando-voce', { testo: frase, esito: 'tesoro', come }); if (!r.ops) return; }
   if (r.dado) { tira(r.dado.formula, r.dado.motivo === 'a voce' ? frase : r.dado.motivo, r.dado.modo); Report.log('comando-voce', { testo: frase, esito: 'dado', come }); return; }
   if (r.ops) { const pv = S.viewPg; S.viewPg = S.io; modifica(r.ops, come === 'voce' ? `a voce: "${frase}"` : null); S.viewPg = pv; invia({ t: 'comando', testo: frase }); Report.log('comando-voce', { testo: frase, esito: 'ok', ops: r.ops, come }); }
 }

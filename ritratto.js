@@ -159,6 +159,22 @@ const Ritratto = (() => {
   function shade(hex, amt) { const n = parseInt(hex.slice(1), 16); const c = v => Math.max(0, Math.min(255, v + amt)); return '#' + [c(n >> 16), c(n >> 8 & 255), c(n & 255)].map(v => v.toString(16).padStart(2, '0')).join(''); }
   function mix(a, b, t) { const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); const A = p(a), B = p(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); }
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-  return { svg: ritratto, PELLE, CAPELLI, OCCHI, DRAGO };
+  // Volto di un PNG ricavato dal nome: sempre lo stesso volto per lo stesso nome
+  function volto(nome, dim = 56) {
+    const n = String(nome || 'PNG'), l = n.toLowerCase();
+    let h = 7; for (const c of n) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const scegli = arr => arr[h % arr.length], h2 = h >>> 5;
+    const razza = /goblin|orco|orchetto|coboldo|mezzorco/.test(l) ? 'Mezzorco' : /nano/.test(l) ? 'Nano' : /elf/.test(l) ? 'Elfo' : /diavol|demon|tiefling/.test(l) ? 'Tiefling' : /drag/.test(l) ? 'Dragonide' : 'Umano';
+    const equip = [];
+    if (/guardia|soldat|capitan|cavalier|sentinella/.test(l)) equip.push({ nome: 'Elmo', indossato: true });
+    if (/mago|maga|strega|stregone|incantat/.test(l)) equip.push({ nome: 'Cappello da mago', indossato: true });
+    if (/\bre\b|regina|principe|principessa|duca|conte|signore di/.test(l)) equip.push({ nome: 'Corona', indossato: true });
+    if (/ladr|assassin|incappucc|monaco|sacerdot/.test(l)) equip.push({ nome: 'Cappuccio', indossato: true });
+    const classe = /mago|maga|strega/.test(l) ? 'Mago' : /sacerdot|priore|chieric/.test(l) ? 'Chierico' : /guardia|soldat|capitan/.test(l) ? 'Guerriero' : scegli(['Bardo', 'Ladro', 'Druido', 'Guerriero', 'Ranger']);
+    const pg = { nome: n, razza, classe, equip, pf: 1, pfMax: 1, aspetto: { pelle: Object.keys(PELLE)[h % 4], capelli: scegli(['corti', 'lunghi', 'coda', 'ricci', 'calvo']), coloreCapelli: Object.keys(CAPELLI)[h2 % 6], barba: /a$|essa$|ina$|regina|strega/.test(l) ? 'nessuna' : ['nessuna', 'corta', 'lunga'][h2 % 3], occhi: Object.keys(OCCHI)[h2 % 5] } };
+    // ritaglio sulla testa
+    return ritratto(pg, { dim }).replace('viewBox="-2 -3 36 44"', 'viewBox="7 -2 18 22"').replace(/height="[^"]+"/, `height="${dim}"`);
+  }
+  return { svg: ritratto, volto, PELLE, CAPELLI, OCCHI, DRAGO };
 })();
 if (typeof module !== 'undefined') module.exports = { Ritratto };

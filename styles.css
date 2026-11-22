@@ -211,9 +211,24 @@ body.tv .gioco > .vista:not(.vista-mappa):not(#vDadi) { display: none !important
 @media (max-width: 480px) { .statini { grid-template-columns: repeat(2, minmax(0, 1fr)); } .av { width: 32px; height: 32px; } .barra { gap: 8px; padding-left: 12px; padding-right: 12px; } }
 
 /* Tasto "tieni premuto e parla" */
-.parla { position: fixed; right: 16px; bottom: calc(var(--navh) + 16px + env(safe-area-inset-bottom)); z-index: 26; min-height: 60px; padding: 0 20px 0 16px; border-radius: 999px; background: var(--oro); color: #14110f; border: none; font-weight: 700; box-shadow: var(--ombra); user-select: none; -webkit-user-select: none; touch-action: none; }
-.parla.on { background: var(--verde); transform: scale(1.06); box-shadow: 0 0 0 6px rgba(87,180,122,.35), var(--ombra); }
-@media (max-width: 480px) { .parla span { display: none; } .parla { width: 64px; height: 64px; padding: 0; } }
-@media (min-width: 1100px) { .parla { bottom: 24px; right: 470px; } }
-body.tv .parla { display: none !important; }
+.btn-parla { position: fixed; right: 16px; bottom: calc(var(--navh) + 16px + env(safe-area-inset-bottom)); z-index: 26; min-height: 60px; padding: 0 20px 0 16px; border-radius: 999px; background: var(--oro); color: #14110f; border: none; font-weight: 700; box-shadow: var(--ombra); user-select: none; -webkit-user-select: none; touch-action: none; }
+.btn-parla.on { background: var(--verde); transform: scale(1.06); box-shadow: 0 0 0 6px rgba(87,180,122,.35), var(--ombra); }
+@media (max-width: 480px) { .btn-parla span { display: none; } .btn-parla { width: 64px; height: 64px; padding: 0; } }
+@media (min-width: 1100px) { .btn-parla { bottom: 24px; right: 470px; } }
+body.tv .btn-parla { display: none !important; }
 .toast { z-index: 41; }
+
+/* Combattimento, vignette dei PNG, tesoro */
+.combat { background: #2a1714; border: 1px solid #8a3a2f; border-radius: var(--r); padding: 10px 12px; margin-bottom: 10px; }
+.combat .testa { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-family: Cinzel, serif; color: #ffb199; }
+.combat ol { list-style: none; padding: 0; margin: 8px 0 0; display: flex; gap: 6px; overflow-x: auto; }
+.combat li { flex: 0 0 auto; background: var(--superficie2); border: 1px solid var(--bordo); border-radius: 10px; padding: 4px 10px; font-size: .85rem; }
+.combat li.ora { background: var(--oro); color: #14110f; border-color: var(--oro); font-weight: 700; }
+.combat li.nemico { border-color: #8a3a2f; }
+.narr-corpo { display: flex; gap: 12px; align-items: flex-start; }
+.narr-volto { flex: 0 0 auto; background: radial-gradient(circle, #3a2c20, #1a1410); border: 2px solid var(--oro); border-radius: 12px; padding: 2px; line-height: 0; }
+.strumenti-mappa { margin-top: 8px; }
+.strumenti-mappa button { min-height: 40px; }
+.tesoro-ogg { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
+.tesoro-ogg li { display: flex; align-items: center; gap: 8px; background: var(--superficie2); border: 1px solid var(--bordo); border-radius: 12px; padding: 6px 8px; }
+.tesoro-ogg li span { flex: 1; }
