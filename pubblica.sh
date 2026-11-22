@@ -8,7 +8,7 @@ git push -q origin main
 tmp=$(mktemp -d)
 git fetch -q origin gh-pages
 git worktree add -q -f "$tmp" origin/gh-pages
-FILES="index.html styles.css qrcode.js regole.js comandi.js ritratto.js lpc.js mappa.js mappa3d.js dadi3d.js voce.js bot.js suoni.js app.js sw.js manifest.webmanifest version.json icon.svg icon-192.png icon-512.png"
+FILES="index.html styles.css qrcode.js regole.js comandi.js ritratto.js lpc.js mondo.js mappa.js mappa3d.js dadi3d.js voce.js bot.js suoni.js app.js sw.js manifest.webmanifest version.json icon.svg icon-192.png icon-512.png"
 mkdir -p "$tmp/prova"
 for f in $FILES; do cp "$f" "$tmp/prova/$f"; done
 mkdir -p "$tmp/prova/lpc" "$tmp/prova/vendor" && cp lpc/* "$tmp/prova/lpc/" && cp -r vendor/. "$tmp/prova/vendor/"

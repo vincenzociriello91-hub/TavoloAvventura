@@ -274,7 +274,8 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   v(/Gilda dei Ladri/.test(await B.textContent('#mondo')), 'fazione e reputazione visibili nel diario');
   await A.click('#nav button[data-v="vMappa"]');
   await A.click('#btnMondo');
-  v(await A.locator('#mondoSvg circle').count() >= 3, 'mappa del mondo con i luoghi visitati');
+  v(await A.evaluate(() => { const c = document.querySelector('#mondoCanvas'); return c.width > 600 && c.getContext('2d').getImageData(c.width / 2, c.height / 2, 1, 1).data[3] > 0; }), 'mappa del mondo illustrata disegnata');
+  await A.screenshot({ path: OUT + '/15-mondo.png' });
   await A.screenshot({ path: OUT + '/11-mondo.png' });
   await A.click('#btnMondo');
   // 1.5.0: suoni, edifici in cui entrare

@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.2.0';
+const VERSION = '2.3.0';
 const CHANGELOG = [
+  { v: '2.3.0', data: '22/11/2026', voci: [
+    'Avventura pronta "La miniera dei goblin" (livelli 1-3, una serata): luoghi, PNG, incontri, tesori e segreti già preparati. Si sceglie creando la campagna o dallo schermo del master; il master AI la segue, quello umano la trova nello schermo del master.',
+    'Gioco da solo: il master AI interpreta anche due compagni (Mira la ranger e Fra\' Tobia il chierico), che sono sulla mappa e combattono con te.',
+    'Mappa del mondo illustrata come una pergamena: mare, coste, boschi, monti, fiumi e i vostri viaggi. Si allarga man mano che scoprite luoghi nuovi.',
+    'Statistiche e trofei: critici, cadute, danni, cure e spese per ognuno, con i trofei della serata anche nel riepilogo.',
+    'Sottotitoli grandi mentre parla il master (si possono spegnere in Altro).'
+  ] },
   { v: '2.2.0', data: '22/11/2026', voci: [
     'Negozi: quando il master apre il banco di un mercante, nella Scheda comprate e vendete con le vostre monete (si vende a metà prezzo).',
     'Inventario con le icone in pixel art: trascina l\'icona sul ritratto per indossare un oggetto.',
@@ -312,6 +319,8 @@ function gestisci(m) {
     case 'strumento': mostraStrumento(m.tipo, m.ris); return;
     case 'note_master': $('#smNote').value = m.testo || ''; return;
     case 'libro': apriLibro(m); return;
+    case 'statistiche': mostraStatistiche(m); return;
+    case 'avventura': S.st.avventura = m.avventura; renderAvventura(); return;
     case 'sessione_zero': szRisposta(m); return;
     case 'mostri': S.st.mostri = m.mostri; Mappa.disegna(); if (S.m3) S.m3.aggiorna(Mappa.dati3D()); return;
     case 'volti': S.st.volti = m.volti; { const png = $('#narrChi').dataset.png; if (png && m.volti[png]) mostraVolto(png); } return;
@@ -372,7 +381,7 @@ $('#btnCrea').addEventListener('click', () => {
   const mioNome = $('#cMioNome').value.trim();
   if (!mioNome) { toast('Scrivi il tuo nome', true); $('#cMioNome').focus(); return; }
   scrivi('ta_nome', mioNome);
-  const dati = { t: 'crea', nome: $('#cNome').value.trim() || 'La nostra campagna', regole: $('input[name="cRegole"]:checked').value, ambientazione: $('#cAmbientazione').value.trim() || 'Fantasy classico', masterTipo: $('input[name="cMaster"]:checked').value, ruolo: $('input[name="cMioRuolo"]:checked').value, mioNome };
+  const dati = { t: 'crea', nome: $('#cNome').value.trim() || 'La nostra campagna', regole: $('input[name="cRegole"]:checked').value, ambientazione: $('#cAmbientazione').value.trim() || 'Fantasy classico', masterTipo: $('input[name="cMaster"]:checked').value, ruolo: $('input[name="cMioRuolo"]:checked').value, mioNome, avventura: $('#cAvventura').value || undefined, solitaria: $('#cSolitaria').checked };
   Voce.riattivaAudio();
   connetti(codiceNuovo(), () => dati);
 });
@@ -400,7 +409,8 @@ function renderTutto() {
   $('#formVai').hidden = !(capo() || masterAI());
   $('#mappaVuotaSugg').textContent = masterAI() ? 'Il master AI vi porterà nel primo luogo appena iniziate a giocare: salutatelo o scrivete un luogo qui sopra.' : 'Il master sceglierà il primo luogo.';
   $('#optMaster').closest('label').hidden = !masterAI();
-  $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); } $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
+  $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); }
+  if (capo()) renderAvventura(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
   renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderMondo(); renderAltro();
 }
 function renderPresenza() {
@@ -521,6 +531,17 @@ function mostraNarrazione(testo, png) { const n = $('#narrazione'); n.hidden = f
 $('#btnZitto').addEventListener('click', () => { Narratore.zitto(); $('#narrazione').hidden = true; });
 Narratore.onInizio = () => { Ascolto.pausa(true); $('#av-master')?.classList.add('parla'); };
 Narratore.onFine = () => { Ascolto.pausa(false); $('#av-master')?.classList.remove('parla'); };
+// sottotitoli: il testo del master a frasi, ognuna per il tempo che ci mette a dirla
+let timerSottotitoli = [];
+Narratore.onFrase = (testoS, durata) => {
+  timerSottotitoli.forEach(clearTimeout); timerSottotitoli = [];
+  const el = $('#sottotitoli');
+  if (!testoS || OPZ.sottotitoli === false) { el.hidden = true; return; }
+  const frasi = testoS.match(/[^.!?…]+[.!?…]*["»”]?\s*/g)?.map(f => f.trim()).filter(Boolean) || [testoS];
+  const tot = frasi.reduce((a, f) => a + f.length, 0); let t = 0;
+  frasi.forEach(f => { timerSottotitoli.push(setTimeout(() => { el.textContent = f; el.hidden = false; }, t)); t += durata * f.length / tot; });
+  timerSottotitoli.push(setTimeout(() => { el.hidden = true; }, t + 600));
+};
 
 /* ============ SCHEDA ============ */
 function renderSchedaSeServe(forza) { if (S.vista === 'vScheda' || largo() || forza) renderScheda(); }
@@ -641,17 +662,7 @@ $('#mondo').addEventListener('submit', e => {
 $('#mondo').addEventListener('click', e => { if (e.target.id === 'btnEvolvi') { invia({ t: 'mondo_evolvi' }); toast('Il mondo va avanti…'); } });
 // Mappa del mondo: luoghi conosciuti e viaggi del gruppo
 function renderMappaMondo() {
-  const idx = S.st?.luoghi || {}, mo = S.st?.mondo || {};
-  const ids = Object.keys(idx).sort((a, b) => (idx[a].prima || 0) - (idx[b].prima || 0));
-  const pos = {}; ids.forEach((id, i) => { let h = 7; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; pos[id] = [90 + (i % 4) * 160 + (h % 30) - 15, 60 + Math.floor(i / 4) * 110 + ((h >> 6) % 30) - 15]; });
-  const H = Math.max(420, 60 + Math.ceil(ids.length / 4) * 110);
-  const tratte = {}; for (const v of mo.viaggi || []) if (v.da && pos[v.da] && pos[v.a]) { const k = [v.da, v.a].sort().join('|'); tratte[k] = (tratte[k] || 0) + 1; }
-  const COLT = { citta: '#d9a441', villaggio: '#c9a26b', taverna: '#e2735f', dungeon: '#8a7a9a', foresta: '#57b47a', grotta: '#7a8a8a', castello: '#a98be8', porto: '#5b8fd9', aperto: '#9aae6a' };
-  const attuale = S.st?.luogo?.id;
-  $('#mondoSvg').setAttribute('viewBox', `0 0 680 ${H}`); $('#mondoSvg').style.height = H + 'px';
-  $('#mondoSvg').innerHTML = (ids.length ? '' : `<text x="400" y="200" text-anchor="middle" fill="#bcae96" font-size="16">Nessun luogo ancora visitato</text>`)
-    + Object.entries(tratte).map(([k, n]) => { const [a, b] = k.split('|'); return `<line x1="${pos[a][0]}" y1="${pos[a][1]}" x2="${pos[b][0]}" y2="${pos[b][1]}" stroke="#8a6640" stroke-width="${Math.min(8, 1 + n)}" stroke-dasharray="6 5" stroke-linecap="round"/>`; }).join('')
-    + ids.map(id => `<g data-luogo="${esc(idx[id].nome)}" style="cursor:pointer"><circle cx="${pos[id][0]}" cy="${pos[id][1]}" r="${id === attuale ? 16 : 12}" fill="${COLT[idx[id].tipo] || '#bcae96'}" stroke="${id === attuale ? '#fff' : '#14110f'}" stroke-width="3"/><text x="${pos[id][0]}" y="${pos[id][1] + 30}" text-anchor="middle" fill="#f3ead9" font-size="13" font-family="Inter, sans-serif">${esc(idx[id].nome.length > 20 ? idx[id].nome.slice(0, 19) + '…' : idx[id].nome)}<title>${esc(idx[id].nome)}</title></text></g>`).join('');
+  MappaMondo.disegna($('#mondoCanvas'), { idx: S.st?.luoghi || {}, viaggi: S.st?.mondo?.viaggi || [], attuale: S.st?.luogo?.id, seme: S.st?.campagna?.creata || 1, nome: S.st?.campagna?.nome || 'Il mondo' });
 }
 $('#btnIllustra').addEventListener('click', () => invia({ t: 'illustra' }));
 // vista 3D stile HD-2D (three.js, caricata solo quando serve)
@@ -670,7 +681,7 @@ async function vista3D(attiva) {
 $('#btn3d').addEventListener('click', () => vista3D(!OPZ.vista3d));
 $('#diario').addEventListener('click', e => { const im = e.target.closest('img[data-img]'); if (im) window.open(im.src, '_blank'); const rb = e.target.closest('[data-riepilogo]'); if (rb) { S.apriRiepilogo = Number(rb.dataset.riepilogo); invia({ t: 'riepiloghi' }); } });
 $('#btnMondo').addEventListener('click', () => { const b = $('#mondoBox'); b.hidden = !b.hidden; $('#btnMondo').textContent = b.hidden ? 'Mappa del mondo' : 'Mappa del luogo'; $('#mappaBox').hidden = !b.hidden; if (!b.hidden) renderMappaMondo(); else Mappa.adatta(); });
-$('#mondoSvg').addEventListener('click', e => { const g = e.target.closest('[data-luogo]'); if (!g) return; if (capo() || masterAI()) invia({ t: 'vai', nome: g.dataset.luogo }); else toast(g.dataset.luogo); });
+$('#mondoCanvas').addEventListener('click', e => { const nome = MappaMondo.luogoIn($('#mondoCanvas'), e); if (!nome) return; if (capo() || masterAI()) invia({ t: 'vai', nome }); else toast(nome); });
 function cartaMagia(pg, puo) {
   const max = Regole.slotMax(pg); const cd = Regole.cd(pg);
   const usati = pg.slotUsati || [];
@@ -1053,6 +1064,29 @@ $('#smSalvaNote').addEventListener('click', () => { invia({ t: 'note_master', te
 $('#smApriNeg').addEventListener('click', () => { invia({ t: 'apri_negozio', nome: $('#smNegozio').value || ({ emporio: 'Emporio', fabbro: 'Fabbro', alchimista: 'Alchimista', magia: 'Bottega arcana' })[$('#smTipoNeg').value], tipo: $('#smTipoNeg').value }); });
 $('#smChiudiNeg').addEventListener('click', () => invia({ t: 'chiudi_negozio' }));
 /* ---- libro della campagna: pagina da stampare o salvare in PDF ---- */
+$('#btnStatistiche').addEventListener('click', () => invia({ t: 'statistiche' }));
+/* ---- avventura pronta nello schermo del master ---- */
+function renderAvventura() {
+  const box = $('#smAvventura'); if (!box || !capo()) return;
+  const a = S.st?.avventura;
+  if (!a) { box.innerHTML = `<div class="riga"><select id="smAvvId" aria-label="Avventura pronta"><option value="miniera">La miniera dei goblin (livelli 1-3)</option></select><button type="button" data-avv-inizia="1">Inizia l'avventura pronta</button></div>`; return; }
+  box.innerHTML = `<details ${a.iniziata ? '' : 'open'}><summary><strong>Avventura: ${esc(a.titolo)}</strong>${a.iniziata ? ` · scena ${a.scena + 1} di ${a.scene.length}` : ''}</summary>
+    <p class="piccolo">${esc(a.sinossi)}</p>
+    ${a.iniziata ? '' : '<button type="button" data-avv-inizia="1">Inizia adesso</button>'}
+    <ol>${a.scene.map((sc, i) => `<li ${i === a.scena && a.iniziata ? 'style="color:#e8c86a"' : ''}><strong>${esc(sc.luogo)}</strong>: ${esc(sc.obiettivo)}<br><span class="piccolo">PNG: ${esc(sc.png)}. Indizi: ${esc(sc.indizi)}${sc.incontro ? `. Nemici: ${esc(sc.incontro.map(n => n.numero + ' ' + n.nome).join(', '))}` : ''}${sc.tesoro ? `. Tesoro: ${esc(sc.tesoro)}` : ''}</span>
+      <div class="riga"><button type="button" data-avv-scena="${esc(sc.id)}">Vai a questa scena</button><button type="button" data-avv-leggi="${esc(sc.id)}">Leggi ad alta voce</button></div></li>`).join('')}</ol>
+    <p><strong>Segreti</strong></p><ul class="piccolo">${a.segreti.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="piccolo"><strong>Ricompensa:</strong> ${esc(a.ricompensa)}</p></details>`;
+}
+document.addEventListener('click', e => {
+  if (e.target.closest('[data-avv-inizia]')) { invia({ t: 'avventura_inizia', id: $('#smAvvId')?.value || S.st?.avventura?.id || 'miniera' }); toast('L\'avventura comincia…'); }
+  const sc = e.target.closest('[data-avv-scena]'); if (sc) invia({ t: 'avventura_scena', scena: sc.dataset.avvScena });
+  const lg = e.target.closest('[data-avv-leggi]'); if (lg) invia({ t: 'avventura_leggi', scena: lg.dataset.avvLeggi });
+});
+function mostraStatistiche(m) {
+  const VOCI = [['tiri', 'Dadi tirati'], ['critici', 'Critici'], ['fallimenti', 'Fallimenti critici'], ['danniSubiti', 'Danni subiti'], ['cadute', 'Volte a terra'], ['cure', 'PF recuperati'], ['speso', 'Monete spese']];
+  const tabella = (dati) => { const ids = Object.keys(dati || {}).filter(id => id !== 'gruppo'); if (!ids.length) return '<p class="piccolo">Ancora niente da contare.</p>'; return `<div style="overflow-x:auto"><table class="stat-tab"><tr><th></th>${ids.map(id => `<th>${esc(m.nomi[id] || id)}</th>`).join('')}</tr>${VOCI.map(([k, n]) => `<tr><td>${n}</td>${ids.map(id => `<td>${dati[id][k] || 0}</td>`).join('')}</tr>`).join('')}</table></div>${dati.gruppo ? `<p class="piccolo">Il gruppo: ${dati.gruppo.nemici || 0} nemici sconfitti, ${dati.gruppo.combattimenti || 0} combattimenti.</p>` : ''}`; };
+  chiedi(`<h2>Statistiche</h2>${m.trofei.length ? `<h3>Trofei della serata</h3><ul>${m.trofei.map(x => `<li>🏆 <strong>${esc(x.titolo)}</strong>: ${esc(x.chi)} <span class="piccolo">(${esc(x.motivo)})</span></li>`).join('')}</ul>` : ''}<h3>Questa sessione (${m.sessione || 1})</h3>${tabella(m.s)}<h3>Tutta la campagna</h3>${tabella(m.tot)}`, [{ testo: 'Chiudi' }]);
+}
 $('#btnLibro').addEventListener('click', () => { invia({ t: 'libro' }); toast('Preparo il libro…'); });
 function apriLibro(m) {
   const w = window.open('', '_blank'); if (!w) { toast('Consenti le finestre a comparsa per aprire il libro', true); return; }
@@ -1097,7 +1131,7 @@ function szRisposta(m) {
 // riepilogo della serata: racconto, immagine e numeri, da condividere nel gruppo
 async function mostraRiepilogo(r) {
   const s = r.stats || {}, img = r.img ? urlMedia('img', r.img) : null;
-  const righe = [s.nemici?.length ? `Nemici sconfitti: ${s.nemici.join(', ')}` : '', s.combattimenti ? `Combattimenti: ${s.combattimenti}` : '', s.luoghi?.length ? `Luoghi: ${s.luoghi.join(', ')}` : '', ...Object.entries(s.px || {}).map(([n, v]) => `${n}: +${v} PX`), ...(s.livelli || []), ...(s.bottino || []).slice(-6)].filter(Boolean);
+  const righe = [...(s.trofei || []).map(x => `🏆 ${x.titolo}: ${x.chi} (${x.motivo})`), s.nemici?.length ? `Nemici sconfitti: ${s.nemici.join(', ')}` : '', s.combattimenti ? `Combattimenti: ${s.combattimenti}` : '', s.luoghi?.length ? `Luoghi: ${s.luoghi.join(', ')}` : '', ...Object.entries(s.px || {}).map(([n, v]) => `${n}: +${v} PX`), ...(s.livelli || []), ...(s.bottino || []).slice(-6)].filter(Boolean);
   const testoCondiviso = `${r.titolo}\n\n${r.racconto}\n\n${righe.join('\n')}`;
   const i = await chiedi(`<h2>${esc(r.titolo)}</h2>${img ? `<img src="${img}" alt="" style="width:100%;border-radius:10px;margin:4px 0 8px">` : ''}<p style="white-space:pre-wrap">${esc(r.racconto)}</p>${righe.length ? `<ul class="piccolo">${righe.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`, [{ testo: 'Condividi', pieno: true }, { testo: 'Chiudi' }]);
   if (i !== 0) return;
@@ -1113,6 +1147,8 @@ $('#optNarratore').addEventListener('change', e => { OPZ.narratore = e.target.ch
 $('#optAvvisi').addEventListener('change', e => { OPZ.avvisi = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optMaster').addEventListener('change', e => { OPZ.master = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optSuoni').addEventListener('change', e => { OPZ.suoni = e.target.checked; scrivi('ta_opzioni', OPZ); Suoni.attivo = OPZ.suoni; if (OPZ.suoni) aggiornaScenaSonora(); Report.log('suoni', { attivi: OPZ.suoni }); });
+$('#optSottotitoli').checked = OPZ.sottotitoli !== false;
+$('#optSottotitoli').addEventListener('change', e => { OPZ.sottotitoli = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optDadi3d').checked = OPZ.dadi3d !== false;
 $('#optDadi3d').addEventListener('change', e => { OPZ.dadi3d = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optVolume').addEventListener('input', e => { OPZ.volume = Number(e.target.value); Suoni.volume = OPZ.volume; scrivi('ta_opzioni', OPZ); });
