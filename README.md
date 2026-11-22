@@ -12,6 +12,7 @@ D&D online con gli amici, dal browser di qualsiasi telefono, PC, Odin o TV. Nien
 - **Comandi vocali sulla scheda**: "aumenta di due punti intelligenza", "subisco 7 danni", "recupero 5 punti ferita", "equipaggio l'ascia bipenne", "salgo di livello", "trovo 50 monete d'oro", "sono avvelenato", "tiro per percezione con vantaggio", "annulla".
 - **Ritratto in pixel art** generato dal codice: cambia con armatura, armi, scudo, elmo, ferite (bende), punti ferita e condizioni.
 - **Mappe persistenti**: ogni luogo ha sempre la stessa mappa; edifici e oggetti bruciati, rotti o spostati restano così.
+- **Movimento realistico**: i personaggi camminano sul percorso vero e non attraversano muri né mobili (lo controlla anche il server); le zone mai viste restano al buio finché qualcuno non le vede; zoom 2D e 3D con "Tutta la mappa" (solo la parte scoperta); oggetti in proporzione (una casella è 1,5 m).
 - **Mappe realistiche** (tecnologia delle Cronache dei Varchi): luci vere con le ombre, giorno e notte, ombre del sole, meteo animato, stagioni, oggetti di scena, vista del personaggio con scurovisione e torce, personaggi LPC animati; **vista 3D** stile HD-2D (three.js).
 - **Voce naturale del master** (Gemini TTS), **illustrazioni** delle scene (Workers AI) e **riepilogo illustrato** di fine serata da condividere.
 - **Battaglie spettacolari** (mosse LPC, danni e cure che saltano fuori, esplosioni degli incantesimi, condizioni visibili), **mostri disegnati** e **volti dei PNG** generati una volta per campagna, **dadi 3D**.

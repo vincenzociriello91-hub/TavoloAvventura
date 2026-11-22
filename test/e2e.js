@@ -114,9 +114,10 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   v(await B.evaluate(id => S.st.luogo.edifici.find(e => e.id === id).stato === 'integro', ed), 'con il master AI il creatore non può bruciare a mano un edificio');
   await B.waitForTimeout(400);
   await B.screenshot({ path: OUT + '/6-mappa-desktop.png' });
-  const seg = await B.evaluate(() => S.st.segnalini[S.io]);
-  await B.evaluate(s => invia({ t: 'segnalino', x: s.x + 3, y: s.y }), seg);
-  await A.waitForFunction(([id, x]) => S.st.segnalini[id]?.x === x, [await B.evaluate(() => S.io), seg.x + 3], { timeout: 5000 });
+  // 2.4.0: ci si sposta solo dove si arriva a piedi (il server rifiuta i salti attraverso i muri)
+  const meta = await B.evaluate(() => { const s = S.st.segnalini[S.io]; for (const d of [3, -3, 2, -2, 4, -4]) if (Mappa.percorso(s, { x: s.x + d, y: s.y })) return { x: s.x + d, y: s.y }; });
+  await B.evaluate(m => invia({ t: 'segnalino', x: m.x, y: m.y }), meta);
+  await A.waitForFunction(([id, x]) => S.st.segnalini[id]?.x === x, [await B.evaluate(() => S.io), meta.x], { timeout: 5000 });
   v(true, 'segnalino spostato e visto dagli altri');
   // 1.6.2: tocco breve = muovi il segnalino (niente finestra dell'edificio); pressione lunga = finestra
   const tocca = (x, y, ms) => A.evaluate(async ([x, y, ms]) => {
@@ -128,12 +129,27 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
     const l = S.st.luogo, s0 = S.st.segnalini[S.io], occ = Object.values(S.st.segnalini);
     for (let r = 1; r < 8; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       const x = s0.x + dx, y = s0.y + dy, ch = l.celle[y]?.[x];
-      if (ch && !'#wRT~'.includes(ch) && !occ.some(s => s.x === x && s.y === y) && !(l.oggetti || []).some(o => o.x === x && o.y === y)) return { x, y };
+      if (ch && !'#wRT~'.includes(ch) && !occ.some(s => s.x === x && s.y === y) && !(l.oggetti || []).some(o => o.x === x && o.y === y) && Mappa.percorso(s0, { x, y })) return { x, y };
     }
   });
   await tocca(cellaLibera.x, cellaLibera.y, 60);
   await A.waitForFunction(c => S.st.segnalini[S.io]?.x === c.x && S.st.segnalini[S.io]?.y === c.y, cellaLibera, { timeout: 5000 });
   v(true, 'tocco breve su una casella libera: il segnalino si sposta');
+  // dentro un muro non si va: né toccando la mappa né mandando la mossa al server
+  const muro = await A.evaluate(() => { const l = S.st.luogo, s0 = S.st.segnalini[S.io]; let m = null, dm = 1e9; l.celle.forEach((r, y) => [...r].forEach((c, x) => { const d = Math.abs(x - s0.x) + Math.abs(y - s0.y); if ((c === '#' || c === 'w') && d < dm) { dm = d; m = { x, y }; } })); return m; });
+  const prima = await A.evaluate(() => ({ ...S.st.segnalini[S.io] }));
+  await tocca(muro.x, muro.y, 60); await A.waitForTimeout(300);
+  v(await A.evaluate(([p]) => S.st.segnalini[S.io].x === p.x && S.st.segnalini[S.io].y === p.y && /Non ci si arriva/.test(document.querySelector('#toast').textContent), [prima]), 'tocco su un muro: il segnalino resta fermo e l\'app lo dice');
+  await A.evaluate(m => invia({ t: 'segnalino', x: m.x, y: m.y }), muro); await A.waitForTimeout(900);
+  v(await A.evaluate(p => S.st.segnalini[S.io].x === p.x && S.st.segnalini[S.io].y === p.y, prima), 'il server rifiuta il salto dentro un muro');
+  // zoom della mappa 2D: + avvicina, Tutta la mappa inquadra ciò che è stato scoperto
+  const larg0 = await A.evaluate(() => document.querySelector('#mappa').getBoundingClientRect().width);
+  await A.click('#btnZoomPiu'); await A.waitForTimeout(150);
+  const larg1 = await A.evaluate(() => document.querySelector('#mappa').getBoundingClientRect().width);
+  await A.click('#btnZoomTutta'); await A.waitForTimeout(150);
+  const tutta = await A.evaluate(() => { const b = document.querySelector('#mappaBox'), l = S.st.luogo, t = document.querySelector('#mappa').getBoundingClientRect().width / l.w; let x0 = l.w, x1 = -1; for (let i = 0; i < l.w * l.h; i++) if (!l.visto || l.visto[i] === '1') { x0 = Math.min(x0, i % l.w); x1 = Math.max(x1, i % l.w); } return (x1 - x0 + 1) * t <= b.clientWidth + 1; });
+  v(larg1 > larg0 && tutta, 'zoom 2D: avvicina e poi mostra tutta la parte scoperta');
+  await A.screenshot({ path: OUT + '/16-mappa-tutta.png' });
   // 2.2.0: negozio nella scheda di Marco, schermo del master in Altro, libro della campagna
   await A.evaluate(() => invia({ t: 'apri_negozio', nome: 'Fabbro Ulrico', tipo: 'fabbro' }));
   await B.waitForFunction(() => S.st.negozio, null, { timeout: 5000 });
@@ -159,6 +175,9 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   const v3 = await A.evaluate(() => ({ c: !!document.querySelector('#mappa3dBox canvas'), vis: !document.querySelector('#mappa3dBox').hidden }));
   v(v3.c && v3.vis, 'vista 3D accesa con la mappa in rilievo');
   await A.screenshot({ path: OUT + '/13-vista-3d.png' });
+  await A.click('#btnZoomTutta'); await A.waitForTimeout(800);
+  await A.screenshot({ path: OUT + '/17-vista-3d-tutta.png' });
+  v(await A.evaluate(() => !!S.m3?.zoom), 'zoom 3D: Tutta la mappa');
   await A.click('#btn3d'); await A.waitForTimeout(300);
   v(await A.evaluate(() => document.querySelector('#mappa3dBox').hidden && !document.querySelector('#mappaBox').hidden), 'si torna alla vista 2D');
   const loc = await A.evaluate(() => S.st.luogo.edifici.find(e => e.nome === 'Locanda'));
