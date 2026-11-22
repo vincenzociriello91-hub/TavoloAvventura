@@ -264,3 +264,58 @@ body.st-inverno::after { content: ''; position: fixed; inset: 0; pointer-events:
 @keyframes neve { from { background-position: 0 0; } to { background-position: 60px 300px; } }
 body.st-ombre { --oro: #e8742b; --oro2: #f29a4e; }
 body.st-carnevale .barra { border-bottom: 3px solid; border-image: linear-gradient(90deg, #e2735f, #e8b04b, #57b47a, #5b8fd9, #a98be8) 1; }
+
+/* ===== Ritocco 2.5: più armonia e leggibilità (telefono prima di tutto) ===== */
+:root { --spazio: 12px; }
+/* barra in alto: titolo leggibile, presenze compatte che si sovrappongono */
+.titolo strong { font-size: 1rem; line-height: 1.2; }
+.titolo span { font-size: .78rem; line-height: 1.25; }
+.presenza { gap: 0; }
+.presenza .av { margin-left: -8px; border: 2px solid var(--sfondo); }
+.presenza .av:first-child { margin-left: 0; }
+.azioni-barra .tondo { width: 40px; height: 40px; min-height: 40px; }
+/* carte e titoli: stesso ritmo ovunque */
+.carta { padding: 16px; margin-bottom: var(--spazio); }
+.carta > h2 { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--bordo); }
+.carta > p.piccolo { margin: 0 0 10px; }
+h3 { font-size: .95rem; letter-spacing: .5px; margin: 1.1em 0 .5em; }
+.carta button:not(.chip):not(.tondo):not(.piccolo-btn):not(.tira):not(.piu) { min-height: 42px; }
+.carta .riga + .riga { margin-top: 8px; }
+/* il contenuto non finisce mai sotto il tasto per parlare né sotto la barra in basso */
+main { padding-bottom: calc(var(--navh) + 96px + env(safe-area-inset-bottom)); }
+/* narrazione: testo comodo da leggere, volto solo quando c'è */
+.narrazione p { line-height: 1.5; }
+.narr-volto:empty { display: none; }
+/* barra degli strumenti della mappa: comandi compatti e allineati */
+.strumenti-mappa { gap: 6px; }
+.strumenti-mappa > button { flex: 1 1 calc(50% - 6px); min-height: 40px; padding: 8px 10px; font-size: .9rem; }
+.zoom-mappa { flex: 1 1 100%; display: flex; background: var(--superficie2); border: 1px solid var(--bordo); border-radius: 999px; padding: 3px; gap: 3px; }
+.zoom-mappa button { border: none; background: transparent; min-height: 36px; padding: 4px 10px; }
+.zoom-mappa button:not(#btnZoomTutta) { flex: 0 0 48px; }
+#btnZoomTutta { flex: 1; font-size: .9rem; }
+.zoom-mappa button:active, .zoom-mappa button:hover { background: rgba(217,164,65,.15); }
+.aiuto-mappa { line-height: 1.5; }
+/* diario e tiri: voci più ariose, ore discrete */
+.diario li, .lista-tiri li { padding: 10px 12px; line-height: 1.45; }
+.diario li .chi { display: block; margin-bottom: 2px; }
+.diario li.illustrazione-ev img { aspect-ratio: auto; max-height: 70vh; }
+/* sottotitoli: sopra la barra in basso, senza coprire il tasto per parlare */
+@media (max-width: 1099px) {
+  #sottotitoli { left: 12px; right: 92px; width: auto; transform: none; bottom: calc(var(--navh) + 18px + env(safe-area-inset-bottom)); font-size: clamp(16px, 4.4vw, 22px); padding: 10px 14px; text-align: left; }
+  .btn-parla { z-index: 56; }
+}
+/* dadi: etichette e risultato più ordinati */
+.dadi-opz { margin-top: 10px; }
+.ultimo-tiro { padding: 16px 12px; }
+/* schermi stretti */
+@media (max-width: 480px) {
+  .barra { gap: 6px; }
+  .logo svg { width: 24px; height: 24px; }
+  .presenza .av { width: 30px; height: 30px; font-size: .8rem; }
+  .azioni-barra { gap: 6px; }
+  .carta { padding: 14px; }
+}
+/* "Annulla" sempre sopra i sottotitoli, mai coperto */
+.annulla-bar { z-index: 57; bottom: calc(var(--navh) + 96px + env(safe-area-inset-bottom)); }
+@media (min-width: 1100px) { .annulla-bar { bottom: 24px; left: calc(50% - 220px); } #sottotitoli { bottom: 96px; width: min(60vw, 900px); left: calc(50% - 220px); } }
+.nav { background: #16120f; box-shadow: 0 -6px 18px rgba(0,0,0,.35); } /* barra in basso piena: il testo sotto non traspare */
