@@ -6,7 +6,7 @@ const Mappa = (() => {
     '~': ['#3b6f9c', '#376894', '#3f76a4'], 'T': ['#2f5a2c', '#2b5428', '#335f30'], 'R': ['#4a4440', '#433e3a', '#4f4945'], '=': ['#8a6640', '#83603c', '#906b44'],
     '+': ['#c48a3a'], 't': ['#6b4a2b'], 'b': ['#5a3a20'], 'f': ['#d0602a'], 'c': ['#b04848'], '^': ['#9a9a9a'], 'w': ['#76706a', '#6f6963', '#7b756f']
   };
-  let cv, ctx, luogo = null, segnalini = {}, membri = {}, opz = {}, tile = 24, trascina = null, dpr = 1, evidenzia = null;
+  let cv, ctx, luogo = null, segnalini = {}, membri = {}, opz = {}, tile = 24, trascina = null, premi = null, dpr = 1, evidenzia = null;
   let extra = { aree: [], vedeTutto: false, movimento: null }, attesaArea = null;
   function setExtra(e) { extra = { ...extra, ...e }; disegna(); }
   function chiediCasella(cb) { attesaArea = cb; cv.style.cursor = 'crosshair'; }
@@ -29,7 +29,8 @@ const Mappa = (() => {
 
   function init(canvas, o) {
     cv = canvas; ctx = cv.getContext('2d'); opz = o;
-    cv.addEventListener('pointerdown', giu); cv.addEventListener('pointermove', muovi); cv.addEventListener('pointerup', su); cv.addEventListener('pointercancel', () => { trascina = null; disegna(); });
+    cv.addEventListener('pointerdown', giu); cv.addEventListener('pointermove', muovi); cv.addEventListener('pointerup', su); cv.addEventListener('pointercancel', () => { trascina = null; annullaPremi(); disegna(); });
+    cv.addEventListener('contextmenu', e => e.preventDefault());
     new ResizeObserver(() => adatta()).observe(cv.parentElement);
   }
   function adatta() {
@@ -145,11 +146,24 @@ const Mappa = (() => {
     if (attesaArea) { const cb = attesaArea; attesaArea = null; cv.style.cursor = ''; cb(q.x, q.y); return; }
     const id = Object.keys(segnalini).find(k => segnalini[k].x === q.x && segnalini[k].y === q.y && opz.puoMuovere(k));
     if (id) { trascina = { id, x: q.x, y: q.y }; cv.setPointerCapture(ev.pointerId); ev.preventDefault(); return; }
-    const ed = luogo.edifici.find(e => q.x >= e.x && q.x < e.x + e.w && q.y >= e.y && q.y < e.y + e.h);
-    if (ed) { evidenzia = ed.id; disegna(); opz.onEdificio?.(ed); setTimeout(() => { evidenzia = null; disegna(); }, 1500); }
+    // tocco breve = muovi qui il tuo segnalino; pressione lunga = scheda dell'edificio
+    annullaPremi();
+    premi = { x: q.x, y: q.y, timer: setTimeout(() => {
+      const p = premi; premi = null;
+      const ed = luogo.edifici.find(e => p.x >= e.x && p.x < e.x + e.w && p.y >= e.y && p.y < e.y + e.h);
+      if (ed) { evidenzia = ed.id; disegna(); opz.onEdificio?.(ed); setTimeout(() => { evidenzia = null; disegna(); }, 1500); }
+    }, 450) };
   }
-  function muovi(ev) { if (!trascina) return; const q = posDa(ev); if (q.x !== trascina.x || q.y !== trascina.y) { trascina.x = Math.max(0, Math.min(luogo.w - 1, q.x)); trascina.y = Math.max(0, Math.min(luogo.h - 1, q.y)); disegna(); } }
-  function su() { if (!trascina) return; const t = trascina; trascina = null; segnalini[t.id] = { ...segnalini[t.id], x: t.x, y: t.y }; disegna(); opz.onMuovi?.(t.id, t.x, t.y); }
+  function annullaPremi() { if (premi) clearTimeout(premi.timer); premi = null; }
+  function muovi(ev) { if (premi) { const q = posDa(ev); if (q.x !== premi.x || q.y !== premi.y) annullaPremi(); } if (!trascina) return; const q = posDa(ev); if (q.x !== trascina.x || q.y !== trascina.y) { trascina.x = Math.max(0, Math.min(luogo.w - 1, q.x)); trascina.y = Math.max(0, Math.min(luogo.h - 1, q.y)); disegna(); } }
+  function su() {
+    if (premi) {
+      const p = premi, io = opz.io(); annullaPremi();
+      const libera = !'#wRT~'.includes(cella(p.x, p.y)) && !Object.values(segnalini).some(s => s.x === p.x && s.y === p.y);
+      if (segnalini[io] && libera) { segnalini[io] = { ...segnalini[io], x: p.x, y: p.y }; disegna(); opz.onMuovi?.(io, p.x, p.y); }
+      return;
+    }
+    if (!trascina) return; const t = trascina; trascina = null; segnalini[t.id] = { ...segnalini[t.id], x: t.x, y: t.y }; disegna(); opz.onMuovi?.(t.id, t.x, t.y); }
   function shade(hex, amt) { const n = parseInt(hex.slice(1), 16); const c = v => Math.max(0, Math.min(255, v + amt)); return '#' + [c(n >> 16), c(n >> 8 & 255), c(n & 255)].map(v => v.toString(16).padStart(2, '0')).join(''); }
   function setVisto(id, visto) { if (luogo && luogo.id === id) { luogo.visto = visto; disegna(); } }
   return { init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, chiediCasella, setVisto, celleArea };

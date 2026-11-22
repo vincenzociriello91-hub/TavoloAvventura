@@ -1,6 +1,10 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.6.1';
+const VERSION = '1.6.2';
 const CHANGELOG = [
+  { v: '1.6.2', data: '22/11/2026', voci: [
+    'Mappa: un tocco breve su una casella sposta il tuo segnalino (niente più finestra dell\'edificio che si apre per sbaglio).',
+    'Per vedere un edificio o cambiarne lo stato ora si tiene premuto.'
+  ] },
   { v: '1.6.1', data: '22/11/2026', voci: [
     'Il master AI ricorda i PNG già incontrati: lo stesso personaggio non cambia più nome da un turno all\'altro.',
     'Inizi d\'avventura più originali e narrazione meno ripetitiva.',
