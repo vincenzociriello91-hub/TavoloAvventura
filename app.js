@@ -1,6 +1,12 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.0.2';
+const VERSION = '3.0.3';
 const CHANGELOG = [
+  { v: '3.0.3', data: '22/11/2026', voci: [
+    'La mappa del mondo sul telefono si apre centrata sul luogo dove siete (prima restava sul bordo).',
+    'Spettatori e TV non hanno più il tasto del microfono; la TV non mostra i bottoni delle reazioni.',
+    'I sottotitoli non coprono più le finestre aperte; scegliendo la lingua si traducono subito anche le ultime battute.',
+    'Premi della campagna solo quando sono meritati (non più «Lanciadadi compulsivo» con un tiro solo).'
+  ] },
   { v: '3.0.2', data: '22/11/2026', voci: [
     'Tronchi e ceppi della grafica nuova restano nella loro casella (non coprono più strade e caselle vicine); i ponti di legno si vedono sopra l\'acqua.'
   ] },
