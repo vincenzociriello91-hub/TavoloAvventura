@@ -1,6 +1,11 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.5.3';
+const VERSION = '2.5.4';
 const CHANGELOG = [
+  { v: '2.5.4', data: '22/11/2026', voci: [
+    'Partita bot più leggera: non consuma più le immagini gratuite del giorno (ne fa una sola, piccola, per controllare il servizio) e alla fine la campagna di prova si cancella da sola.',
+    'Master AI più veloce: riparte dal modello di Gemini che ha appena risposto invece di riprovare quelli occupati.',
+    'Il rapporto della partita bot resta intero anche se metti l\'app in sottofondo mentre gira.'
+  ] },
   { v: '2.5.3', data: '22/11/2026', voci: [
     'Comandi a voce: i nomi delle abilità dell\'altra edizione vengono capiti (in 3.5 "tiro per furtività" tira Muoversi silenziosamente, in 5e "tiro per osservare" tira Percezione).',
     'Illustrazioni: quando finisce la quota gratuita del giorno l\'app lo dice chiaramente e prova anche i modelli immagine di Gemini.'
@@ -191,6 +196,8 @@ const Report = {
   },
   async chiudi(motivo) {
     if (!this.eventi.length) return;
+    // durante la partita bot il rapporto resta intero: in sottofondo si mandano solo quelli già pronti
+    if (typeof BotProva !== 'undefined' && BotProva.attivo && /background|chiusa/.test(motivo)) { this.invia(); return; }
     this.log('fine', { motivo, stato: riepilogoStato() });
     const rapporto = { sessione: this.sessione, fine: new Date().toISOString(), motivo, eventi: this.eventi };
     this.eventi = [];
