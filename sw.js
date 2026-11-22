@@ -1,5 +1,5 @@
 // Service worker: prima la rete (sempre l'ultima versione), cache solo se offline.
-const CACHE = 'tavoloavventura-2.6.0';
+const CACHE = 'tavoloavventura-2.7.0';
 const FILES = ['./', 'index.html', 'styles.css', 'qrcode.js', 'regole.js', 'comandi.js', 'ritratto.js', 'lpc.js', 'mondo.js', 'mappa.js', 'voce.js', 'bot.js', 'suoni.js', 'app.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 const CDN = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
@@ -18,7 +18,7 @@ self.addEventListener('fetch', e => {
   if (url.origin === location.origin) {
     if (url.pathname.endsWith('version.json')) return; // sempre dalla rete
     // figure LPC e three.js non cambiano dentro una versione: prima la cache (avvio più veloce, meno richieste)
-    if (/\/(lpc|vendor)\//.test(url.pathname)) {
+    if (/\/(lpc|vendor|audio)\//.test(url.pathname)) {
       e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => { if (res.ok) { const copia = res.clone(); caches.open(CACHE).then(c => c.put(req, copia)); } return res; })));
       return;
     }

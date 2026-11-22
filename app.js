@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.6.0';
+const VERSION = '2.7.0';
 const CHANGELOG = [
+  { v: '2.7.0', data: '22/11/2026', voci: [
+    'Musica vera che cambia da sola con la scena: giorno, notte, taverna, dungeon, combattimento e boss (JP Soundworks). Si accende con "Musica e suoni d\'ambiente" in Altro.',
+    'Effetti sonori: il master ha una tavola dei suoni (porta, colpo, magia, monete, pozione, tuono, vittoria, sconfitta) che suona su tutti i telefoni; anche il master AI li usa nei momenti giusti.',
+    'Controller: se colleghi un gamepad (es. sulla Odin) si attiva da solo. Croce per muoverti, A per tirare, X tenuto per parlare, dorsali per cambiare scheda, Y per vedere tutta la mappa.',
+    'Dadi personalizzati: in Altro scegli colore e materiale (opaco, lucido, metallo, gemma) dei tuoi dadi 3D.',
+    'Momento epico sul 20 naturale: grande animazione per tutti, suono e il master racconta l\'impresa.'
+  ] },
   { v: '2.6.0', data: '22/11/2026', voci: [
     'Mappe disegnate a mano: prati, strade, acqua, alberi di stagione, case, botteghe, taverne e oggetti presi dai pacchetti grafici comprati (The Fan-tasy Tileset, Time Fantasy, pixelbean). La grafica arriva solo a chi è dentro la campagna.',
     'Illustrazioni anche quando finiscono i crediti gratuiti di Cloudflare: c\'è la riserva di Hugging Face.'
@@ -328,9 +335,11 @@ function gestisci(m) {
       if (/attacc|colp|fendent|affond|spada|ascia|mazza|martell|pugnal|arco|frecci|balestr|incantesim|dardo|palla di fuoco|raggio|per colpire|tiro per colpire/i.test(m.tiro.motivo || '')) Mappa.attacco(m.tiro.chi);
       if (m.tiro.chi === S.io) { S.ultimoMio = m.tiro; $('#tiroAzioni').hidden = false; Suoni.effetto(m.tiro.critico ? 'critico' : m.tiro.fallimento ? 'fallimento' : 'dado'); }
       if (m.tiro.chi === S.io || document.body.classList.contains('tv')) mostraTiro(m.tiro);
-      if (OPZ.dadi3d !== false && (m.tiro.chi === S.io || S.vista === 'vMappa' || document.body.classList.contains('tv'))) import('./dadi3d.js').then(d => d.lancia(m.tiro)).catch(e => Report.log('dadi-3d', { errore: String(e?.message || e) }));
+      if (OPZ.dadi3d !== false && (m.tiro.chi === S.io || S.vista === 'vMappa' || document.body.classList.contains('tv'))) import('./dadi3d.js').then(d => d.lancia(m.tiro, m.tiro.chi === S.io ? { colore: OPZ.dadiColore, materiale: OPZ.dadiMateriale } : { colore: S.st.membri?.[m.tiro.chi]?.colore, materiale: 'opaco' })).catch(e => Report.log('dadi-3d', { errore: String(e?.message || e) }));
+      if (m.tiro.critico && /^1?d20/.test(m.tiro.formula) && !m.tiro.segreto) momentoEpico(m.tiro);
       renderTiri(); renderRapidi(); return;
     }
+    case 'suono': Suoni.effetto(m.nome); return;
     case 'luogo': S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; S.st.aree = []; renderMappa(); if (!$('#mondoBox').hidden) renderMappaMondo(); Report.log('luogo', { nome: m.luogo.nome, tipo: m.luogo.tipo }); return;
     case 'luogo_mod': S.st.luogo = m.luogo; renderMappa(); return;
     case 'segnalini': {
@@ -540,7 +549,7 @@ function renderMappa() {
   if (l) { Mappa.imposta(l, S.st.segnalini, S.st.membri); aggiornaExtraMappa(); }
   if (OPZ.vista3d && l && (!S.m3 || $('#mappa3dBox').hidden)) vista3D(true);
 }
-function aggiornaScenaSonora() { const c = S.st?.combattimento; Suoni.scena(c?.attivo ? 'combattimento' : S.st?.luogo?.tipo || 'aperto'); }
+function aggiornaScenaSonora() { const c = S.st?.combattimento, boss = c?.attivo && c.ordine?.some(o => o.nemico !== false && /boss|capo|re |regina|drago|grumsh|lich|demone|gigante|ogre|troll/i.test(o.nome || '')); Suoni.scena(c?.attivo ? (boss ? 'boss' : 'combattimento') : S.st?.luogo?.tipo || 'aperto'); }
 function aggiornaExtraMappa() {
   aggiornaScenaSonora();
   const c = S.st?.combattimento, ora = c?.attivo && c.ordine[c.turno];
@@ -1378,4 +1387,51 @@ window.addEventListener('resize', () => { if (largo() && S.vista === 'vMappa') m
     if (document.body.classList.contains('tv')) { connetti(codice, () => ({ t: 'entra', invito, nome: 'TV del tavolo', ruolo: 'spettatore' })); return; }
     $('#cartaCrea').hidden = true; $('#eNome').focus();
   }
+})();
+
+/* ============ 20 NATURALE: momento epico ============ */
+function momentoEpico(tiro) {
+  const chi = S.st.pg?.[tiro.chi]?.nome || S.st.membri?.[tiro.chi]?.nome || 'Qualcuno';
+  const el = document.createElement('div'); el.className = 'epico';
+  el.innerHTML = `<div><b>20</b><span>naturale!</span><small>${esc(chi)}${tiro.motivo ? ' · ' + esc(tiro.motivo) : ''}</small></div>`;
+  document.body.appendChild(el); setTimeout(() => el.remove(), 2600);
+  Suoni.effetto('raro'); if (navigator.vibrate) navigator.vibrate([60, 40, 120]);
+}
+
+/* ============ Tavola dei suoni del master ============ */
+document.addEventListener('click', e => { const b = e.target.closest('[data-suono]'); if (b) invia({ t: 'suono', nome: b.dataset.suono }); });
+
+/* ============ Dadi personalizzati ============ */
+if ($('#optDadiColore')) {
+  $('#optDadiColore').value = OPZ.dadiColore || '#b8433a'; $('#optDadiMateriale').value = OPZ.dadiMateriale || 'lucido';
+  $('#optDadiColore').addEventListener('change', e => { OPZ.dadiColore = e.target.value; scrivi('ta_opzioni', OPZ); });
+  $('#optDadiMateriale').addEventListener('change', e => { OPZ.dadiMateriale = e.target.value; scrivi('ta_opzioni', OPZ); });
+  $('#btnProvaDadi').addEventListener('click', () => import('./dadi3d.js').then(d => d.lancia({ formula: '1d20', dadi: [1 + Math.floor(Math.random() * 20)] }, { colore: OPZ.dadiColore, materiale: OPZ.dadiMateriale })));
+}
+
+/* ============ Controller (gamepad): si attiva da solo quando l'app ne vede uno ============ */
+const Pad = (() => {
+  let attivo = false, prima = {}, ultimoPasso = 0;
+  const VISTE = ['vMappa', 'vScheda', 'vDadi', 'vDiario', 'vAltro'];
+  const premuto = (p, i) => !!p.buttons[i]?.pressed;
+  function giro() {
+    const p = [...(navigator.getGamepads?.() || [])].find(Boolean);
+    if (!p) { attivo = false; return; }
+    requestAnimationFrame(giro);
+    const ora = performance.now(), b = i => premuto(p, i) && !prima[i];
+    // croce o levetta sinistra: muove il mio segnalino di una casella (gira intorno ai muri come col dito)
+    const dx = (premuto(p, 15) ? 1 : premuto(p, 14) ? -1 : 0) || (Math.abs(p.axes[0]) > 0.6 ? Math.sign(p.axes[0]) : 0);
+    const dy = (premuto(p, 13) ? 1 : premuto(p, 12) ? -1 : 0) || (Math.abs(p.axes[1]) > 0.6 ? Math.sign(p.axes[1]) : 0);
+    const s = S.st?.segnalini?.[S.io];
+    if ((dx || dy) && s && ora - ultimoPasso > 220) { ultimoPasso = ora; Mappa.azioneCasella(s.x + dx, s.y + dy, false); }
+    if (b(0)) { const tira = $('#richiesta:not([hidden]) button'); if (tira) tira.click(); else if ($('#dlg').open) $('#dlgAzioni button')?.click(); else $('#dadiTasti button[data-f="20"]')?.click(); } // A: tira o conferma
+    if (b(1) && $('#dlg').open) $('#dlg').close(); // B: chiude
+    if (b(4) || b(5)) { const i = VISTE.indexOf(S.vista), j = (i + (b(5) ? 1 : VISTE.length - 1)) % VISTE.length; $(`#nav button[data-v="${VISTE[j]}"]`)?.click(); } // dorsali: scheda dopo/prima
+    if (b(3)) $('#btnZoomTutta')?.click(); // Y: tutta la mappa
+    const x = premuto(p, 2); if (x !== !!prima[2]) $('#btnParla')?.dispatchEvent(new PointerEvent(x ? 'pointerdown' : 'pointerup', { bubbles: true })); // X tenuto: parla
+    prima = Object.fromEntries(p.buttons.map((v, i) => [i, v.pressed]));
+  }
+  addEventListener('gamepadconnected', e => { if (attivo) return; attivo = true; toast(`🎮 Controller collegato: croce per muoverti, A tira, X tenuto per parlare, dorsali per cambiare scheda`); Report.log('controller', { id: e.gamepad.id.slice(0, 60) }); giro(); });
+  addEventListener('gamepaddisconnected', () => toast('Controller scollegato'));
+  return { get attivo() { return attivo; } };
 })();
