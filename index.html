@@ -103,7 +103,8 @@
       <div class="mappa-box" id="mappaBox"><canvas id="mappa" aria-label="Mappa del luogo"></canvas>
         <div class="vuoto" id="mappaVuota"><p>Il gruppo non è ancora in nessun luogo.</p><p class="piccolo" id="mappaVuotaSugg">Il master AI vi porterà nel primo luogo appena iniziate a giocare. Potete anche scrivere un luogo qui sopra.</p></div>
       </div>
-      <div class="riga strumenti-mappa"><button id="btnArea" type="button">Area incantesimo</button><button id="btnPulisciAree" type="button" hidden>Togli le aree</button><button id="btnCombat" type="button" hidden>Inizia combattimento</button></div>
+      <div class="mondo-box" id="mondoBox" hidden><svg id="mondoSvg" role="img" aria-label="Mappa del mondo: luoghi conosciuti e viaggi del gruppo"></svg></div>
+      <div class="riga strumenti-mappa"><button id="btnMondo" type="button">Mappa del mondo</button><button id="btnArea" type="button">Area incantesimo</button><button id="btnPulisciAree" type="button" hidden>Togli le aree</button><button id="btnCombat" type="button" hidden>Inizia combattimento</button></div>
       <p class="piccolo aiuto-mappa">Trascina il tuo segnalino per muoverti. Tocca un edificio per vederlo<span id="aiutoCapo" hidden> o cambiarne lo stato</span>.</p>
     </div>
 
@@ -150,6 +151,7 @@
         <button type="submit">Chiedi</button>
       </form>
       <div id="rispostaRegola" class="carta-mini" hidden></div>
+      <details class="carta-mini" id="boxMondo"><summary>Il mondo: fazioni, valute, notizie</summary><div id="mondo"></div></details>
       <ul class="diario" id="diario"></ul>
     </div>
 

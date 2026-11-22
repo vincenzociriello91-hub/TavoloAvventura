@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 const CHANGELOG = [
+  { v: '1.4.0', data: '22/11/2026', voci: [
+    'Fazioni e reputazione: il master AI le crea e le aggiorna, e i PNG trattano il gruppo di conseguenza.',
+    'Valute locali con il cambio in monete d\'oro ("trovo 30 corone di Argentea").',
+    'Relazioni tra personaggi: più il legame è stretto, più della tua scheda vedono gli altri.',
+    'Il mondo va avanti tra una sessione e l\'altra: ricostruzioni, notizie del banditore, fazioni.',
+    'Mappa del mondo con i luoghi conosciuti e il diario dei viaggi del gruppo.'
+  ] },
   { v: '1.3.0', data: '22/11/2026', voci: [
     'Incantesimi: slot per livello calcolati da soli (5e e 3.5, anche patto del warlock e incantesimi bonus), CD e attacco, "lancio palla di fuoco" a voce.',
     'Talenti nella scheda, con il conteggio dei talenti disponibili in 3.5; in 5e un talento può sostituire l\'aumento di caratteristica.',
@@ -234,6 +241,8 @@ function gestisci(m) {
     case 'aree': S.st.aree = m.aree; aggiornaExtraMappa(); return;
     case 'nebbia': if (S.st.luogo?.id === m.id) { S.st.luogo.visto = m.visto; Mappa.setVisto(m.id, m.visto); } return;
     case 'gruppo': S.st.gruppo = m.gruppo; renderTesoro(); return;
+    case 'mondo': S.st.mondo = m.mondo; renderMondo(); if (!$('#mondoBox').hidden) renderMappaMondo(); return;
+    case 'relazioni': S.st.relazioni = m.relazioni; renderSchedaSeServe(); return;
     case 'pong': S.latenza = Math.round(performance.now() - (S.ping || performance.now())); return;
   }
 }
@@ -288,7 +297,7 @@ function renderTutto() {
   $('#mappaVuotaSugg').textContent = masterAI() ? 'Il master AI vi porterà nel primo luogo appena iniziate a giocare: salutatelo o scrivete un luogo qui sopra.' : 'Il master sceglierà il primo luogo.';
   $('#optMaster').closest('label').hidden = !masterAI();
   $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo();
-  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderAltro();
+  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderMondo(); renderAltro();
 }
 function renderPresenza() {
   if (!S.st) return;
@@ -406,6 +415,12 @@ function renderScheda() {
     box.innerHTML = `<div class="carta"><p>${esc(S.st.membri[S.viewPg]?.nome)} non ha ancora creato il personaggio.</p></div>`; return;
   }
   const puo = S.viewPg === S.io || capo();
+  const vis = visibilita(S.viewPg);
+  if (vis < 2) {
+    const lv = S.st.relazioni?.[S.viewPg]?.[S.io] || 'sconosciuti';
+    box.innerHTML = `<div class="carta"><div class="pg-testa"><div class="ritratto">${Ritratto.svg(pg, { dim: 110 })}</div><div class="pg-info"><h2>${esc(pg.nome)}</h2><div class="piccolo">${esc(pg.razza)} · ${esc(Regole.nomeClassi(pg))} · livello ${pg.livello}</div>${vis >= 1 ? `<p>PF ${pg.pf}/${pg.pfMax} · CA ${pg.ca}</p><div class="car-griglia">${CAR.map(k => `<div class="car"><div class="sigla">${CAR_SIGLE[k]}</div><div class="val">${pg.car[k]}</div></div>`).join('')}</div>` : ''}<p class="piccolo">Siete ${esc(lv)}: ${vis >= 1 ? 'vedi le informazioni principali' : 'vedi solo l\'aspetto'}. Più il legame è stretto, più vedi della sua scheda.</p></div></div></div>`;
+    return;
+  }
   const set = Regole.set(pg.regole);
   const r = pg.pfMax ? pg.pf / pg.pfMax : 1;
   const comp = pg.regole === '3.5' ? `<div class="stat"><b>${segno(Regole.bab('3.5', pg.classe, pg.livello, pg))}</b><span>BAB</span></div>` : `<div class="stat"><b>+${Regole.competenza(pg.livello)}</b><span>COMPETENZA</span></div>`;
@@ -447,6 +462,7 @@ function renderScheda() {
     <p class="piccolo">Capacità di carico: ${Regole.caricoMax(pg)} kg${pg.aspetto?.altezza ? ` · altezza ${esc(pg.aspetto.altezza)} cm` : ''}${pg.aspetto?.peso ? ` · peso ${esc(pg.aspetto.peso)} kg` : ''}</p>
     ${puo ? `<form id="formOggetto" class="riga" autocomplete="off" style="margin-top:8px"><input id="nuovoOggetto" maxlength="60" placeholder="Aggiungi oggetto (es. Pozione di guarigione)" list="listaOggetti"><button class="pieno">Aggiungi</button></form>
     <datalist id="listaOggetti">${[...Object.keys(ARMI), ...Object.keys(ARMATURE), ...Object.keys(SCUDI), ...ELMI, 'Mantello', 'Amuleto', 'Pozione di guarigione', 'Torcia', 'Corda (15 m)', 'Razioni'].map(n => `<option value="${esc(n)}">`).join('')}</datalist>` : ''}
+    ${Object.keys(pg.valute || {}).length ? `<p class="piccolo">Valute locali: ${Object.entries(pg.valute).map(([k, v]) => `${v} ${esc(k)}${S.st.mondo?.valute?.[k] ? ` (≈ ${Math.round(v * S.st.mondo.valute[k].cambio * 10) / 10} mo)` : ''}`).join(' · ')}</p>` : ''}
     <div class="riga" style="margin-top:10px"><span>Monete d'oro: <strong>${pg.oro || 0}</strong></span>${puo ? '<button data-oro="?">Modifica</button>' : ''}<span>PX: <strong>${pg.px || 0}</strong></span>${puo ? '<button data-px="?">Aggiungi PX</button>' : ''}</div>
   </div>
   ${cartaMagia(pg, puo)}
@@ -454,6 +470,7 @@ function renderScheda() {
     <div class="chips">${(pg.talenti || []).map((t, i) => `<span class="chip">${esc(t)}${puo ? ` <button class="testo-btn" data-togtal="${i}" aria-label="Togli ${esc(t)}" style="min-height:24px;padding:0 4px">×</button>` : ''}</span>`).join('') || '<span class="piccolo">Nessun talento</span>'}</div>
     ${puo ? `<form id="formTalento" class="riga" autocomplete="off" style="margin-top:8px"><input id="nuovoTalento" maxlength="60" placeholder="${pg.regole === '5e' ? 'Es. Lottatore' : 'Es. Arma focalizzata'}"><button class="pieno">Aggiungi</button></form>${pg.regole === '5e' && pg.puntiCar >= 2 ? '<p class="piccolo">In 5e puoi scegliere un talento al posto dei 2 punti caratteristica: aggiungilo qui e i punti verranno usati.</p>' : ''}` : ''}
   </div>
+  ${S.viewPg === S.io ? cartaRelazioni() : ''}
   <div class="carta"><h3 style="margin-top:0">Condizioni</h3>
     <div class="cond">${CONDIZIONI.map(c => `<button class="chip ${(pg.condizioni || []).includes(c) ? 'on' : ''}" data-cond="${esc(c)}" ${puo ? '' : 'disabled'}>${esc(c)}</button>`).join('')}</div>
   </div>
@@ -463,6 +480,55 @@ function renderScheda() {
     <div class="riga"><button id="btnStampa">Stampa o salva in PDF</button>${puo ? '<button id="btnAnnullaScheda">Annulla ultima modifica</button>' : ''}</div>
   </div>`;
 }
+const LIVELLI_REL = ['sconosciuti', 'conoscenti', 'rivali', 'amici', 'amici stretti', 'compagni di vita', 'famiglia'];
+// 0 = solo aspetto, 1 = informazioni principali, 2 = tutta la scheda
+function visibilita(id) {
+  if (id === S.io || capo()) return 2;
+  const lv = S.st.relazioni?.[id]?.[S.io] || 'sconosciuti';
+  return ['amici stretti', 'compagni di vita', 'famiglia'].includes(lv) ? 2 : lv === 'amici' ? 1 : 0;
+}
+function cartaRelazioni() {
+  const altri = Object.entries(S.st.membri).filter(([id, m]) => id !== S.io && m.ruolo === 'giocatore');
+  if (!altri.length) return '';
+  const mie = S.st.relazioni?.[S.io] || {};
+  return `<div class="carta"><h3 style="margin-top:0">Relazioni</h3><p class="piccolo">Scegli che legame hai con gli altri: gli amici vedono PF e caratteristiche, amici stretti, compagni e famiglia vedono tutta la scheda.</p>
+    ${altri.map(([id, m]) => `<label>${esc(S.st.pg[id]?.nome || m.nome)} <span class="piccolo">(${esc(m.nome)})</span><select data-rel="${id}">${LIVELLI_REL.map(l => `<option ${l === (mie[id] || 'sconosciuti') ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('')}</div>`;
+}
+$('#scheda').addEventListener('change', e => { if (e.target.dataset.rel) { invia({ t: 'relazione', con: e.target.dataset.rel, livello: e.target.value }); toast('Legame aggiornato'); } });
+function renderMondo() {
+  const mo = S.st?.mondo || { fazioni: {}, valute: {}, viaggi: [], notizie: [] };
+  const fz = Object.entries(mo.fazioni || {}), vl = Object.entries(mo.valute || {});
+  const barra = r => `<div class="rep" role="meter" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="${r}"><div style="left:${r < 0 ? 50 + r / 2 : 50}%;width:${Math.abs(r) / 2}%;background:${r < 0 ? 'var(--rosso)' : 'var(--verde)'}"></div></div>`;
+  $('#mondo').innerHTML = `<h3>Fazioni</h3>${fz.map(([n, f]) => `<div class="mondo-riga"><strong>${esc(n)}</strong><span class="piccolo">${f.reputazione > 30 ? 'alleati' : f.reputazione > 5 ? 'amichevoli' : f.reputazione < -30 ? 'ostili' : f.reputazione < -5 ? 'diffidenti' : 'neutrali'} (${f.reputazione})</span></div>${barra(f.reputazione)}${f.descrizione ? `<p class="piccolo">${esc(f.descrizione)}</p>` : ''}`).join('') || '<p class="piccolo">Nessuna fazione conosciuta.</p>'}
+    <h3>Valute locali</h3>${vl.map(([n, v]) => `<p>${esc(n)}: 1 = ${v.cambio} monete d'oro</p>`).join('') || '<p class="piccolo">Solo monete d\'oro, per ora.</p>'}
+    <h3>Notizie</h3>${[...(mo.notizie || [])].reverse().slice(0, 5).map(n => `<p class="piccolo">Sessione ${n.sessione}: ${esc(n.testo)}</p>`).join('') || '<p class="piccolo">Nessuna notizia.</p>'}
+    <p class="piccolo">Viaggi registrati: ${(mo.viaggi || []).length}.</p>
+    ${capo() ? `<form id="formFazione" class="riga" autocomplete="off"><input id="fzNome" maxlength="40" placeholder="Fazione"><input id="fzRep" type="number" min="-100" max="100" value="0" style="width:90px;flex:0 0 90px" aria-label="Reputazione"><button>Salva fazione</button></form>
+    <form id="formValuta" class="riga" autocomplete="off"><input id="vlNome" maxlength="40" placeholder="Valuta (es. Corone di Argentea)"><input id="vlCambio" type="number" step="0.01" min="0.01" value="1" style="width:90px;flex:0 0 90px" aria-label="Cambio in oro"><button>Salva valuta</button></form>
+    <button id="btnEvolvi" type="button" class="largo">Fai andare avanti il mondo</button>` : ''}`;
+}
+$('#mondo').addEventListener('submit', e => {
+  e.preventDefault();
+  if (e.target.id === 'formFazione' && $('#fzNome').value.trim()) invia({ t: 'mondo', fazione: $('#fzNome').value.trim(), reputazione: Number($('#fzRep').value) });
+  if (e.target.id === 'formValuta' && $('#vlNome').value.trim()) invia({ t: 'mondo', valuta: $('#vlNome').value.trim(), cambio: Number($('#vlCambio').value) });
+});
+$('#mondo').addEventListener('click', e => { if (e.target.id === 'btnEvolvi') { invia({ t: 'mondo_evolvi' }); toast('Il mondo va avanti…'); } });
+// Mappa del mondo: luoghi conosciuti e viaggi del gruppo
+function renderMappaMondo() {
+  const idx = S.st?.luoghi || {}, mo = S.st?.mondo || {};
+  const ids = Object.keys(idx).sort((a, b) => (idx[a].prima || 0) - (idx[b].prima || 0));
+  const pos = {}; ids.forEach((id, i) => { let h = 7; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; pos[id] = [90 + (i % 4) * 160 + (h % 30) - 15, 60 + Math.floor(i / 4) * 110 + ((h >> 6) % 30) - 15]; });
+  const H = Math.max(420, 60 + Math.ceil(ids.length / 4) * 110);
+  const tratte = {}; for (const v of mo.viaggi || []) if (v.da && pos[v.da] && pos[v.a]) { const k = [v.da, v.a].sort().join('|'); tratte[k] = (tratte[k] || 0) + 1; }
+  const COLT = { citta: '#d9a441', villaggio: '#c9a26b', taverna: '#e2735f', dungeon: '#8a7a9a', foresta: '#57b47a', grotta: '#7a8a8a', castello: '#a98be8', porto: '#5b8fd9', aperto: '#9aae6a' };
+  const attuale = S.st?.luogo?.id;
+  $('#mondoSvg').setAttribute('viewBox', `0 0 680 ${H}`); $('#mondoSvg').style.height = H + 'px';
+  $('#mondoSvg').innerHTML = (ids.length ? '' : `<text x="400" y="200" text-anchor="middle" fill="#bcae96" font-size="16">Nessun luogo ancora visitato</text>`)
+    + Object.entries(tratte).map(([k, n]) => { const [a, b] = k.split('|'); return `<line x1="${pos[a][0]}" y1="${pos[a][1]}" x2="${pos[b][0]}" y2="${pos[b][1]}" stroke="#8a6640" stroke-width="${Math.min(8, 1 + n)}" stroke-dasharray="6 5" stroke-linecap="round"/>`; }).join('')
+    + ids.map(id => `<g data-luogo="${esc(idx[id].nome)}" style="cursor:pointer"><circle cx="${pos[id][0]}" cy="${pos[id][1]}" r="${id === attuale ? 16 : 12}" fill="${COLT[idx[id].tipo] || '#bcae96'}" stroke="${id === attuale ? '#fff' : '#14110f'}" stroke-width="3"/><text x="${pos[id][0]}" y="${pos[id][1] + 30}" text-anchor="middle" fill="#f3ead9" font-size="13" font-family="Inter, sans-serif">${esc(idx[id].nome.length > 20 ? idx[id].nome.slice(0, 19) + '…' : idx[id].nome)}<title>${esc(idx[id].nome)}</title></text></g>`).join('');
+}
+$('#btnMondo').addEventListener('click', () => { const b = $('#mondoBox'); b.hidden = !b.hidden; $('#btnMondo').textContent = b.hidden ? 'Mappa del mondo' : 'Mappa del luogo'; $('#mappaBox').hidden = !b.hidden; if (!b.hidden) renderMappaMondo(); else Mappa.adatta(); });
+$('#mondoSvg').addEventListener('click', e => { const g = e.target.closest('[data-luogo]'); if (!g) return; if (capo() || masterAI()) invia({ t: 'vai', nome: g.dataset.luogo }); else toast(g.dataset.luogo); });
 function cartaMagia(pg, puo) {
   const max = Regole.slotMax(pg); const cd = Regole.cd(pg);
   const usati = pg.slotUsati || [];
@@ -663,7 +729,7 @@ function renderDiario() {
 }
 $('#formChat').addEventListener('submit', e => {
   e.preventDefault(); const t = $('#chatTesto').value.trim(); if (!t) return;
-  const r = mioPg() ? Comandi.interpreta(t, mioPg(), regole()) : null;
+  const r = mioPg() ? Comandi.interpreta(t, mioPg(), regole(), S.st.mondo) : null;
   if (r) eseguiComando(r, t, 'scritto');
   else { invia({ t: 'chat', testo: t, alMaster: masterAI() && $('#alMaster').checked }); if (masterAI() && $('#alMaster').checked) S.ultimoParlato = Date.now(); }
   $('#chatTesto').value = '';
@@ -694,7 +760,7 @@ function attivaAscolto() {
 }
 function sentitaFrase(frase) {
   if (!S.st || me()?.ruolo === 'spettatore') return;
-  const r = Comandi.interpreta(frase, mioPg(), regole());
+  const r = Comandi.interpreta(frase, mioPg(), regole(), S.st.mondo);
   if (r) return eseguiComando(r, frase, 'voce');
   if (mioPg() && /\b(punt[oi]|livell|danni|monete|equipagg|indoss|inventario|zaino|caratteristic|punti ferita|ferit|esperienza)\b/i.test(frase)) {
     const id = Math.random().toString(36).slice(2, 8); S.pendenti[id] = frase;

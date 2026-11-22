@@ -24,7 +24,7 @@ const RIF_ARTICOLI = /^(il|lo|la|l'|i|gli|le|un|una|uno|un'|del|della|dello|dei|
 const pulisciNome = s => { let n = s.trim(); for (let k = 0; k < 3; k++) n = n.replace(RIF_ARTICOLI, ''); n = n.replace(/\s+(nello|nell'|nella|all'|allo|alla|nel)\s+(zaino|inventario).*$/, '').replace(/\s+(per favore|grazie)$/, '').trim(); return n.charAt(0).toUpperCase() + n.slice(1); };
 
 const Comandi = {
-  interpreta(frase, pg, regole) {
+  interpreta(frase, pg, regole, mondo) {
     const f = pulisci(frase);
     if (!f) return null;
     const n = primoNumero(f);
@@ -92,6 +92,11 @@ const Comandi = {
     }
     if (/\b(riposo lungo|lungo riposo)\b/.test(f)) return { ops: [{ op: 'riposo' }] };
 
+    // --- valute locali (dal mondo della campagna) ---
+    if (n !== null && mondo?.valute) {
+      const v = Object.keys(mondo.valute).find(k => f.includes(pulisci(k)) || f.includes(pulisci(k).split(' ')[0]));
+      if (v) return { ops: [{ op: 'valuta', valuta: v, delta: /\b(spendo|pago|perdo|consegno|do|tolgo|meno)\b/.test(f) ? -n : n }] };
+    }
     // --- monete ed esperienza ---
     if (n !== null && /\b(monete|moneta|mo|oro|pezzi d' oro|pezzi d'oro)\b/.test(f)) {
       if (/\b(spendo|pago|perdo|consegno|do|dono|regalo|tolgo|togli|meno)\b/.test(f)) return { ops: [{ op: 'oro', delta: -n }] };
@@ -150,6 +155,7 @@ const Comandi = {
         case 'pf': { const d = Number(o.delta) || 0; pg.pf = Math.max(-pg.pfMax, Math.min(pg.pfMax, pg.pf + d)); if (d < 0) pg.ferite = [...(pg.ferite || []), { zona: ['torso', 'braccio', 'gamba', 'testa'][(pg.ferite || []).length % 4], t: Date.now() }].slice(-6); else if (pg.pf >= pg.pfMax) pg.ferite = []; else pg.ferite = (pg.ferite || []).slice(1); note.push(`${d < 0 ? 'subisce ' + -d + ' danni' : 'recupera ' + d + ' punti ferita'} (PF ${pg.pf}/${pg.pfMax})`); break; }
         case 'pfmax': { const d = Number(o.delta) || 0; pg.pfMax = Math.max(1, pg.pfMax + d); pg.pf = Math.min(pg.pfMax, pg.pf + Math.max(0, d)); note.push(`PF massimi ${d > 0 ? '+' : ''}${d} (ora ${pg.pfMax})`); break; }
         case 'livello': { for (let i = 0; i < Math.min(5, o.delta || 1); i++) { const r = Regole.saliLivello(pg, null, o.classe); note.push(r.msg); if (!r.ok) break; } break; }
+        case 'valuta': { pg.valute = { ...(pg.valute || {}) }; pg.valute[o.valuta] = Math.max(0, (pg.valute[o.valuta] || 0) + (Number(o.delta) || 0)); note.push(`${o.delta >= 0 ? '+' : ''}${o.delta} ${o.valuta} (totale ${pg.valute[o.valuta]})`); break; }
         case 'lancia': { const r = Regole.lancia(pg, o.nome, o.livello); note.push(r.msg); break; }
         case 'slot': { const max = Regole.slotMax(pg); pg.slotUsati = pg.slotUsati || []; if ((max[o.livello] || 0) > (pg.slotUsati[o.livello] || 0)) { pg.slotUsati[o.livello] = (pg.slotUsati[o.livello] || 0) + 1; note.push(`usa uno slot di ${o.livello}° livello`); } else note.push(`nessuno slot di ${o.livello}° livello libero`); break; }
         case 'recuperaslot': { Regole.recuperaSlot(pg); note.push('recupera tutti gli slot degli incantesimi'); break; }

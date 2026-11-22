@@ -234,3 +234,8 @@ body.tv .btn-parla { display: none !important; }
 .tesoro-ogg li span { flex: 1; }
 .slot { font-size: 1.1rem; letter-spacing: 2px; color: var(--oro2); flex: 1; }
 .slot-riga button { min-height: 34px; padding: 2px 12px; }
+.mondo-box { background: #15110e; border: 1px solid var(--bordo); border-radius: var(--r); overflow: auto; }
+.mondo-box svg { display: block; width: 100%; min-width: 640px; height: 420px; }
+.rep { height: 8px; background: #3a2f26; border-radius: 4px; position: relative; overflow: hidden; margin: 4px 0 8px; }
+.rep div { position: absolute; top: 0; bottom: 0; }
+.mondo-riga { display: flex; justify-content: space-between; gap: 8px; }
