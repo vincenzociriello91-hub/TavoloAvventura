@@ -1,6 +1,11 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.4.1';
+const VERSION = '3.5.0';
 const CHANGELOG = [
+  { v: '3.5.0', data: '22/11/2026', voci: [
+    'Più sicurezza: il link per gli amici spettatori ha un codice suo e fa entrare solo a guardare; chi guarda non può spostare il gruppo, toccare il tesoro o chiamare il master.',
+    'Le schede non possono più portare codice nascosto agli altri giocatori, e chi manda messaggi a raffica viene frenato.',
+    'La storia del personaggio scritta col master non cancella più le modifiche fatte alla scheda nel frattempo.'
+  ] },
   { v: '3.4.1', data: '22/11/2026', voci: [
     'L\'invito alla guida «Come si gioca» per chi entra la prima volta adesso compare davvero sulla Mappa (sparisce con «No grazie»).'
   ] },
@@ -491,7 +496,7 @@ function gestisci(m) {
     case 'riepilogo': Report.log('riepilogo', { titolo: m.r.titolo, immagine: !!m.r.img }); mostraRiepilogo(m.r); return;
     case 'riepiloghi': { const r = m.elenco.find(x => x.t === S.apriRiepilogo); if (r) mostraRiepilogo(r); return; }
     case 'rtc': Voce.segnale(m.da, m.dati); return;
-    case 'invito': S.st.campagna.invito = m.invito; renderInvito(); toast('Nuovo codice invito creato: i vecchi QR non funzionano più'); return;
+    case 'invito': S.st.campagna.invito = m.invito; S.st.campagna.invitoSpettatori = m.invitoSpettatori; renderInvito(); toast('Nuovo codice invito creato: i vecchi QR non funzionano più'); return;
     case 'interpretato': {
       const frase = S.pendenti[m.id]; delete S.pendenti[m.id];
       if (m.ops?.length) { modifica(m.ops, `a voce: "${frase}"`); Report.log('comando-voce', { testo: frase, esito: 'capito dall\'AI', ops: m.ops }); }
@@ -1278,7 +1283,8 @@ $('#btnParla').addEventListener('contextmenu', e => e.preventDefault());
 
 /* ============ ALTRO ============ */
 $('#btnSpettatori').addEventListener('click', async () => {
-  const l = linkInvito() + '&s=1';
+  const sp = S.st?.campagna?.invitoSpettatori; if (!sp) { toast('Link per spettatori non disponibile: ricarica la pagina', true); return; }
+  const l = `${location.origin}${location.pathname}?c=${S.codice}&i=${sp}&s=1`; // codice a parte: con questo link si entra solo per guardare
   try { if (navigator.share) await navigator.share({ title: 'Guarda la nostra partita di D&D', url: l }); else { await navigator.clipboard.writeText(l); toast('Link per spettatori copiato'); } } catch {}
   Report.log('link_spettatori', {});
 });

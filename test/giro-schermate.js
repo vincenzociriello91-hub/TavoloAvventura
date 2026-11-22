@@ -51,7 +51,7 @@ const errori = [], foto = [];
   await A.click('#optGrandi'); await vista(A, 'vScheda'); await scatta(A, 'caratteri-grandi', { full: false }); await vista(A, 'vAltro'); await A.click('#optGrandi');
   await A.selectOption('#optLingua', 'en'); await A.evaluate(() => invia({ t: 'chat', testo: 'Cerco tracce di goblin', alMaster: true })); await A.waitForTimeout(9000); await vista(A, 'vDiario'); await scatta(A, 'traduzione', { full: false }); await vista(A, 'vAltro'); await A.selectOption('#optLingua', '');
   // 10. spettatore e TV
-  const S1 = await nuovo({ width: 412, height: 915 }, 'Spettatore'); await S1.goto(link + '&s=1'); await scatta(S1, 'ingresso-spettatore', { full: false }); await S1.fill('#eNome', 'Amico'); await S1.click('#btnEntra'); await S1.waitForSelector('#gioco:not([hidden])'); await S1.waitForTimeout(2000); await chiudiDialogo(S1); await scatta(S1, 'spettatore');
+  const S1 = await nuovo({ width: 412, height: 915 }, 'Spettatore'); await S1.goto(await A.evaluate(() => `${location.origin}${location.pathname}?c=${S.codice}&i=${S.st.campagna.invitoSpettatori}&s=1`)); await scatta(S1, 'ingresso-spettatore', { full: false }); await S1.fill('#eNome', 'Amico'); await S1.click('#btnEntra'); await S1.waitForSelector('#gioco:not([hidden])'); await S1.waitForTimeout(2000); await chiudiDialogo(S1); await scatta(S1, 'spettatore');
   const TV = await nuovo({ width: 1920, height: 1080 }, 'TV'); await TV.goto(link + '&tv=1'); await TV.waitForTimeout(6000); await scatta(TV, 'tv', { full: false });
   // 11. master umano: schermo del master
   const M = await nuovo({ width: 412, height: 915 }, 'Master'); await M.goto(APP + '?v=' + Date.now()); await M.waitForSelector('#cartaCrea');

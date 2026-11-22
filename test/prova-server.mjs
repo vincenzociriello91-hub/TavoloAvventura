@@ -246,6 +246,20 @@ verifica(/^[A-Za-z0-9_-]{80,}$/.test((await D.aspetta(m => m.t === 'push_chiave'
 D.invia({ t: 'push_iscrivi', endpoint: 'https://sito-cattivo.example/push' });
 verifica(await D.aspetta(m => m.t === 'push_ok', 1200).then(() => false, () => true), 'iscrizione alle notifiche solo verso i servizi di notifica veri');
 
+// sicurezza: link per spettatori, spettatori che non toccano la partita, freno ai messaggi a raffica
+A.invia({ t: 'stato' }); const stSic = (await A.aspetta(m => m.t === 'stato')).stato;
+const S2 = client(); await S2.pronto; S2.invia({ t: 'entra', invito: stSic.campagna.invitoSpettatori, nome: 'Furbo', ruolo: 'giocatore' });
+const bS2 = await S2.aspetta(m => m.t === 'benvenuto');
+verifica(bS2.stato.membri[bS2.io].ruolo === 'spettatore' && !bS2.stato.campagna.invito && !bS2.stato.campagna.invitoSpettatori, 'con il link per spettatori si entra solo a guardare, e l\'invito dei giocatori resta nascosto');
+await new Promise(r => setTimeout(r, 500)); A.coda.length = 0;
+S2.invia({ t: 'vai', nome: 'Posto del furbo' }); S2.invia({ t: 'gruppo', op: 'oro', delta: -100 }); S2.invia({ t: 'dungeon_giorno' }); S2.invia({ t: 'chat', testo: 'spam', alMaster: true });
+verifica(await A.aspetta(m => (m.t === 'luogo' && m.luogo.nome === 'Posto del furbo') || m.t === 'gruppo' || (m.t === 'diario' && m.ev.testo === 'spam'), 1500).then(() => false, () => true), 'uno spettatore non sposta il gruppo, non tocca il tesoro e non chiama il master');
+for (let i = 0; i < 60; i++) S2.invia({ t: 'stato' });
+verifica(/Troppi messaggi/.test((await S2.aspetta(m => m.t === 'errore', 4000)).msg), 'freno ai messaggi a raffica');
+
+D.invia({ t: 'scheda', pg: { nome: 'Lira', razza: 'Elfo', classe: 'Ranger', livello: '<img src=x onerror=alert(1)>', pf: 10, pfMax: 10, ca: 14, car: { for: 10, des: 16, cos: 12, int: 10, sag: 14, car: 10 }, equip: [] }, alMaster: false });
+verifica(!JSON.stringify((await A.aspetta(m => m.t === 'scheda' && m.per === bD.io && typeof m.pg.livello === 'string', 5000)).pg).includes('<'), 'una scheda non può portare codice HTML agli altri giocatori');
+
 // manuale del master: i problemi segnalati finiscono nel manuale condiviso, leggibile dal connettore
 D.invia({ t: 'segnala_problema', testo: 'Prova: mappa con caselle nere' });
 await new Promise(r => setTimeout(r, 800));
