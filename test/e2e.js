@@ -231,14 +231,15 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   v((await A.evaluate(() => leggi(chiavePref(), []))).length === 1, 'tiro salvato nei preferiti');
   // bot di prova
   await A.click('#nav button[data-v="vAltro"]');
-  v(await A.isVisible('#btnBot'), 'tasto bot visibile all\'amministratore');
+  v(await A.isVisible('#btnBot'), 'tasto partita bot visibile all\'amministratore');
   await A.click('#btnBot');
-  await A.waitForFunction(() => /Finito/.test(document.querySelector('#botLog').textContent), null, { timeout: 150000 });
+  await A.waitForFunction(() => /Finito/.test(document.querySelector('#botLog').textContent), null, { timeout: 300000 });
   const esitoBot = await A.textContent('#botLog li:last-child');
   console.log('     ', esitoBot);
-  v(/mappe persistenti: sì/.test(esitoBot) && /non capiti 0/.test(esitoBot), 'bot di prova completato senza problemi');
+  if (!/ 0 non riuscite/.test(esitoBot)) console.log('      passi:', await A.evaluate(() => [...document.querySelectorAll('#botLog li')].filter(l => /❌/.test(l.textContent)).map(l => l.textContent).join(' | ')));
+  v(/ 0 non riuscite/.test(esitoBot), 'partita bot (campagna nuova, 4 bot e master AI) completata senza problemi');
   await A.waitForTimeout(800);
-  v(!Object.values(await A.evaluate(() => S.st.membri)).some(m => m.nome === 'Bot di prova'), 'il bot esce dalla campagna');
+  v(!Object.values(await A.evaluate(() => S.st.membri)).some(m => /^Bot /.test(m.nome)), 'la partita bot non tocca la campagna di chi la avvia');
   v(await A.evaluate(() => S.st.costi?.totale?.chiamate > 0) && /chiamate/.test(await A.textContent('#costi')), 'pannello uso AI aggiornato');
   // 1.2.0: combattimento, aree, nebbia, tesoro, volti
   await A.click('#nav button[data-v="vMappa"]');
