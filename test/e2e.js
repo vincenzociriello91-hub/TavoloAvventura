@@ -110,8 +110,8 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await A.waitForFunction(() => S.st.luogo?.nome === 'Città di Argentea', null, { timeout: 5000 });
   const ed = await A.evaluate(() => S.st.luogo.edifici.find(e => e.nome === 'Locanda').id);
   await A.evaluate(id => invia({ t: 'modifica_luogo', edificio: id, stato: 'bruciato' }), ed);
-  await B.waitForFunction(id => S.st.luogo?.edifici.find(e => e.id === id)?.stato === 'bruciato', ed, { timeout: 5000 });
-  v(true, 'la locanda bruciata si vede anche da Marco');
+  await B.waitForTimeout(1000);
+  v(await B.evaluate(id => S.st.luogo.edifici.find(e => e.id === id).stato === 'integro', ed), 'con il master AI il creatore non può bruciare a mano un edificio');
   await B.waitForTimeout(400);
   await B.screenshot({ path: OUT + '/6-mappa-desktop.png' });
   const seg = await B.evaluate(() => S.st.segnalini[S.io]);

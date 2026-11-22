@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.6.2';
+const VERSION = '1.6.3';
 const CHANGELOG = [
+  { v: '1.6.3', data: '22/11/2026', voci: [
+    'Lo stato degli edifici (danneggiato, bruciato, distrutto) lo cambia solo il master: quello AI in automatico in base a ciò che succede in gioco, quello umano a mano.'
+  ] },
   { v: '1.6.2', data: '22/11/2026', voci: [
     'Mappa: un tocco breve su una casella sposta il tuo segnalino (niente più finestra dell\'edificio che si apre per sbaglio).',
     'Per vedere un edificio o cambiarne lo stato ora si tiene premuto.'
@@ -317,7 +320,7 @@ function renderTutto() {
   $('#tCampagna').textContent = c.nome;
   const cal = S.st.mondo?.calendario;
   $('#tSotto').textContent = `${Regole.set(c.regole).nome} · master ${c.masterTipo === 'ai' ? 'AI' : 'in carne e ossa'} · sessione ${c.sessione || 1}${cal ? ` · giorno ${cal.giorno}, ${cal.stagione}` : ''}`;
-  $('#aiutoCapo').hidden = !capo();
+  $('#aiutoCapo').hidden = me()?.ruolo !== 'master';
   $('#dSegretoBox').hidden = !capo();
   $('#boxNarra').hidden = !(capo() && c.masterTipo === 'umano');
   $('#alMasterBox').hidden = !masterAI();
@@ -359,7 +362,7 @@ Mappa.init($('#mappa'), {
   altezzaMax: () => largo() || document.body.classList.contains('tv') ? window.innerHeight - 200 : 9999,
   onEdificio: async ed => {
     const puoEntrare = (capo() || masterAI()) && !['dungeon', 'grotta', 'taverna', 'interno'].includes(S.st.luogo?.tipo) && ed.stato !== 'distrutto' && !/pozzo|torre|radura/i.test(ed.nome);
-    if (!capo()) {
+    if (me()?.ruolo !== 'master') { // lo stato degli edifici lo cambia solo il master (AI con gli eventi, umano da qui)
       if (!puoEntrare) { toast(`${ed.nome}${ed.stato !== 'integro' ? ' — ' + ed.stato : ''}`); return; }
       const i = await chiedi(`<h2>${esc(ed.nome)}</h2>${ed.stato !== 'integro' ? `<p>Stato: ${esc(ed.stato)}</p>` : ''}`, [{ testo: 'Entra', pieno: true }, { testo: 'Chiudi' }]);
       if (i === 0) invia({ t: 'entra_edificio', edificio: ed.id });
