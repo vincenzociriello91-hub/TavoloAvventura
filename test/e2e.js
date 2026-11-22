@@ -115,9 +115,9 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await B.waitForTimeout(400);
   await B.screenshot({ path: OUT + '/6-mappa-desktop.png' });
   // 2.4.0: ci si sposta solo dove si arriva a piedi (il server rifiuta i salti attraverso i muri)
-  const meta = await B.evaluate(() => { const s = S.st.segnalini[S.io]; for (const d of [3, -3, 2, -2, 4, -4]) if (Mappa.percorso(s, { x: s.x + d, y: s.y })) return { x: s.x + d, y: s.y }; });
+  const meta = await B.evaluate(() => { const s = S.st.segnalini[S.io], occ = Object.values(S.st.segnalini); for (let r = 3; r < 10; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const q = { x: s.x + dx, y: s.y + dy }; if (Math.max(Math.abs(dx), Math.abs(dy)) === r && !occ.some(o => o.x === q.x && o.y === q.y) && Mappa.percorso(s, q)) return q; } });
   await B.evaluate(m => invia({ t: 'segnalino', x: m.x, y: m.y }), meta);
-  await A.waitForFunction(([id, x]) => S.st.segnalini[id]?.x === x, [await B.evaluate(() => S.io), meta.x], { timeout: 5000 });
+  await A.waitForFunction(([id, m]) => S.st.segnalini[id]?.x === m.x && S.st.segnalini[id]?.y === m.y, [await B.evaluate(() => S.io), meta], { timeout: 5000 });
   v(true, 'segnalino spostato e visto dagli altri');
   // 1.6.2: tocco breve = muovi il segnalino (niente finestra dell'edificio); pressione lunga = finestra
   const tocca = (x, y, ms) => A.evaluate(async ([x, y, ms]) => {
@@ -149,6 +149,13 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await A.click('#btnZoomTutta'); await A.waitForTimeout(150);
   const tutta = await A.evaluate(() => { const b = document.querySelector('#mappaBox'), l = S.st.luogo, t = document.querySelector('#mappa').getBoundingClientRect().width / l.w; let x0 = l.w, x1 = -1; for (let i = 0; i < l.w * l.h; i++) if (!l.visto || l.visto[i] === '1') { x0 = Math.min(x0, i % l.w); x1 = Math.max(x1, i % l.w); } return (x1 - x0 + 1) * t <= b.clientWidth + 1; });
   v(larg1 > larg0 && tutta, 'zoom 2D: avvicina e poi mostra tutta la parte scoperta');
+  const pinch = await A.evaluate(async () => {
+    const c = document.querySelector('#mappa'), b = c.getBoundingClientRect(), w0 = b.width, cx = b.left + Math.min(120, b.width / 2), cy = b.top + Math.min(120, b.height / 2);
+    const p = (id, x, tipo) => c.dispatchEvent(new PointerEvent(tipo, { pointerId: id, clientX: x, clientY: cy, bubbles: true }));
+    p(11, cx - 20, 'pointerdown'); p(12, cx + 20, 'pointerdown'); p(11, cx - 50, 'pointermove'); p(12, cx + 50, 'pointermove'); p(11, cx - 50, 'pointerup'); p(12, cx + 50, 'pointerup');
+    await new Promise(r => setTimeout(r, 100)); return c.getBoundingClientRect().width > w0 * 1.5 && !c.style.transform;
+  });
+  v(pinch, 'zoom 2D con due dita');
   await A.screenshot({ path: OUT + '/16-mappa-tutta.png' });
   // 2.2.0: negozio nella scheda di Marco, schermo del master in Altro, libro della campagna
   await A.evaluate(() => invia({ t: 'apri_negozio', nome: 'Fabbro Ulrico', tipo: 'fabbro' }));

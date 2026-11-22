@@ -1,6 +1,12 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.4.0';
+const VERSION = '2.4.1';
 const CHANGELOG = [
+  { v: '2.4.1', data: '22/11/2026', voci: [
+    'Controllo di qualità: quando il telefono si risveglia o torna la rete, l\'app si ricollega subito (e rifà una connessione rimasta muta).',
+    'Vista 3D più leggera: quando vi muovete si aggiornano solo luci e buio, non tutto il luogo; edifici bruciati o distrutti si vedono subito anche in 3D.',
+    'Zoom con due dita più fluido sulla mappa 2D; avvio più veloce perché figure e grafica 3D restano salvate nel telefono.',
+    'Gli avvisi compaiono in alto e non coprono più i sottotitoli del master.'
+  ] },
   { v: '2.4.0', data: '22/11/2026', voci: [
     'Niente più muri attraversati: il personaggio cammina sul percorso vero e gira intorno a muri, case e mobili. Se un punto non si raggiunge, l\'app lo dice.',
     'Le parti della mappa non ancora viste restano al buio: si scopre solo ciò che i personaggi vedono davvero (i muri bloccano la vista).',
@@ -236,6 +242,17 @@ function connetti(codice, primo) {
 }
 function invia(o) { if (S.ws?.readyState === 1) { S.ws.send(JSON.stringify(o)); return true; } toast('Non connesso: riprovo tra poco', true); return false; }
 setInterval(() => { if (S.ws?.readyState === 1) { S.ping = performance.now(); S.ws.send('{"t":"ping"}'); } }, 25000);
+// telefono che si risveglia o rete che torna: si riconnette subito; una connessione muta (nessuna risposta in 5 s) si rifà
+function svegliaRete() {
+  if (!S.io || !S.codice) return;
+  const rientra = () => { S.tentativi = 0; connetti(S.codice, () => ({ t: 'ciao', membro: S.io, chiave: S.chiave })); };
+  if (!S.ws || S.ws.readyState > 1) return rientra();
+  if (S.ws.readyState !== 1) return;
+  const ws = S.ws, prima = S.pong || 0; S.ping = performance.now(); ws.send('{"t":"ping"}');
+  setTimeout(() => { if (S.ws === ws && (S.pong || 0) === prima) { Report.log('connessione', { muta: true }); rientra(); } }, 5000);
+}
+addEventListener('online', svegliaRete);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') svegliaRete(); });
 
 function gestisci(m) {
   switch (m.t) {
@@ -362,7 +379,7 @@ function gestisci(m) {
     case 'gruppo': S.st.gruppo = m.gruppo; renderTesoro(); return;
     case 'mondo': S.st.mondo = m.mondo; renderMondo(); Mappa.setAmbiente(m.mondo?.calendario); if (!$('#mondoBox').hidden) renderMappaMondo(); return;
     case 'relazioni': S.st.relazioni = m.relazioni; renderSchedaSeServe(); return;
-    case 'pong': S.latenza = Math.round(performance.now() - (S.ping || performance.now())); return;
+    case 'pong': S.latenza = Math.round(performance.now() - (S.ping || performance.now())); S.pong = Date.now(); return;
   }
 }
 
