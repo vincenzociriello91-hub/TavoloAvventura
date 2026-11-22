@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.4.0';
+const VERSION = '3.4.1';
 const CHANGELOG = [
+  { v: '3.4.1', data: '22/11/2026', voci: [
+    'L\'invito alla guida «Come si gioca» per chi entra la prima volta adesso compare davvero sulla Mappa (sparisce con «No grazie»).'
+  ] },
   { v: '3.4.0', data: '22/11/2026', voci: [
     'Promemoria delle serate come notifica sul telefono, il giorno prima e un\'ora prima (in Altro → Prossime serate → «Avvisami sul telefono»).',
     'Quando le immagini gratuite del server finiscono, il telefono disegna anche volti dei personaggi, mostri e il riepilogo di fine serata, non solo le scene.',
@@ -378,7 +381,7 @@ function gestisci(m) {
       S.io = m.io; if (m.chiave) S.chiave = m.chiave; S.st = m.stato; S.viewPg = S.io;
       salvaCampagna({ codice: S.codice, io: S.io, chiave: S.chiave, nome: S.st.campagna.nome, ruolo: me()?.ruolo });
       Report.log('entrato', { ruolo: me()?.ruolo, admin: me()?.admin, regole: regole(), master: S.st.campagna.masterTipo });
-      mostraGioco(); renderTutto(); avviaVoce(); controllaMappa(); meteoVero();
+      mostraGioco(); renderTutto(); avviaVoce(); controllaMappa(); meteoVero(); $('#invitoGuida').hidden = !(me()?.ruolo === 'giocatore' && !leggi('ta_guida_vista', false));
       Mappa.pacchetti(`${SERVER_WS.replace(/^ws/, 'http')}/tavolo/${S.codice}/grafica/atlante`, S.io, S.chiave); // grafica comprata, solo per i membri
       // l'invito sparisce dalla barra degli indirizzi; resta il codice, così ricaricando si rientra da soli
       history.replaceState(null, '', `${location.pathname}?c=${S.codice}${document.body.classList.contains('tv') ? '&tv=1' : ''}`);
@@ -1764,6 +1767,7 @@ async function guida() {
 }
 $('#btnGuida').addEventListener('click', guida);
 document.addEventListener('click', e => { if (e.target.closest('[data-guida]')) guida(); });
+document.addEventListener('click', e => { if (e.target.closest('[data-invito-guida]')) { scrivi('ta_guida_vista', true); $('#invitoGuida').hidden = true; } });
 
 /* ============ 20 NATURALE: momento epico ============ */
 function momentoEpico(tiro) {
