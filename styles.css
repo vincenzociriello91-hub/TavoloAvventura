@@ -401,3 +401,6 @@ body.tv #reazioni { display: none !important; }
 details.aiuto-mappa > summary { cursor: pointer; color: var(--oro2); font-size: .9rem; }
 .guida-invito { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; border-color: var(--oro); }
 .guida-invito[hidden] { display: none; }
+/* il tasto del microfono non copre gli ultimi comandi: sotto ogni vista resta spazio per scorrere */
+.gioco > .vista { padding-bottom: 92px; }
+.ultimo-tiro:empty::before { content: 'Tocca un dado per tirare'; color: var(--testo2, #a89c8a); font-size: .95rem; display: block; padding-top: 28px; }
