@@ -399,3 +399,5 @@ body.tv #reazioni { display: none !important; }
 .strumenti-mappa > button { flex: 0 1 auto; min-height: 38px; padding: 6px 12px; font-size: .88rem; }
 .strumenti-mappa > .zoom-mappa { flex: 1 1 100%; }
 details.aiuto-mappa > summary { cursor: pointer; color: var(--oro2); font-size: .9rem; }
+.guida-invito { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; border-color: var(--oro); }
+.guida-invito[hidden] { display: none; }
