@@ -148,7 +148,8 @@ details summary { cursor: pointer; color: var(--oro2); min-height: 44px; display
 /* Dadi */
 .dadi-tasti { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .dadi-tasti button { min-height: 64px; border-radius: 14px; font-weight: 800; font-size: 1.1rem; background: linear-gradient(180deg, #33281f, #241c16); }
-.dadi-tasti button.d20 { grid-column: span 2; background: linear-gradient(180deg, #5a4120, #3a2a16); border-color: var(--oro); color: var(--oro2); }
+.dadi-tasti button.d20 { grid-column: span 2; }
+.dadi-tasti button.scelto { background: linear-gradient(180deg, #5a4120, #3a2a16); border-color: var(--oro); color: var(--oro2); }
 .dadi-opz label { flex: 1 1 120px; margin: 4px 0; }
 .ultimo-tiro { text-align: center; padding: 12px; min-height: 100px; }
 .ultimo-tiro .tot { font-family: Cinzel, serif; font-size: 3rem; color: var(--oro2); display: inline-block; }

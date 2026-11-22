@@ -1,6 +1,7 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.5.0';
+const VERSION = '2.5.1';
 const CHANGELOG = [
+  { v: '2.5.1', data: '22/11/2026', voci: ['Dadi: resta evidenziato il dado che hai appena lanciato, non più sempre il d20.'] },
   { v: '2.5.0', data: '22/11/2026', voci: [
     'Grafica più armoniosa e leggibile: titolo della campagna più leggibile, presenze compatte, stesse spaziature e titoli in tutte le schede, strumenti della mappa ordinati in due colonne con lo zoom raccolto in un unico comando.',
     'I sottotitoli del master non coprono più il tasto per parlare, la barra "Annulla" né la fine delle pagine.',
@@ -899,9 +900,11 @@ function mostraAnnulla(testo) { $('#annullaTesto').textContent = testo; $('#annu
 $('#btnAnnulla').addEventListener('click', annulla);
 
 /* ============ DADI ============ */
-$('#dadiTasti').innerHTML = [4, 6, 8, 10, 12, 20, 100].map(f => `<button type="button" data-f="${f}" class="${f === 20 ? 'd20' : ''}">d${f}</button>`).join('');
+$('#dadiTasti').innerHTML = [4, 6, 8, 10, 12, 20, 100].map(f => `<button type="button" data-f="${f}" class="${f === 20 ? 'd20 scelto' : ''}" aria-pressed="${f === 20}">d${f}</button>`).join('');
 $('#dadiTasti').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
+  // l'ultimo dado lanciato resta evidenziato (non sempre il d20)
+  $$('#dadiTasti button').forEach(x => { x.classList.toggle('scelto', x === b); x.setAttribute('aria-pressed', x === b); });
   const q = Math.max(1, Math.min(20, Number($('#dQuanti').value) || 1)), m = Number($('#dMod').value) || 0;
   tira(`${q > 1 ? q : ''}d${b.dataset.f}${fm(m)}`, $('#dMotivo').value.trim(), $('input[name="dModo"]:checked').value || null, $('#dSegreto').checked);
 });
