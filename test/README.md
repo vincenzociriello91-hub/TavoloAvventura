@@ -13,3 +13,5 @@ Servono: Node 20+, `npm i ws playwright wrangler@4`, il repository `rapporti-vin
    - `node test/e2e.js` (app intera nel browser: due giocatori, TV, voce, bot di prova)
 
 Devono passare tutte prima di pubblicare.
+
+Partita bot sul server vero (4 bot + master AI, rapporti cifrati in TavoloAvventura-rapporti): workflow "Partita bot" su GitHub, a mano o con `[partita-bot]` nel messaggio del commit. In locale: `APP=http://localhost:8765/ node test/partita-bot.js`.

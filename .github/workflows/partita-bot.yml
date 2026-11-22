@@ -1,0 +1,20 @@
+# Partita bot "flash" sul server vero: 4 personaggi bot e il master AI provano tutte le funzioni dell'app pubblicata
+# (canale di prova). Ogni bot manda il suo rapporto cifrato, che arriva in TavoloAvventura-rapporti.
+# Si avvia a mano (Run workflow) o con [partita-bot] nel messaggio di un commit.
+name: Partita bot
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  partita:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[partita-bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm i --no-save playwright@1.48.2 && npx playwright install --with-deps chromium
+      - run: node test/partita-bot.js
+        env: { APP: 'https://vincenzociriello91-hub.github.io/TavoloAvventura/prova/' }
