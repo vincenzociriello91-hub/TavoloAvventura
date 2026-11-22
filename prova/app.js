@@ -1,6 +1,11 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.4.4';
+const VERSION = '2.5.0';
 const CHANGELOG = [
+  { v: '2.5.0', data: '22/11/2026', voci: [
+    'Grafica più armoniosa e leggibile: titolo della campagna più leggibile, presenze compatte, stesse spaziature e titoli in tutte le schede, strumenti della mappa ordinati in due colonne con lo zoom raccolto in un unico comando.',
+    'I sottotitoli del master non coprono più il tasto per parlare, la barra "Annulla" né la fine delle pagine.',
+    'Il volto del PNG usa il ritratto in pixel art se l\'immagine non arriva; le illustrazioni non lasciano più riquadri neri.'
+  ] },
   { v: '2.4.4', data: '22/11/2026', voci: [
     'In Altro, "Avvia partita bot" prende il posto del bot di prova: ogni volta crea una campagna nuova con 4 personaggi bot (razze, classi e nomi diversi) e il master AI, che in pochi minuti provano tutte le funzioni. La tua campagna non viene toccata e alla fine parte il rapporto completo.'
   ] },
@@ -563,7 +568,11 @@ $('#tesoro').addEventListener('submit', e => { e.preventDefault(); const n = $('
 $('#btnEsciEd').addEventListener('click', () => invia({ t: 'esci_edificio' }));
 $('#formVai').addEventListener('submit', e => { e.preventDefault(); const n = $('#vaiNome').value.trim(); if (!n) return; invia({ t: 'vai', nome: n }); $('#vaiNome').value = ''; Report.log('vai', { nome: n }); });
 // volto del PNG: illustrato dall'AI quando è pronto, altrimenti quello in pixel art
-function mostraVolto(png) { const id = S.st?.volti?.[png]; $('#narrVolto').innerHTML = id ? `<img src="${urlMedia('img', id)}" alt="${esc(png)}" class="volto-png">` : Ritratto.volto(png, 64); }
+function mostraVolto(png) {
+  const id = S.st?.volti?.[png], box = $('#narrVolto');
+  box.innerHTML = id ? `<img src="${urlMedia('img', id)}" alt="${esc(png)}" class="volto-png">` : Ritratto.volto(png, 64);
+  const im = box.querySelector('img'); if (im) im.onerror = () => { box.innerHTML = Ritratto.volto(png, 64); }; // volto non disponibile: quello in pixel art
+}
 function mostraNarrazione(testo, png) { const n = $('#narrazione'); n.hidden = false; n.classList.remove('pensa'); $('#narrChi').textContent = png ? `${png} (dal master)` : 'Il master'; $('#narrChi').dataset.png = png || ''; $('#narrTesto').textContent = testo; $('#narrVolto').hidden = !png; if (png) mostraVolto(png); }
 $('#btnZitto').addEventListener('click', () => { Narratore.zitto(); $('#narrazione').hidden = true; });
 Narratore.onInizio = () => { Ascolto.pausa(true); $('#av-master')?.classList.add('parla'); };
@@ -926,7 +935,7 @@ function renderDiario() {
   $('#diario').innerHTML = l.map(d => {
     if (d.tipo === 'narrazione') return `<li class="narrazione-ev"><span class="chi">${ora(d.t)} · ${esc(d.png || (d.chi === 'master' ? 'Master AI' : S.st.membri[d.chi]?.nome || 'Master'))}</span><p>${esc(d.testo)}</p></li>`;
     if (d.tipo === 'riepilogo') return `<li class="illustrazione-ev"><span class="chi">${ora(d.t)} · Riepilogo della serata</span><p><button type="button" data-riepilogo="${d.riepilogo}">${esc(d.testo)}</button></p></li>`;
-    if (d.tipo === 'illustrazione' && d.img) return `<li class="illustrazione-ev"><span class="chi">${ora(d.t)} · Illustrazione</span><img src="${urlMedia('img', d.img)}" alt="${esc(d.testo)}" loading="lazy" data-img="${esc(d.img)}"><p>${esc(d.testo)}</p></li>`;
+    if (d.tipo === 'illustrazione' && d.img) return `<li class="illustrazione-ev"><span class="chi">${ora(d.t)} · Illustrazione</span><img src="${urlMedia('img', d.img)}" alt="${esc(d.testo)}" loading="lazy" data-img="${esc(d.img)}" onerror="this.remove()"><p>${esc(d.testo)}</p></li>`;
     const cls = { scheda: 'scheda-ev', comando: 'comando' }[d.tipo] || d.tipo;
     const chi = d.tipo === 'chat' ? `<strong>${esc(S.st.membri[d.chi]?.nome || '?')}:</strong> ` : '';
     return `<li class="${esc(cls)}"><span class="chi">${ora(d.t)}</span> ${chi}${esc(d.testo)}</li>`;
