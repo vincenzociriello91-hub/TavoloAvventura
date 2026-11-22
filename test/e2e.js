@@ -118,6 +118,28 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await B.evaluate(s => invia({ t: 'segnalino', x: s.x + 3, y: s.y }), seg);
   await A.waitForFunction(([id, x]) => S.st.segnalini[id]?.x === x, [await B.evaluate(() => S.io), seg.x + 3], { timeout: 5000 });
   v(true, 'segnalino spostato e visto dagli altri');
+  // 1.6.2: tocco breve = muovi il segnalino (niente finestra dell'edificio); pressione lunga = finestra
+  const tocca = (x, y, ms) => A.evaluate(async ([x, y, ms]) => {
+    const c = document.querySelector('#mappa'), b = c.getBoundingClientRect(), t = b.width / S.st.luogo.w;
+    const o = { clientX: b.left + (x + 0.5) * t, clientY: b.top + (y + 0.5) * t, pointerId: 1, bubbles: true };
+    c.dispatchEvent(new PointerEvent('pointerdown', o)); await new Promise(r => setTimeout(r, ms)); c.dispatchEvent(new PointerEvent('pointerup', o));
+  }, [x, y, ms]);
+  const cellaLibera = await A.evaluate(() => {
+    const l = S.st.luogo, s0 = S.st.segnalini[S.io], occ = Object.values(S.st.segnalini);
+    for (let r = 1; r < 8; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const x = s0.x + dx, y = s0.y + dy, ch = l.celle[y]?.[x];
+      if (ch && !'#wRT~'.includes(ch) && !occ.some(s => s.x === x && s.y === y)) return { x, y };
+    }
+  });
+  await tocca(cellaLibera.x, cellaLibera.y, 60);
+  await A.waitForFunction(c => S.st.segnalini[S.io]?.x === c.x && S.st.segnalini[S.io]?.y === c.y, cellaLibera, { timeout: 5000 });
+  v(true, 'tocco breve su una casella libera: il segnalino si sposta');
+  const loc = await A.evaluate(() => S.st.luogo.edifici.find(e => e.nome === 'Locanda'));
+  await tocca(loc.x, loc.y, 60); await A.waitForTimeout(600);
+  v(!(await A.evaluate(() => document.querySelector('#dlg').open)), 'tocco breve su un edificio: nessuna finestra');
+  await tocca(loc.x, loc.y, 600);
+  v(await A.evaluate(() => document.querySelector('#dlg').open), 'pressione lunga su un edificio: si apre la sua finestra');
+  await A.evaluate(() => document.querySelector('#dlg').close());
 
   // Voce WebRTC tra i due browser
   await A.waitForTimeout(2500);
