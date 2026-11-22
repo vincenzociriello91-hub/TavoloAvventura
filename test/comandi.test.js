@@ -77,4 +77,5 @@ for (let i = 0; i < 3; i++) Regole.saliLivello(p35);
 v(p35.livello === 4 && p35.puntiCar === 1, '3.5: +1 caratteristica al 4° livello');
 const r35 = Comandi.interpreta('tiro salvezza sui riflessi', p35, '3.5');
 v(r35.dado.formula === 'd20+4', '3.5 riflessi livello 4 → ' + JSON.stringify(r35));
+v(Comandi.interpreta('tiro per furtività', p35, '3.5')?.dado.motivo === 'Muoversi silenziosamente', '3.5: "furtività" a voce → Muoversi silenziosamente');
 console.log(`${ok} ok, ${ko} falliti`); process.exit(ko ? 1 : 0);

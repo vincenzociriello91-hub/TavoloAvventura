@@ -85,7 +85,7 @@ const chiedi = (p, msg, tipo, ms = 45000) => p.evaluate(([msg, tipo, ms]) => new
     await A.waitForFunction(([id, m]) => S.st.segnalini[id]?.x === m.x && S.st.segnalini[id]?.y === m.y, [await D.evaluate(() => S.io), meta], { timeout: 10000 }); return meta;
   });
   await passo('il server rifiuta il salto dentro un muro', async () => {
-    const muro = await D.evaluate(() => { const l = S.st.luogo; for (let y = 0; y < l.h; y++) for (let x = 0; x < l.w; x++) if (l.celle[y][x] === '#') return { x, y }; });
+    const muro = await D.evaluate(() => { const l = S.st.luogo; for (let y = 0; y < l.h; y++) for (let x = 0; x < l.w; x++) if ('#wRT'.includes(l.celle[y][x])) return { x, y }; });
     const prima = await D.evaluate(() => ({ ...S.st.segnalini[S.io] })); await D.evaluate(m => invia({ t: 'segnalino', x: m.x, y: m.y }), muro); await D.waitForTimeout(1500);
     return D.evaluate(p => S.st.segnalini[S.io].x === p.x && S.st.segnalini[S.io].y === p.y, prima);
   });
