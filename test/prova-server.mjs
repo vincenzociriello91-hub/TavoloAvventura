@@ -212,6 +212,12 @@ const sfida = await new Promise((r, j) => { SF.on('open', () => SF.send(JSON.str
   setTimeout(() => j(new Error('timeout sfida')), 25000); });
 verifica(sfida.esito === 'vinta' && sfida.titolo === 'Il ladro di campane', 'sfida della settimana in solitaria vinta'); SF.close();
 
+// manuale del master: i problemi segnalati finiscono nel manuale condiviso, leggibile dal connettore
+D.invia({ t: 'segnala_problema', testo: 'Prova: mappa con caselle nere' });
+await new Promise(r => setTimeout(r, 800));
+const man = await fetch(BASE.replace(/^ws/, 'http') + '/mcp?chiave=segreta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'manuale_master', arguments: {} } }) }).then(r => r.json());
+verifica(/Prova: mappa con caselle nere/.test(man.result?.content?.[0]?.text || ''), 'problema segnalato salvato nel manuale del master');
+
 const Z = client('https://sito-cattivo.example');
 verifica(await Z.pronto.then(() => false, e => /403/.test(e.message)), 'origine sconosciuta rifiutata');
 

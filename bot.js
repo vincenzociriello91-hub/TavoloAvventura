@@ -49,8 +49,9 @@ const BotProva = (() => {
     const t0 = Date.now(), esiti = [], bot = [];
     const prova = async (nome, fn) => {
       onPasso(nome);
-      try { const r = await fn(); const ok = r !== false && r != null; esiti.push({ ok, nome }); log('partita-passo', { passo: nome, ok, dettagli: typeof r === 'object' ? r : undefined }); if (!ok) onErr(nome); }
-      catch (e) { esiti.push({ ok: false, nome }); log('partita-passo', { passo: nome, ok: false, errore: e.message }); onErr(`${nome}: ${e.message}`); }
+      const impara = det => bot[0]?.manda({ t: 'segnala_problema', testo: `Partita bot, passo non riuscito: ${nome}${det ? ' (' + det + ')' : ''}` }); // va nel manuale del master
+      try { const r = await fn(); const ok = r !== false && r != null; esiti.push({ ok, nome }); log('partita-passo', { passo: nome, ok, dettagli: typeof r === 'object' ? r : undefined }); if (!ok) { onErr(nome); impara(); } }
+      catch (e) { esiti.push({ ok: false, nome }); log('partita-passo', { passo: nome, ok: false, errore: e.message }); onErr(`${nome}: ${e.message}`); impara(String(e.message).slice(0, 120)); }
     };
     const narra = (c, ms = 90000) => c.aspetta(m => m.t === 'narra' || (m.t === 'errore' && /master/i.test(m.msg)), ms).then(m => m?.t === 'narra' ? { testo: m.testo.slice(0, 200) } : false);
     const codice = Array.from(crypto.getRandomValues(new Uint32Array(8)), x => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[x % 32]).join('');
