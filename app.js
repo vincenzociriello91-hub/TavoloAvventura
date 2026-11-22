@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.0.3';
+const VERSION = '3.0.4';
 const CHANGELOG = [
+  { v: '3.0.4', data: '22/11/2026', voci: [
+    'Gli avvisi sono più piccoli, stanno sulla barra in alto (non coprono più il nome del luogo) e sono rossi quando qualcosa non è riuscito. Si chiudono toccandoli.'
+  ] },
   { v: '3.0.3', data: '22/11/2026', voci: [
     'La mappa del mondo sul telefono si apre centrata sul luogo dove siete (prima restava sul bordo).',
     'Spettatori e TV non hanno più il tasto del microfono; la TV non mostra i bottoni delle reazioni.',
@@ -222,7 +225,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const leggi = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } };
 const scrivi = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const clona = o => JSON.parse(JSON.stringify(o));
-function toast(msg, errore = false, ms = 3500) { const t = $('#toast'); t.textContent = msg; t.classList.toggle('errore', errore); t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, ms); }
+function toast(msg, errore = false, ms = 3500) { const t = $('#toast'); t.onclick = () => { t.hidden = true; }; t.textContent = msg; t.classList.toggle('errore', errore); t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, ms); }
 function chiedi(html, bottoni) {
   return new Promise(res => {
     const d = $('#dlg'); $('#dlgCorpo').innerHTML = html;
@@ -437,7 +440,7 @@ function gestisci(m) {
       } else toast(`${m.nome || 'Un personaggio'} deve fare una prova di ${m.prova}`);
       return;
     }
-    case 'avviso': toast(m.msg); return;
+    case 'avviso': toast(m.msg, !!m.motivo || /non è riuscit|finite|errore|impossibile/i.test(m.msg), m.msg.length > 70 ? 7000 : 3500); return; // un avviso di fallimento è rosso, non verde
     case 'negozio': { const prima = S.st.negozio; S.st.negozio = m.negozio; if (m.negozio && !prima) { toast(`È aperto il banco: ${m.negozio.nome}. Guarda nella Scheda.`); Report.log('negozio', { nome: m.negozio.nome, merci: m.negozio.merci.length }); } renderSchedaSeServe(); return; }
     case 'strumento': mostraStrumento(m.tipo, m.ris); return;
     case 'note_master': $('#smNote').value = m.testo || ''; return;
