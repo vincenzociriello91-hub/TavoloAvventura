@@ -11,7 +11,7 @@ function client(origin = ORIGIN) {
   const coda = [];
   const attese = [];
   ws.on('message', d => { const m = JSON.parse(d); const i = attese.findIndex(a => a.f(m)); if (i >= 0) { attese[i].r(m); attese.splice(i, 1); } else coda.push(m); });
-  const aspetta = (f, ms = 4000) => new Promise((r, j) => { const i = coda.findIndex(f); if (i >= 0) return r(coda.splice(i, 1)[0]); const a = { f, r }; attese.push(a); setTimeout(() => { const k = attese.indexOf(a); if (k >= 0) { attese.splice(k, 1); j(new Error('timeout')); } }, ms); });
+  const aspetta = (f, ms = 4000) => new Promise((r, j) => { const i = coda.findIndex(f); if (i >= 0) return r(coda.splice(i, 1)[0]); const a = { f, r }; attese.push(a); setTimeout(() => { const k = attese.indexOf(a); if (k >= 0) { attese.splice(k, 1); j(new Error('timeout ' + f.toString().slice(0, 90))); } }, ms); });
   const pronto = new Promise((r, j) => { ws.on('open', r); ws.on('error', j); ws.on('unexpected-response', (q, res) => j(new Error('http ' + res.statusCode))); });
   return { ws, aspetta, pronto, invia: o => ws.send(JSON.stringify(o)), coda };
 }
@@ -121,6 +121,56 @@ verifica(mem.memoriale.some(c => c.chi === bB.io && c.motivo.includes('frana')) 
 A.invia({ t: 'stato' });
 const st2 = await A.aspetta(m => m.t === 'stato');
 verifica(Array.isArray(st2.stato.memoriale) && st2.stato.png && typeof st2.stato.png === 'object', 'stato con memoriale e galleria dei PNG');
+
+// mondo vivo: obiettivi segreti, bacheca, voto, enigma, sogni, casa del gruppo, mestieri, prezzi secondo la reputazione
+const D = client(); await D.pronto;
+D.invia({ t: 'entra', invito: ni.invito, nome: 'Sara' });
+const bD = await D.aspetta(m => m.t === 'benvenuto');
+D.invia({ t: 'scheda', pg: { nome: 'Lira', razza: 'Elfo', classe: 'Ranger', livello: 1, pf: 10, pfMax: 10, ca: 14, oro: 60, car: { for: 10, des: 16, cos: 12, int: 10, sag: 14, car: 10 }, equip: [{ nome: 'Erbe medicinali', qta: 2 }, { nome: 'Fiala', qta: 1 }], segreto: { testo: 'barato' } } });
+const sD = await D.aspetta(m => m.t === 'scheda' && m.per === bD.io);
+const sDb = await B2.aspetta(m => m.t === 'scheda' && m.per === bD.io);
+const sDa = await A.aspetta(m => m.t === 'scheda' && m.per === bD.io);
+verifica(sD.pg.segreto?.testo && sD.pg.segreto.testo !== 'barato', 'obiettivo segreto assegnato dal server (non scelto dal giocatore)');
+verifica(!sDb.pg.segreto && sDa.pg.segreto?.testo === sD.pg.segreto.testo, 'il segreto lo vedono solo il giocatore e il master');
+A.invia({ t: 'missione_nuova', titolo: 'Il pozzo stregato', descrizione: 'Scoprite cosa urla nel pozzo', ricompensa: '30 mo' });
+const mv1 = await D.aspetta(m => m.t === 'mondo_vivo' && m.missioni.some(q => q.titolo === 'Il pozzo stregato'));
+D.invia({ t: 'missione_accetta', id: mv1.missioni.find(q => q.titolo === 'Il pozzo stregato').id });
+verifica(!!(await D.aspetta(m => m.t === 'mondo_vivo' && m.missioni.some(q => q.titolo === 'Il pozzo stregato' && q.stato === 'accettata'))), 'missione dalla bacheca accettata');
+A.invia({ t: 'voto_apri', domanda: 'Ponte o guado?', opzioni: ['ponte', 'guado'] });
+await D.aspetta(m => m.t === 'mondo_vivo' && m.voto?.domanda === 'Ponte o guado?');
+D.invia({ t: 'voto', scelta: 1 }); B2.invia({ t: 'voto', scelta: 1 }); A.invia({ t: 'voto', scelta: 0 });
+const vt = await A.aspetta(m => m.t === 'diario' && m.ev.testo.startsWith('Il gruppo ha votato'), 6000);
+verifica(vt.ev.testo.includes('guado'), 'voto del gruppo chiuso quando tutti hanno votato');
+D.invia({ t: 'chat', testo: 'mondo vivo di prova', alMaster: true });
+const sogno = await D.aspetta(m => m.t === 'sogno', 20000);
+verifica(sogno.testo.includes('torre'), 'sogno privato arrivato solo al suo giocatore');
+const mvE = await D.aspetta(m => m.t === 'mondo_vivo' && m.enigma && m.nemesi && m.minacce.length && m.scelte.length, 8000);
+verifica(!mvE.enigma.risposta && mvE.catalogo.ricette.length, 'enigma visibile senza la soluzione ai giocatori');
+await new Promise(r => setTimeout(r, 800));
+D.invia({ t: 'enigma_risposta', risposta: 'il vento' });
+verifica(!!(await A.aspetta(m => m.t === 'diario' && m.ev.testo.includes('non è la risposta'), 5000)), 'risposta sbagliata all\'enigma');
+D.invia({ t: 'enigma_risposta', risposta: 'una buca!' });
+verifica(!!(await A.aspetta(m => m.t === 'diario' && m.ev.testo.includes("risolve l'enigma"), 5000)), 'enigma risolto');
+D.invia({ t: 'stato' }); const stD = await D.aspetta(m => m.t === 'stato');
+verifica(stD.stato.pg[bD.io].compagni?.[0]?.nome === 'Zanna' && stD.stato.nemesi?.nome === 'Vaskar il Grigio', 'compagno animale e nemesi nello stato');
+verifica(!Object.entries(stD.stato.pg).some(([id, p]) => id !== bD.io && p.segreto), 'nello stato i segreti degli altri sono nascosti');
+D.invia({ t: 'base', cosa: '' });
+verifica(/Servono 500 mo/.test((await D.aspetta(m => m.t === 'errore', 4000)).msg), 'casa del gruppo: servono monete nel tesoro comune');
+A.invia({ t: 'gruppo', op: 'oro', delta: 800 }); await A.aspetta(m => m.t === 'gruppo');
+D.invia({ t: 'base', cosa: '' }); await D.aspetta(m => m.t === 'mondo_vivo' && m.base);
+D.invia({ t: 'base', cosa: 'laboratorio' });
+verifica(!!(await D.aspetta(m => m.t === 'mondo_vivo' && m.base?.stanze.includes('laboratorio'))), 'casa del gruppo comprata e arredata col tesoro comune');
+D.invia({ t: 'mestiere', mestiere: 'alchimista' }); await D.aspetta(m => m.t === 'scheda' && m.per === bD.io && m.pg.mestiere === 'alchimista');
+D.invia({ t: 'crea_oggetto', ricetta: 'Pozione di guarigione' });
+const cr = await A.aspetta(m => m.t === 'diario' && m.ev.testo.includes('prova a creare'), 4000);
+verifica(/CD 12/.test(cr.ev.testo), 'mestieri: creazione di un oggetto con la prova d20');
+const sCr = await D.aspetta(m => m.t === 'scheda' && m.per === bD.io && !m.pg.equip.some(e => e.nome === 'Fiala'));
+A.invia({ t: 'apri_negozio', nome: 'Emporio di prova', tipo: 'emporio' });
+const ng = await D.aspetta(m => m.t === 'negozio' && m.negozio);
+const merce = ng.negozio.merci.find(x => x.prezzo >= 4 && x.prezzo <= sCr.pg.oro);
+D.invia({ t: 'compra', merce: merce.nome });
+const dopo = await D.aspetta(m => m.t === 'scheda' && m.per === bD.io && m.pg.oro < sCr.pg.oro);
+verifica(sCr.pg.oro - dopo.pg.oro === Math.max(1, Math.round(merce.prezzo * 0.75)), 'prezzi più bassi dove il gruppo è stimato');
 
 const Z = client('https://sito-cattivo.example');
 verifica(await Z.pronto.then(() => false, e => /403/.test(e.message)), 'origine sconosciuta rifiutata');

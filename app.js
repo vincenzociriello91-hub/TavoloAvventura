@@ -1,6 +1,14 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.8.0';
+const VERSION = '2.9.0';
 const CHANGELOG = [
+  { v: '2.9.0', data: '22/11/2026', voci: [
+    'Il mondo è vivo: bacheca delle missioni, nemesi che torna, minacce che crescono se le ignorate e scelte morali che cambiano il finale (nel Diario).',
+    'Voto del gruppo: quando c\'è da decidere insieme ognuno vota dal telefono.',
+    'Enigmi e indovinelli: rispondete dall\'app, dopo tre errori arriva un indizio.',
+    'Obiettivo segreto per ogni personaggio (lo vedete solo voi e il master) e sogni privati con indizi.',
+    'Casa del gruppo con stanze che danno vantaggi, mestieri e creazione di oggetti, animali compagni e cavalcature.',
+    'Mercante ambulante con oggetti rari, prezzi diversi a seconda di come vi vedono nel luogo, ora e meteo che cambiano la partita.'
+  ] },
   { v: '2.8.0', data: '22/11/2026', voci: [
     'Diario del personaggio: a fine serata ognuno riceve una pagina scritta dal punto di vista del suo personaggio (nella Scheda).',
     'Bentornato: chi ha saltato una o più serate, quando rientra, trova il racconto di cosa si è perso.',
@@ -350,6 +358,8 @@ function gestisci(m) {
     }
     case 'suono': Suoni.effetto(m.nome); return;
     case 'png': S.st.png = m.png; renderDiarioExtra(); return;
+    case 'mondo_vivo': { const { t, ...r } = m; Object.assign(S.st, r); renderMondoVivo(); renderTesoro(); renderMondo(); renderSchedaSeServe(); return; }
+    case 'sogno': chiedi(`<h2>🌙 Un sogno</h2><p class="piccolo">Lo vedi solo tu: decidi tu se raccontarlo agli altri.</p><p class="storia-pg">${esc(m.testo)}</p>`, [{ testo: 'Mi sveglio', pieno: true }]); if (OPZ.narratore) Narratore.parla(m.testo); Report.log('sogno', {}); return;
     case 'memoriale': S.st.memoriale = m.memoriale; if (m.caduto) { delete S.st.pg[m.caduto]; renderSchedaSeServe(true); } renderDiarioExtra(); return;
     case 'bentornato': mostraBentornato(m.riepiloghi); return;
     case 'luogo': S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; S.st.aree = []; renderMappa(); if (!$('#mondoBox').hidden) renderMappaMondo(); Report.log('luogo', { nome: m.luogo.nome, tipo: m.luogo.tipo }); return;
@@ -493,7 +503,7 @@ function renderTutto() {
   $('#optMaster').closest('label').hidden = !masterAI();
   $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); }
   if (capo()) renderAvventura(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
-  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondo(); renderAltro();
+  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderMondo(); renderAltro();
 }
 function renderPresenza() {
   if (!S.st) return;
@@ -599,11 +609,19 @@ function renderTesoro() {
     <div class="riga"><span>Monete in comune: <strong>${g.oro}</strong></span>${gioca ? '<button type="button" data-tes="deposita">Metti monete</button><button type="button" data-tes="dividi">Dividi il bottino</button>' : ''}</div>
     <ul class="tesoro-ogg">${g.oggetti.map(o => `<li><span>${esc(o.nome)}${o.qta > 1 ? ' ×' + o.qta : ''}</span>${gioca ? `<button type="button" data-prendi="${esc(o.nome)}">Prendi</button>` : ''}</li>`).join('') || '<li class="piccolo">Nessun oggetto in comune</li>'}</ul>
     ${gioca ? '<form id="formTesoro" class="riga" autocomplete="off"><input id="tesOggetto" maxlength="60" placeholder="Metti un oggetto in comune"><button class="pieno">Metti</button></form>' : ''}
-    <p class="piccolo">A voce: "metti 20 monete nel tesoro comune", "dividi il bottino".</p>`;
+    <p class="piccolo">A voce: "metti 20 monete nel tesoro comune", "dividi il bottino".</p>${cartaCasa(gioca)}`;
+}
+// casa del gruppo: si compra e si arreda col tesoro comune, ogni stanza dà un vantaggio
+function cartaCasa(gioca) {
+  const b = S.st?.base, st = S.st?.catalogo?.stanze || {};
+  if (!b) return `<h3>Casa del gruppo</h3><p class="piccolo">Una base tutta vostra dove riposare, creare oggetti e tenere le cavalcature.</p>${gioca ? '<button type="button" data-casa="casa">Comprate una casa (500 mo dal tesoro comune)</button>' : ''}`;
+  return `<h3>${esc(b.nome)}</h3><ul class="tesoro-ogg">${b.stanze.map(k => `<li><span><strong>${esc(st[k]?.nome || k)}</strong> <span class="piccolo">${esc(st[k]?.bonus || '')}</span></span></li>`).join('') || '<li class="piccolo">Per ora solo muri e un camino</li>'}</ul>
+    ${gioca ? `<details><summary>Aggiungi una stanza</summary><ul class="tesoro-ogg">${Object.entries(st).filter(([k]) => !b.stanze.includes(k)).map(([k, x]) => `<li><span>${esc(x.nome)} <span class="piccolo">${esc(x.bonus)}</span></span><button type="button" data-casa="${k}">${x.prezzo} mo</button></li>`).join('')}</ul></details>` : ''}`;
 }
 $('#tesoro').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.prendi) invia({ t: 'gruppo', op: 'prendi', nome: b.dataset.prendi });
+  if (b.dataset.casa) { invia({ t: 'base', cosa: b.dataset.casa === 'casa' ? '' : b.dataset.casa }); Report.log('casa', { cosa: b.dataset.casa }); }
   if (b.dataset.tes === 'dividi') invia({ t: 'gruppo', op: 'dividi' });
   if (b.dataset.tes === 'deposita') { const v = parseInt(prompt('Quante monete metti nel tesoro comune?'), 10); if (v > 0) { if (mioPg()) modifica([{ op: 'oro', delta: -v }]); invia({ t: 'gruppo', op: 'oro', delta: v }); } }
 });
@@ -707,6 +725,7 @@ function renderScheda() {
     ${puo ? `<form id="formTalento" class="riga" autocomplete="off" style="margin-top:8px"><input id="nuovoTalento" maxlength="60" placeholder="${pg.regole === '5e' ? 'Es. Lottatore' : 'Es. Arma focalizzata'}"><button class="pieno">Aggiungi</button></form>${pg.regole === '5e' && pg.puntiCar >= 2 ? '<p class="piccolo">In 5e puoi scegliere un talento al posto dei 2 punti caratteristica: aggiungilo qui e i punti verranno usati.</p>' : ''}` : ''}
   </div>
   ${S.viewPg === S.io ? cartaRelazioni() : ''}
+  ${cartaVita(pg, puo)}
   <div class="carta"><h3 style="margin-top:0">Condizioni</h3>
     <div class="cond">${CONDIZIONI.map(c => `<button class="chip ${(pg.condizioni || []).includes(c) ? 'on' : ''}" data-cond="${esc(c)}" ${puo ? '' : 'disabled'}>${esc(c)}</button>`).join('')}</div>
   </div>
@@ -718,6 +737,49 @@ function renderScheda() {
     <div class="riga"><button id="btnStampa">Stampa o salva in PDF</button>${puo ? '<button id="btnAnnullaScheda">Annulla ultima modifica</button>' : ''}${puo ? '<button id="btnCaduto" class="pericolo">Il personaggio è caduto</button>' : ''}</div>
   </div>`;
 }
+// obiettivo segreto, sogni, mestiere con le ricette, compagni animali
+function cartaVita(pg, puo) {
+  const cat = S.st?.catalogo || {}, mio = S.viewPg === S.io || capo();
+  const ricette = (cat.ricette || []).map(r => { const ha = r.ingredienti.every(i => (pg.equip || []).some(e => e.nome.toLowerCase().startsWith(i.toLowerCase()))); return `<li><span><strong>${esc(r.nome)}</strong> <span class="piccolo">${r.ingredienti.map(esc).join(' + ')}${r.costo ? ` + ${r.costo} mo` : ''} · CD ${r.cd}${pg.mestiere === r.mestiere ? ' · +3 dal tuo mestiere' : ''}</span></span>${puo ? `<button type="button" data-crea="${esc(r.nome)}" ${ha && (pg.oro || 0) >= r.costo ? '' : 'disabled'}>Crea</button>` : ''}</li>`; }).join('');
+  return `<div class="carta"><h3 style="margin-top:0">Vita del personaggio</h3>
+    ${mio && pg.segreto ? `<div class="segreto${pg.segreto.fatto ? ' fatto' : ''}"><strong>${pg.segreto.fatto ? '✔ Obiettivo segreto raggiunto' : '🔒 Obiettivo segreto'}</strong><p>${esc(pg.segreto.testo)}</p><p class="piccolo">Lo vedete solo tu e il master. Se lo realizzi guadagni 300 PX.</p></div>` : ''}
+    ${mio && (pg.sogni || []).length ? `<details><summary>🌙 Sogni e visioni (${pg.sogni.length})</summary>${[...pg.sogni].reverse().map(x => `<p class="storia-pg">${esc(x.testo)}</p>`).join('')}</details>` : ''}
+    <label>Mestiere<select data-mestiere ${puo ? '' : 'disabled'}><option value="">nessuno</option>${Object.entries(cat.mestieri || {}).map(([k, n]) => `<option value="${k}" ${pg.mestiere === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+    <details><summary>Crea oggetti</summary><p class="piccolo">Servono gli ingredienti nell'inventario (si comprano dai mercanti o si trovano in giro). Tiro d20 + caratteristica, +3 col mestiere giusto, +2 col laboratorio della casa.</p><ul class="tesoro-ogg">${ricette}</ul></details>
+    <h4>Compagni</h4>${(pg.compagni || []).map(a => `<div class="mondo-riga"><strong>${esc(a.nome)}</strong> <span class="piccolo">${esc(a.specie)} · PF ${a.pf} · CA ${a.ca} · ${esc(a.abilita)}</span></div>`).join('') || '<p class="piccolo">Nessun animale per ora: il master può farvene incontrare uno.</p>'}
+    ${capo() ? `<form class="riga" data-compagno autocomplete="off"><input name="nome" maxlength="30" placeholder="Nome del compagno"><select name="specie">${(cat.specie || []).map(x => `<option>${x}</option>`).join('')}</select><button>Dai</button></form>` : ''}
+  </div>`;
+}
+$('#scheda').addEventListener('change', e => { if (e.target.dataset.mestiere !== undefined) { invia({ t: 'mestiere', mestiere: e.target.value }); toast('Mestiere scelto'); } });
+$('#scheda').addEventListener('click', e => { const b = e.target.closest('[data-crea]'); if (b) { invia({ t: 'crea_oggetto', ricetta: b.dataset.crea }); Report.log('crea_oggetto', { ricetta: b.dataset.crea }); } });
+$('#scheda').addEventListener('submit', e => { const f = e.target.closest('[data-compagno]'); if (!f) return; e.preventDefault(); invia({ t: 'compagno_nuovo', per: S.viewPg, nome: f.nome.value.trim(), specie: f.specie.value }); });
+// il mondo vivo: voto del gruppo, enigma, bacheca, nemesi, minacce, scelte morali
+function renderMondoVivo() {
+  const box = $('#mondoVivo'); if (!box || !S.st) return;
+  const v = S.st.voto, en = S.st.enigma, q = S.st.missioni || [], ne = S.st.nemesi, mi = (S.st.minacce || []).filter(x => !x.sventata), sc = S.st.scelte || [];
+  const gioca = me()?.ruolo === 'giocatore' || capo(), mioVoto = v?.voti?.[S.io];
+  const conta = v ? v.opzioni.map((_, i) => Object.values(v.voti || {}).filter(x => x === i).length) : [];
+  box.innerHTML = `${v ? `<div class="carta-mini voto"><strong>🗳️ Il gruppo decide: ${esc(v.domanda)}</strong><div class="opzioni-voto">${v.opzioni.map((o, i) => `<button type="button" data-voto="${i}" class="${mioVoto === i ? 'pieno' : ''}" ${gioca ? '' : 'disabled'}>${esc(o)} <span class="piccolo">${conta[i]}</span></button>`).join('')}</div>${capo() ? '<button type="button" class="testo-btn" data-voto-chiudi>Chiudi la votazione</button>' : ''}</div>` : ''}
+    ${en ? `<div class="carta-mini enigma"><strong>🧩 Enigma</strong><p class="storia-pg">${esc(en.domanda)}</p>${en.risposta ? `<p class="piccolo">Risposta (la vedi solo tu): ${esc(en.risposta)}</p>` : ''}<form class="riga" data-enigma autocomplete="off"><input name="r" maxlength="60" placeholder="La vostra risposta"><button class="pieno">Rispondi</button></form>${en.tentativi ? `<p class="piccolo">Tentativi sbagliati: ${en.tentativi}${en.tentativi >= 3 && en.indizio ? ` · Indizio: ${esc(en.indizio)}` : ''}</p>` : ''}</div>` : ''}
+    ${ne ? `<div class="carta-mini nemesi"><strong>😈 ${esc(ne.nome)}</strong><p class="piccolo">${esc(ne.descrizione || '')}</p><p class="piccolo">Incontri: ${ne.incontri || 1}${ne.fughe ? ` · fughe: ${ne.fughe}` : ''}${ne.ultimaFuga ? ` · l'ultima volta: ${esc(ne.ultimaFuga)}` : ''}</p></div>` : ''}
+    ${mi.length ? `<div class="carta-mini"><strong>⚠️ Minacce che crescono</strong>${mi.map(x => `<div class="mondo-riga"><span><strong>${esc(x.nome)}</strong> <span class="piccolo">${esc(x.descrizione || '')}</span></span><span class="livello-minaccia" aria-label="livello ${x.livello} su 5">${'●'.repeat(x.livello)}${'○'.repeat(5 - x.livello)}</span></div>`).join('')}<p class="piccolo">Se le ignorate peggiorano a ogni sessione.</p></div>` : ''}
+    <details class="carta-mini"${q.some(x => x.stato === 'aperta') ? ' open' : ''}><summary>📜 Bacheca delle missioni (${q.filter(x => x.stato !== 'completata').length})</summary>${q.map(x => `<div class="missione ${x.stato}"><strong>${esc(x.titolo)}</strong> <span class="piccolo">${x.stato}${x.ricompensa ? ' · ricompensa: ' + esc(x.ricompensa) : ''}</span><p class="piccolo">${esc(x.descrizione || '')}</p>${x.stato === 'aperta' && gioca ? `<button type="button" data-missione="${x.id}">Accettiamo</button>` : ''}</div>`).join('') || '<p class="piccolo">Nessuna missione appesa. Passate da una taverna o da una città.</p>'}
+      ${capo() ? `<form class="colonna" data-missione-nuova autocomplete="off"><input name="titolo" maxlength="80" placeholder="Titolo della missione"><input name="descrizione" maxlength="300" placeholder="Cosa bisogna fare"><div class="riga"><input name="ricompensa" maxlength="80" placeholder="Ricompensa"><button>Appendi</button></div></form>` : ''}</details>
+    ${sc.length ? `<details class="carta-mini"><summary>⚖️ Le vostre scelte (${sc.filter(x => x.peso === 'buona').length} buone, ${sc.filter(x => x.peso === 'cattiva').length} cattive)</summary>${[...sc].reverse().map(x => `<p class="piccolo">${x.peso === 'buona' ? '🕊️' : x.peso === 'cattiva' ? '🗡️' : '🌗'} ${esc(x.descrizione)}</p>`).join('')}<p class="piccolo">Il finale della campagna dipende da queste scelte.</p></details>` : ''}
+    ${capo() && !v ? `<details class="carta-mini"><summary>🗳️ Fai votare il gruppo</summary><form class="colonna" data-voto-apri autocomplete="off"><input name="domanda" maxlength="160" placeholder="Domanda (es. Da che parte andiamo?)"><input name="opzioni" maxlength="240" placeholder="Opzioni separate da virgola (es. ponte, foresta, fiume)"><button>Apri il voto</button></form></details>` : ''}`;
+}
+$('#mondoVivo').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.voto !== undefined) { invia({ t: 'voto', scelta: +b.dataset.voto }); Report.log('voto', {}); }
+  if (b.dataset.votoChiudi !== undefined) invia({ t: 'voto_chiudi' });
+  if (b.dataset.missione) { invia({ t: 'missione_accetta', id: b.dataset.missione }); Report.log('missione', {}); }
+});
+$('#mondoVivo').addEventListener('submit', e => {
+  e.preventDefault(); const f = e.target;
+  if (f.dataset.enigma !== undefined) { const r = f.r.value.trim(); if (r) { invia({ t: 'enigma_risposta', risposta: r }); Report.log('enigma', {}); } }
+  if (f.dataset.missioneNuova !== undefined && f.titolo.value.trim()) invia({ t: 'missione_nuova', titolo: f.titolo.value.trim(), descrizione: f.descrizione.value.trim(), ricompensa: f.ricompensa.value.trim() });
+  if (f.dataset.votoApri !== undefined) { const op = f.opzioni.value.split(',').map(x => x.trim()).filter(Boolean); if (f.domanda.value.trim() && op.length >= 2) invia({ t: 'voto_apri', domanda: f.domanda.value.trim(), opzioni: op }); else toast('Scrivi la domanda e almeno due opzioni'); }
+});
 // storia e albero genealogico: il giocatore risponde a 4 domande, il master la scrive
 function cartaStoria(pg, puo) {
   const f = pg.famiglia || {};
@@ -748,6 +810,7 @@ function renderMondo() {
   const fz = Object.entries(mo.fazioni || {}), vl = Object.entries(mo.valute || {});
   const barra = r => `<div class="rep" role="meter" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="${r}"><div style="left:${r < 0 ? 50 + r / 2 : 50}%;width:${Math.abs(r) / 2}%;background:${r < 0 ? 'var(--rosso)' : 'var(--verde)'}"></div></div>`;
   $('#mondo').innerHTML = `<h3>Fazioni</h3>${fz.map(([n, f]) => `<div class="mondo-riga"><strong>${esc(n)}</strong><span class="piccolo">${f.reputazione > 30 ? 'alleati' : f.reputazione > 5 ? 'amichevoli' : f.reputazione < -30 ? 'ostili' : f.reputazione < -5 ? 'diffidenti' : 'neutrali'} (${f.reputazione})</span></div>${barra(f.reputazione)}${f.descrizione ? `<p class="piccolo">${esc(f.descrizione)}</p>` : ''}`).join('') || '<p class="piccolo">Nessuna fazione conosciuta.</p>'}
+    ${Object.keys(S.st?.reputazioneLuoghi || {}).length ? `<h3>Come vi vedono nei luoghi</h3>${Object.entries(S.st.reputazioneLuoghi).map(([n, r]) => `<div class="mondo-riga"><strong>${esc(n)}</strong><span class="piccolo">${r > 30 ? 'eroi' : r > 5 ? 'benvoluti' : r < -30 ? 'banditi' : r < -5 ? 'malvisti' : 'sconosciuti'}</span>${barra(r)}</div>`).join('')}` : ''}
     <h3>Valute locali</h3>${vl.map(([n, v]) => `<p>${esc(n)}: 1 = ${v.cambio} monete d'oro</p>`).join('') || '<p class="piccolo">Solo monete d\'oro, per ora.</p>'}
     <h3>Notizie</h3>${[...(mo.notizie || [])].reverse().slice(0, 5).map(n => `<p class="piccolo">Sessione ${n.sessione}: ${esc(n.testo)}</p>`).join('') || '<p class="piccolo">Nessuna notizia.</p>'}
     <p class="piccolo">Viaggi registrati: ${(mo.viaggi || []).length}.</p>
@@ -1139,11 +1202,14 @@ $('#btnSalvaCamp').addEventListener('click', () => {
 $('#btnNuovaSessione').addEventListener('click', async () => { const i = await chiedi('<h2>Nuova sessione</h2><p>Si apre una nuova sessione e si crea un nuovo codice invito: i vecchi QR smettono di funzionare. La campagna, le schede e le mappe restano.</p>', [{ testo: 'Inizia', pieno: true }, { testo: 'Annulla' }]); if (i === 0) { invia({ t: 'impostazioni', nuovaSessione: true }); if (masterAI()) setTimeout(() => invia({ t: 'riassunto' }), 800); } });
 $('#btnRiepilogo').addEventListener('click', () => invia({ t: 'riepilogo' }));
 /* ---- negozio: compra e vendi con le monete della scheda ---- */
+// la reputazione del gruppo nel luogo cambia i prezzi (come sul server: fino al 25%)
+function fattorePrezzo() { const l = S.st?.luogo, nome = l?.genitore ? S.st.luoghi?.[l.genitore]?.nome : l?.nome, r = Math.max(-100, Math.min(100, S.st?.reputazioneLuoghi?.[nome] || 0)); return 1 - r / 400; }
 function cartaNegozio(pg) {
-  const n = S.st?.negozio; if (!n) return '';
+  const n0 = S.st?.negozio; if (!n0) return '';
+  const f = fattorePrezzo(), n = { ...n0, merci: n0.merci.map(x => ({ ...x, prezzo: Math.max(1, Math.round(x.prezzo * f)) })) };
   const vendibili = (pg.equip || []).map((e, i) => [e, i]).filter(([e]) => !e.indossato);
-  const prezzoVendita = e => Math.floor((n.merci.find(x => x.nome === e.nome)?.prezzo ?? (/pozione|pergamena/i.test(e.nome) ? 50 : /spada|ascia|martello|arco/i.test(e.nome) ? 10 : 2)) / 2);
-  return `<div class="carta"><h3 style="margin-top:0">Banco: ${esc(n.nome)} <span class="piccolo">· hai ${pg.oro || 0} mo</span></h3>
+  const prezzoVendita = e => Math.floor((n0.merci.find(x => x.nome === e.nome)?.prezzo ?? (/pozione|pergamena/i.test(e.nome) ? 50 : /spada|ascia|martello|arco/i.test(e.nome) ? 10 : 2)) / 2 / f);
+  return `<div class="carta"><h3 style="margin-top:0">Banco: ${esc(n.nome)} <span class="piccolo">· hai ${pg.oro || 0} mo</span></h3>${f !== 1 ? `<p class="piccolo">${f < 1 ? 'Qui vi stimano: prezzi più bassi' : 'Qui non vi vedono di buon occhio: prezzi più alti'} (${f < 1 ? '-' : '+'}${Math.round(Math.abs(1 - f) * 100)}%).</p>` : ''}
     <ul class="equip negozio">${n.merci.map(x => `<li>${Ritratto.icona(x.nome, 26)}<span class="n">${esc(x.nome)}</span><span class="prezzo">${x.prezzo} mo</span><button data-compra="${esc(x.nome)}" ${(pg.oro || 0) < x.prezzo ? 'disabled' : ''}>Compra</button></li>`).join('')}</ul>
     ${vendibili.length ? `<details><summary>Vendi i tuoi oggetti (metà prezzo)</summary><ul class="equip negozio">${vendibili.map(([e, i]) => `<li>${Ritratto.icona(e.nome, 26)}<span class="n">${esc(e.nome)}${e.qta > 1 ? ' ×' + e.qta : ''}</span><span class="prezzo">${prezzoVendita(e)} mo</span><button data-vendi="${i}">Vendi</button></li>`).join('')}</ul></details>` : ''}</div>`;
 }

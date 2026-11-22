@@ -18,6 +18,8 @@ D&D online con gli amici, dal browser di qualsiasi telefono, PC, Odin o TV. Nien
 - **Battaglie spettacolari** (mosse LPC, danni e cure che saltano fuori, esplosioni degli incantesimi, condizioni visibili), **mostri disegnati** e **volti dei PNG** generati una volta per campagna, **dadi 3D**.
 - **Avventura pronta** "La miniera dei goblin", **gioco da solo** con due compagni del master AI, **mappa del mondo illustrata**, **statistiche e trofei**, **sottotitoli**.
 - **Negozi** con compra e vendi, **inventario con icone** da trascinare sul ritratto, **schermo del master** (PNG, incontri bilanciati, tesori, note segrete), **libro della campagna** in PDF, **sessione zero** guidata.
+- **Personaggi con una storia**: storia e famiglia scritte col master, diario del personaggio a fine serata, memoriale dei caduti con eredi, obiettivo segreto e sogni privati, mestieri e creazione di oggetti, animali compagni e cavalcature.
+- **Mondo vivo**: bacheca delle missioni, voto del gruppo, enigmi, nemesi ricorrente, minacce che crescono, scelte morali che cambiano il finale, casa del gruppo con stanze, mercante ambulante, prezzi secondo la reputazione nel luogo, musica ed effetti per scena (licenze in `audio/LICENZE.md`), grafica dei pacchetti comprati servita solo ai membri della campagna.
 - **Dadi tirati dal server** (nessuno bara), vantaggio/svantaggio, tiri segreti del master.
 - **Modalità TV**, prova di microfono e connessione, domande sulle regole, suggerimenti, rapporti cifrati, aggiornamento dall'app.
 
