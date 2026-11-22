@@ -15,10 +15,12 @@ const chiedi = (p, msg, tipo, ms = 45000) => p.evaluate(([msg, tipo, ms]) => new
 }), [msg, tipo, ms]);
 
 (async () => {
-  const browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  // dietro un proxy (sessioni di Claude) il browser passa da lì e si fida del suo certificato
+  const proxy = process.env.HTTPS_PROXY && !/localhost/.test(APP) ? { server: process.env.HTTPS_PROXY } : undefined;
+  const browser = await chromium.launch({ proxy, args: ['--ignore-certificate-errors', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const errori = [];
   const pagina = async nome => {
-    const ctx = await browser.newContext({ viewport: { width: 412, height: 915 }, permissions: ['microphone'] });
+    const ctx = await browser.newContext({ viewport: { width: 412, height: 915 }, permissions: ['microphone'], ignoreHTTPSErrors: true });
     const p = await ctx.newPage();
     p.on('pageerror', e => errori.push(`${nome}: ${e.message}`));
     p.on('console', m => { if (m.type() === 'error' && !/fonts.g|favicon|Failed to load resource/.test(m.text())) errori.push(`${nome} console: ${m.text()}`); });

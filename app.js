@@ -1,6 +1,10 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '2.5.1';
+const VERSION = '2.5.2';
 const CHANGELOG = [
+  { v: '2.5.2', data: '22/11/2026', voci: [
+    'Controllo completo: sulla TV la mappa mostra sempre tutta la parte scoperta e niente comandi; sul computer la barra "Annulla" non copre più il tasto per parlare.',
+    'Illustrazioni: se non riescono l\'app lo dice, e il luogo viene disegnato anche quando il master AI è occupato.'
+  ] },
   { v: '2.5.1', data: '22/11/2026', voci: ['Dadi: resta evidenziato il dado che hai appena lanciato, non più sempre il d20.'] },
   { v: '2.5.0', data: '22/11/2026', voci: [
     'Grafica più armoniosa e leggibile: titolo della campagna più leggibile, presenze compatte, stesse spaziature e titoli in tutte le schede, strumenti della mappa ordinati in due colonne con lo zoom raccolto in un unico comando.',
@@ -483,6 +487,7 @@ Mappa.init($('#mappa'), {
   io: () => S.io,
   puoMuovere: id => id === S.io || capo(),
   capo: () => capo(),
+  vediTutto: () => document.body.classList.contains('tv'), // sulla TV la mappa inquadra sempre tutta la parte scoperta
   onBloccato: () => toast('Non ci si arriva da qui: c\'è un muro o un ostacolo in mezzo', true),
   onMuovi: (id, x, y) => invia({ t: 'segnalino', id, x, y }),
   pg: id => S.st?.pg?.[id],
