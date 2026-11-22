@@ -13,6 +13,7 @@ http.createServer((req, res) => {
     }
     if (j.systemInstruction) { // turno del master
       const ctx = JSON.parse(testoUtente);
+      if ((ctx.ultimi_eventi || []).some(e => e.includes('prova quota finita'))) { res.writeHead(429, { 'Content-Type': 'application/json' }); return res.end('{}'); }
       ultimo.contesto = ctx;
       const pg = ctx.personaggi.find(p => p.nome && !p.nome.startsWith('('));
       const eventi = [];

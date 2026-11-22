@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.1.0';
+const VERSION = '3.2.0';
 const CHANGELOG = [
+  { v: '3.2.0', data: '22/11/2026', voci: [
+    'Quando il master AI finisce la quota non resta più muto: improvvisa con battute di riserva, mai uguali, finché la quota torna.',
+    'Ogni bottega, taverna o tempio ha il suo personaggio che si ricorda cosa avete fatto lì e vi saluta di conseguenza.',
+    'I nemici intelligenti e il cattivo ricorrente si adattano alle tattiche che usate di più (fuoco, frecce, furtività, magia…).',
+    'Discesa del giorno (sulla Mappa): ogni giorno un dungeon nuovo, sempre più in basso, con un custode in fondo. Se vi sconfigge diventa il vostro cattivo ricorrente.',
+    'Meteo vero (in Altro, per chi crea la campagna): nella partita fa il tempo che fa nella tua zona. La posizione resta nel telefono, al server arriva solo il tempo.'
+  ] },
   { v: '3.1.0', data: '22/11/2026', voci: [
     'Il master AI impara: tiene un manuale di esperienza comune a tutte le partite (regole sbagliate, correzioni dei giocatori, errori) e lo rilegge prima di ogni turno, per non ripetere due volte lo stesso errore.',
     'Master proattivo: se il tavolo tace per qualche minuto fa succedere qualcosa di piccolo (al massimo due volte di fila).',
@@ -358,7 +365,7 @@ function gestisci(m) {
       S.io = m.io; if (m.chiave) S.chiave = m.chiave; S.st = m.stato; S.viewPg = S.io;
       salvaCampagna({ codice: S.codice, io: S.io, chiave: S.chiave, nome: S.st.campagna.nome, ruolo: me()?.ruolo });
       Report.log('entrato', { ruolo: me()?.ruolo, admin: me()?.admin, regole: regole(), master: S.st.campagna.masterTipo });
-      mostraGioco(); renderTutto(); avviaVoce(); controllaMappa();
+      mostraGioco(); renderTutto(); avviaVoce(); controllaMappa(); meteoVero();
       Mappa.pacchetti(`${SERVER_WS.replace(/^ws/, 'http')}/tavolo/${S.codice}/grafica/atlante`, S.io, S.chiave); // grafica comprata, solo per i membri
       // l'invito sparisce dalla barra degli indirizzi; resta il codice, così ricaricando si rientra da soli
       history.replaceState(null, '', `${location.pathname}?c=${S.codice}${document.body.classList.contains('tv') ? '&tv=1' : ''}`);
@@ -424,7 +431,7 @@ function gestisci(m) {
       const ev = { t: Date.now(), tipo: 'narrazione', testo: m.testo, chi: m.chi, png: m.png };
       S.st.diario = [...(S.st.diario || []), ev].slice(-200);
       if (S.ultimoParlato) { Report.log('master-risposta', { ms: Date.now() - S.ultimoParlato, modello: m.modello, parole: m.testo.split(' ').length }); S.ultimoParlato = 0; }
-      Report.log('narrazione', { png: m.png || null, testo: m.testo, modello: m.modello || null, riassunto: !!m.riassunto });
+      Report.log('narrazione', { png: m.png || null, testo: m.testo, modello: m.modello || null, riassunto: !!m.riassunto, riserva: !!m.riserva }); // ogni battuta parola per parola, come nei Varchi
       mostraNarrazione(m.testo, m.png); renderDiario(); traduciTesto(m.testo);
       if (OPZ.narratore && m.voce) { // la voce naturale arriva tra poco: si aspetta al massimo 12 secondi, poi voce del telefono
         S.vociAttese = S.vociAttese || {};
@@ -451,7 +458,7 @@ function gestisci(m) {
       } else toast(`${m.nome || 'Un personaggio'} deve fare una prova di ${m.prova}`);
       return;
     }
-    case 'avviso': toast(m.msg, !!m.motivo || /non è riuscit|finite|errore|impossibile/i.test(m.msg), m.msg.length > 70 ? 7000 : 3500); return; // un avviso di fallimento è rosso, non verde
+    case 'avviso': toast(m.msg, !!m.motivo || !!m.errore || /non è riuscit|finite|errore|impossibile/i.test(m.msg), m.msg.length > 70 ? 7000 : 3500); return; // un avviso di fallimento è rosso, non verde
     case 'negozio': { const prima = S.st.negozio; S.st.negozio = m.negozio; if (m.negozio && !prima) { toast(`È aperto il banco: ${m.negozio.nome}. Guarda nella Scheda.`); Report.log('negozio', { nome: m.negozio.nome, merci: m.negozio.merci.length }); } renderSchedaSeServe(); return; }
     case 'strumento': mostraStrumento(m.tipo, m.ris); return;
     case 'note_master': $('#smNote').value = m.testo || ''; return;
@@ -572,7 +579,7 @@ function renderTutto() {
   $('#optMaster').closest('label').hidden = !masterAI();
   $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); }
   if (capo()) renderAvventura(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
-  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; renderMondo(); renderAltro();
+  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro();
 }
 function renderPresenza() {
   if (!S.st) return;
@@ -1600,6 +1607,21 @@ async function disegnaDalTelefono(m) {
     invia({ t: 'immagine_esterna', id: m.id, dati }); Report.log('illustrazione-riserva', { esito: 'ok', kb: Math.round(dati.length * 0.75 / 1024) });
   } catch (e) { Report.log('illustrazione-riserva', { esito: 'errore', errore: String(e?.message || e).slice(0, 200) }); toast("Immagini gratuite finite per oggi: tornano dopo l'una di notte.", true, 6000); }
 }
+/* ============ Meteo vero nella partita (come nei Varchi): Open-Meteo, posizione arrotondata a ~10 km che non lascia il telefono ============ */
+async function meteoVero() {
+  clearTimeout(S.timerMeteo); if (!OPZ.meteoVero || !capo() || !S.st) return;
+  try {
+    const pos = await new Promise((ok, no) => navigator.geolocation.getCurrentPosition(ok, no, { maximumAge: 3600000, timeout: 20000 }));
+    const lat = pos.coords.latitude.toFixed(1), lon = pos.coords.longitude.toFixed(1);
+    const j = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code`).then(r => r.json()), c = j.current?.weather_code ?? 0;
+    const meteo = c >= 95 ? 'temporale' : (c >= 71 && c <= 77) || c === 85 || c === 86 ? 'neve' : c >= 51 ? 'pioggia' : c === 45 || c === 48 ? 'nebbia' : c >= 2 ? 'nuvoloso' : 'sereno';
+    invia({ t: 'meteo_vero', meteo }); Report.log('meteo-vero', { meteo }); // solo il tempo, mai le coordinate
+  } catch (e) { Report.log('meteo-vero', { errore: String(e?.message || e).slice(0, 120) }); if (e?.code === 1) { OPZ.meteoVero = false; scrivi('ta_opzioni', OPZ); $('#optMeteoVero').checked = false; toast('Senza posizione il meteo vero non funziona', true); } }
+  S.timerMeteo = setTimeout(meteoVero, 30 * 60000);
+}
+$('#optMeteoVero').checked = !!OPZ.meteoVero;
+$('#optMeteoVero').addEventListener('change', e => { OPZ.meteoVero = e.target.checked; scrivi('ta_opzioni', OPZ); if (OPZ.meteoVero) meteoVero(); else clearTimeout(S.timerMeteo); });
+$('#btnDungeon').addEventListener('click', () => { invia({ t: 'dungeon_giorno' }); Report.log('dungeon-giorno', {}); });
 /* ============ Traduzione automatica di master e chat ============ */
 function tradotto(t) { const x = OPZ.lingua && S.trad.get(t); return x ? `<p class="trad">🌐 ${esc(x)}</p>` : ''; }
 function traduciTesto(t) {

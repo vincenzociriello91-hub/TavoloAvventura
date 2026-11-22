@@ -212,6 +212,20 @@ const sfida = await new Promise((r, j) => { SF.on('open', () => SF.send(JSON.str
   setTimeout(() => j(new Error('timeout sfida')), 25000); });
 verifica(sfida.esito === 'vinta' && sfida.titolo === 'Il ladro di campane', 'sfida della settimana in solitaria vinta'); SF.close();
 
+// dai Varchi: dungeon del giorno, meteo vero, battute di riserva quando il master AI non risponde
+A.invia({ t: 'dungeon_giorno' });
+const dg = await A.aspetta(m => m.t === 'luogo' && /livello 1$/.test(m.luogo.nome), 8000);
+verifica(dg.luogo.tipo === 'dungeon', 'dungeon del giorno: discesa al livello 1');
+const custode = await A.aspetta(m => m.t === 'segnalini' && Object.values(m.segnalini).some(x => x.tipo === 'nemico' && /Custode|Sentinella|Signore|Strega|Cavaliere/.test(x.nome)), 6000).catch(() => null);
+verifica(!!custode, 'dungeon del giorno: il custode aspetta in fondo');
+A.invia({ t: 'dungeon_giorno' });
+verifica(/già scesi/.test((await A.aspetta(m => m.t === 'errore', 4000)).msg), 'una sola discesa al giorno');
+A.invia({ t: 'meteo_vero', meteo: 'pioggia' });
+verifica((await D.aspetta(m => m.t === 'mondo' && m.mondo.calendario?.meteoVero)).mondo.calendario.meteo === 'pioggia', 'meteo vero arrivato nella partita');
+D.invia({ t: 'chat', testo: 'prova quota finita', alMaster: true });
+const ris = await D.aspetta(m => m.t === 'narra' && m.riserva, 40000);
+verifica(ris.testo.length > 20, 'master senza quota: battuta di riserva invece del silenzio');
+
 // manuale del master: i problemi segnalati finiscono nel manuale condiviso, leggibile dal connettore
 D.invia({ t: 'segnala_problema', testo: 'Prova: mappa con caselle nere' });
 await new Promise(r => setTimeout(r, 800));
