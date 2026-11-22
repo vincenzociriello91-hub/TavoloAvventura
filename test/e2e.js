@@ -134,6 +134,24 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await tocca(cellaLibera.x, cellaLibera.y, 60);
   await A.waitForFunction(c => S.st.segnalini[S.io]?.x === c.x && S.st.segnalini[S.io]?.y === c.y, cellaLibera, { timeout: 5000 });
   v(true, 'tocco breve su una casella libera: il segnalino si sposta');
+  // 2.2.0: negozio nella scheda di Marco, schermo del master in Altro, libro della campagna
+  await A.evaluate(() => invia({ t: 'apri_negozio', nome: 'Fabbro Ulrico', tipo: 'fabbro' }));
+  await B.waitForFunction(() => S.st.negozio, null, { timeout: 5000 });
+  await B.click('#nav button[data-v="vScheda"]'); await B.waitForTimeout(300);
+  v(await B.locator('.negozio [data-compra="Pugnale"]').count() === 1, 'il banco del fabbro compare nella scheda del giocatore');
+  await B.screenshot({ path: OUT + '/14-negozio.png' });
+  await B.click('.negozio [data-compra="Pugnale"]');
+  await B.waitForFunction(() => mioPg().equip.some(e => e.nome === 'Pugnale'), null, { timeout: 5000 });
+  v(await B.locator('.equip .icona-ogg svg').count() > 0, 'pugnale comprato, con le icone nell\'inventario');
+  await A.evaluate(() => invia({ t: 'chiudi_negozio' }));
+  await A.click('#nav button[data-v="vAltro"]'); await A.waitForTimeout(300);
+  v(await A.locator('#schermoMaster').isVisible(), 'schermo del master visibile al master');
+  await A.click('[data-strumento="png"]');
+  await A.waitForFunction(() => document.querySelector('#smRisultato strong'), null, { timeout: 8000 });
+  v(true, 'lo schermo del master genera un PNG');
+  const [libro] = await Promise.all([A.waitForEvent('popup', { timeout: 8000 }).catch(() => null), A.click('#btnLibro')]);
+  if (libro) { await libro.waitForLoadState(); v(await libro.locator('h1').count() === 1 && await libro.locator('.pg').count() >= 1, 'libro della campagna aperto, pronto da stampare'); await libro.close(); } else v(false, 'libro della campagna aperto');
+  await A.click('#nav button[data-v="vMappa"]');
   // vista 3D (three.js): si accende, disegna, si spegne senza errori
   await A.click('#btn3d');
   await A.waitForSelector('#mappa3dBox canvas', { timeout: 15000 }).catch(() => null);

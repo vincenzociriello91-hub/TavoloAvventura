@@ -179,6 +179,39 @@ const Ritratto = (() => {
     // ritaglio sulla testa
     return ritratto(pg, { dim }).replace('viewBox="-2 -3 36 44"', 'viewBox="7 -2 18 22"').replace(/height="[^"]+"/, `height="${dim}"`);
   }
-  return { svg: ritratto, volto, PELLE, CAPELLI, OCCHI, DRAGO };
+  // Icone degli oggetti in pixel art 12x12 (disegnate qui, nessuna grafica esterna)
+  const TINTE = { k: '#1a1210', s: '#d8dce4', S: '#8a909a', w: '#a06a38', W: '#5a3a1a', g: '#f0c848', G: '#a8801a', r: '#d8402e', R: '#7a1a16', b: '#4a7ad8', B: '#22407a', v: '#5ab04a', V: '#2a6a2a', p: '#efe4c4', P: '#b8a880', l: '#a8743e', L: '#6a4422', y: '#ffe060', o: '#f08a2a', c: '#8ae0f0', m: '#a86ad8', n: '#9a9a9a', e: '#e8e8f0' };
+  const ICONE = {
+    spada: ['..........ss', '.........sSs', '........sSs.', '.......sSs..', '......sSs...', '.....sSs....', '.g..sSs.....', '..gsSs......', '...gs.......', '..WWgg......', '.WW...g.....', 'kW..........'],
+    ascia: ['....sss.....', '...sSSSs....', '..sSSSSs....', '..sSSWWW....', '...ssW......', '.....W......', '.....W......', '.....W......', '.....W......', '.....W......', '.....W......', '.....L......'],
+    arco: ['...WW.......', '..W..e......', '.W....e.....', '.W.....e....', 'W......e....', 'W.......e...', 'W.......e...', 'W......e....', '.W.....e....', '.W....e.....', '..W..e......', '...WW.......'],
+    mazza: ['....nsn.....', '...sSSSs....', '...sSSSs....', '....sSs.....', '.....W......', '.....W......', '.....W......', '.....W......', '.....W......', '.....W......', '....LLL.....', '.....L......'],
+    pugnale: ['............', '.........s..', '........sS..', '.......sS...', '......sS....', '.....sS.....', '..g.sS......', '...gS.......', '...Wg.......', '..W..g......', '.W..........', '............'],
+    bastone: ['.....cc.....', '....cyyc....', '.....cc.....', '.....W......', '.....W......', '.....W......', '.....W......', '.....W......', '.....W......', '.....W......', '.....W......', '.....W......'],
+    scudo: ['..kkkkkkkk..', '.kbbbbbbbbk.', '.kbbbggbbbk.', '.kbbbggbbbk.', '.kbggggggbk.', '.kbbbggbbbk.', '.kbbbggbbbk.', '..kbbggbbk..', '..kbbbbbbk..', '...kbbbbk...', '....kbbk....', '.....kk.....'],
+    armatura: ['..SS....SS..', '.SssS..SssS.', '.SsssSSsssS.', '..SsssssssS.', '..SsssssssS.', '..SssSSsssS.', '..Ssssssss..', '..SsssssssS.', '...SssssS...', '...SSSSSS...', '...S....S...', '............'],
+    elmo: ['............', '....SSSS....', '...SssssS...', '..SssssssS..', '..SssssssS..', '..SkkkkksS..', '..SssksssS..', '..SssksssS..', '..SSSkSSSS..', '............', '............', '............'],
+    pozione: ['.....pp.....', '.....LL.....', '.....ee.....', '....e..e....', '...e....e...', '..errrrrre..', '..errrrrre..', '..erRrrrre..', '..errrrrre..', '...errrre...', '....eeee....', '............'],
+    mana: ['.....pp.....', '.....LL.....', '.....ee.....', '....e..e....', '...e....e...', '..ebbbbbbe..', '..ebbbbbbe..', '..ebBbbbbe..', '..ebbbbbbe..', '...ebbbbe...', '....eeee....', '............'],
+    pergamena: ['.PPPPPPPPP..', 'PpppppppppP.', '.PpkkpkkpP..', '..pppppppp..', '..pkkkpkkp..', '..pppppppp..', '..pkkpkkkp..', '..pppppppp..', '..pkkkkpkp..', '.PpppppppP..', 'PpppppppppP.', '.PPPPPPPPP..'],
+    libro: ['............', '.RRRRRRRRR..', '.RrrrrrrrRp.', '.RrrggrrrRp.', '.RrgrrgrrRp.', '.RrrggrrrRp.', '.RrrrrrrrRp.', '.RrrrrrrrRp.', '.RrrrrrrrRp.', '.RRRRRRRRRp.', '..pppppppp..', '............'],
+    anello: ['............', '.....cc.....', '....cyyc....', '....gccg....', '...g....g...', '..g......g..', '..g......g..', '..g......g..', '...g....g...', '....gggg....', '............', '............'],
+    amuleto: ['..g......g..', '...g....g...', '....g..g....', '.....gg.....', '.....gg.....', '....gGGg....', '...gGccGg...', '...gGccGg...', '....gGGg....', '.....gg.....', '............', '............'],
+    moneta: ['............', '....gggg....', '...gGGGGg...', '..gGggggGg..', '..gGgGGgGg..', '..gGgGGgGg..', '..gGggggGg..', '...gGGGGg...', '....gggg....', '............', '............', '............'],
+    gemma: ['............', '....cccc....', '...ceeccc...', '..cceccccc..', '..cccccccc..', '...cccccc...', '....cccc....', '.....cc.....', '............', '............', '............', '............'],
+    cibo: ['............', '...llllll...', '..lppppppl..', '.lpplpplppl.', '.lppppppppl.', '.lpplpplppl.', '.lllllllll..', '............', '............', '............', '............', '............'],
+    corda: ['....llll....', '...l....l...', '..l.llll.l..', '..l.l..l.l..', '..l.l..l.l..', '..l.llll.l..', '...l....l...', '....llll....', '......l.....', '.......l....', '........l...', '............'],
+    torcia: ['.....yy.....', '....yooy....', '....yooy....', '.....oo.....', '.....LL.....', '.....W......', '.....W......', '.....W......', '.....W......', '.....W......', '.....W......', '............'],
+    chiave: ['............', '..gggg......', '.g....g.....', '.g....g.....', '..gggg.g....', '........g...', '.........g..', '........gg..', '.........g..', '........gg..', '............', '............'],
+    freccia: ['..........ss', '.........sS.', '........W...', '.......W....', '......W.....', '.....W......', '....W.......', '...W........', '..W.........', '.rW.........', 'r.r.........', '.r..........'],
+    sacca: ['............', '.....LL.....', '....L..L....', '...llllll...', '..llllllll..', '.lllLLllll..', '.lllLLlllll.', '.lllllllll..', '.llllllllll.', '..llllllll..', '...llllll...', '............']
+  };
+  const TIPO_ICONA = [[/spadone|spada|scimitarra|falcione|katana/i, 'spada'], [/ascia|bipenne|accetta/i, 'ascia'], [/arco|balestra/i, 'arco'], [/frecc|dardi|quadrell/i, 'freccia'], [/mazza|martello|mazzafrusto|morning/i, 'mazza'], [/pugnale|stocco|coltello|daga/i, 'pugnale'], [/bastone|verga|bacchetta|lancia|tridente/i, 'bastone'], [/scudo/i, 'scudo'], [/armatura|cotta|corazza|camicia di maglia|maglia/i, 'armatura'], [/elmo|cappello|cappuccio|corona/i, 'elmo'], [/pozione.*(mana|magia)|antidoto|elisir/i, 'mana'], [/pozione|filtro/i, 'pozione'], [/pergamena|mappa|lettera/i, 'pergamena'], [/libro|tomo|grimorio|diario/i, 'libro'], [/anello/i, 'anello'], [/amuleto|collana|ciondolo|simbolo sacro/i, 'amuleto'], [/monet|oro|argento/i, 'moneta'], [/gemma|rubino|smeraldo|diamante|zaffiro|perla/i, 'gemma'], [/razion|pane|cibo|formaggio|carne/i, 'cibo'], [/corda|fune/i, 'corda'], [/torcia|lanterna|candela/i, 'torcia'], [/chiave/i, 'chiave']];
+  function icona(nome, dim = 28) {
+    const tipo = (TIPO_ICONA.find(([re]) => re.test(nome || '')) || [0, 'sacca'])[1], mappa = ICONE[tipo], px = [];
+    mappa.forEach((riga, y) => [...riga].forEach((c, x) => { if (TINTE[c]) px.push(`<rect x="${x}" y="${y}" width="1" height="1" fill="${TINTE[c]}"/>`); }));
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" width="${dim}" height="${dim}" style="shape-rendering:crispEdges" aria-hidden="true">${px.join('')}</svg>`;
+  }
+  return { svg: ritratto, volto, icona, PELLE, CAPELLI, OCCHI, DRAGO };
 })();
 if (typeof module !== 'undefined') module.exports = { Ritratto };
