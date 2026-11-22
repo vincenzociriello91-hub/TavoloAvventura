@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"../vendor/three.module.min.js"}}</script>
+<style>body{margin:0;background:#111} #box{width:1000px} #m{display:none}</style></head>
+<body><div id="box2d"><canvas id="m"></canvas></div><div id="box"></div>
+<!-- banco di prova della vista 3D: test/e2e e le schermate la caricano con un luogo generato -->
+<script src="../regole.js"></script><script src="../ritratto.js"></script><script src="../lpc.js"></script><script src="../mappa.js"></script>
+<script type="module">
+import { crea } from '../mappa3d.js';
+window.crea3d = crea;
+window.pronto3d = true;
+</script></body></html>

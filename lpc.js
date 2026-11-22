@@ -6,13 +6,13 @@ const Lpc = (() => {
   const immagini = new Map(), fogli = new Map();
   let suPronto = () => {};
   function carica() {
-    if (!caricando) caricando = Promise.all([fetch('lpc/catalogo.json').then(r => r.json()), fetch('lpc/tavolozze.json').then(r => r.json())])
+    if (!caricando) caricando = Promise.all([fetch((window.LPC_BASE || '') + 'lpc/catalogo.json').then(r => r.json()), fetch((window.LPC_BASE || '') + 'lpc/tavolozze.json').then(r => r.json())])
       .then(([c, t]) => { catalogo = c; tavolozze = t; suPronto(); }).catch(() => { caricando = null; });
     return caricando;
   }
   function immagine(f) {
     let im = immagini.get(f);
-    if (!im) { im = new Image(); im.onload = () => suPronto(); im.src = 'lpc/' + f; immagini.set(f, im); }
+    if (!im) { im = new Image(); im.onload = () => suPronto(); im.src = (window.LPC_BASE || '') + 'lpc/' + f; immagini.set(f, im); }
     return im.complete && im.naturalWidth ? im : null;
   }
   const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));

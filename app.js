@@ -1,6 +1,10 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '1.9.0';
+const VERSION = '2.0.0';
 const CHANGELOG = [
+  { v: '2.0.0', data: '22/11/2026', voci: [
+    'Vista 3D in stile HD-2D (pulsante "Vista 3D" sotto la mappa): muri, case e tetti in rilievo, oggetti di scena in 3D, personaggi in piedi che camminano, sole e luci vere con le ombre, pioggia e neve, bagliore delle luci e sfocatura di profondità.',
+    'Nella vista 3D: trascina per spostare l\'inquadratura, due dita per avvicinarti, tocca una casella per muoverti, tieni premuto su un edificio. La scelta resta salvata; su telefoni poco potenti conviene la vista 2D.'
+  ] },
   { v: '1.9.0', data: '22/11/2026', voci: [
     'Voce naturale del master: narratore e personaggi parlano con voci vere e diverse (Gemini). Se non arriva in tempo, legge la voce del telefono.',
     'Illustrazioni realistiche: quando scoprite un luogo nuovo o succede qualcosa di memorabile compare un\'immagine nel diario; il master può chiederne una con "Illustra la scena".',
@@ -399,6 +403,7 @@ Mappa.init($('#mappa'), {
   puoMuovereOggetti: () => me()?.ruolo === 'master',
   onMuoviOggetto: (id, x, y) => invia({ t: 'scena', azione: 'sposta', oggetto: id, x, y }),
   onLampo: () => Suoni.effetto('tuono'),
+  onCambio: () => { if (S.m3) S.m3.aggiorna(Mappa.dati3D()); },
   altezzaMax: () => largo() || document.body.classList.contains('tv') ? window.innerHeight - 200 : 9999,
   onEdificio: async ed => {
     const puoEntrare = (capo() || masterAI()) && !['dungeon', 'grotta', 'taverna', 'interno'].includes(S.st.luogo?.tipo) && ed.stato !== 'distrutto' && !/pozzo|torre|radura/i.test(ed.nome);
@@ -425,6 +430,7 @@ function renderMappa() {
   $('#btnEsciEd').hidden = !(l?.genitore && (capo() || masterAI()));
   Mappa.setAmbiente(S.st?.mondo?.calendario);
   if (l) { Mappa.imposta(l, S.st.segnalini, S.st.membri); aggiornaExtraMappa(); }
+  if (OPZ.vista3d && l && (!S.m3 || $('#mappa3dBox').hidden)) vista3D(true);
 }
 function aggiornaScenaSonora() { const c = S.st?.combattimento; Suoni.scena(c?.attivo ? 'combattimento' : S.st?.luogo?.tipo || 'aperto'); }
 function aggiornaExtraMappa() {
@@ -612,6 +618,20 @@ function renderMappaMondo() {
     + ids.map(id => `<g data-luogo="${esc(idx[id].nome)}" style="cursor:pointer"><circle cx="${pos[id][0]}" cy="${pos[id][1]}" r="${id === attuale ? 16 : 12}" fill="${COLT[idx[id].tipo] || '#bcae96'}" stroke="${id === attuale ? '#fff' : '#14110f'}" stroke-width="3"/><text x="${pos[id][0]}" y="${pos[id][1] + 30}" text-anchor="middle" fill="#f3ead9" font-size="13" font-family="Inter, sans-serif">${esc(idx[id].nome.length > 20 ? idx[id].nome.slice(0, 19) + '…' : idx[id].nome)}<title>${esc(idx[id].nome)}</title></text></g>`).join('');
 }
 $('#btnIllustra').addEventListener('click', () => invia({ t: 'illustra' }));
+// vista 3D stile HD-2D (three.js, caricata solo quando serve)
+async function vista3D(attiva) {
+  OPZ.vista3d = attiva; scrivi('ta_opzioni', OPZ);
+  $('#btn3d').textContent = attiva ? 'Vista 2D' : 'Vista 3D';
+  if (attiva && !S.m3) {
+    try { const m = await import('./mappa3d.js'); S.m3 = m.crea($('#mappa3dBox'), { io: () => S.io, onLampo: () => Suoni.effetto('tuono') }); Report.log('vista-3d', { esito: 'ok' }); }
+    catch (e) { Report.log('vista-3d', { esito: 'errore', errore: String(e?.message || e) }); toast('La vista 3D non funziona su questo dispositivo'); OPZ.vista3d = false; $('#btn3d').textContent = 'Vista 3D'; return; }
+  }
+  if (!attiva && S.m3) { S.m3.chiudi(); S.m3 = null; }
+  const conLuogo = !!S.st?.luogo;
+  $('#mappa3dBox').hidden = !(attiva && conLuogo); $('#mappaBox').hidden = attiva && conLuogo;
+  if (S.m3 && conLuogo) S.m3.aggiorna(Mappa.dati3D()); else Mappa.adatta();
+}
+$('#btn3d').addEventListener('click', () => vista3D(!OPZ.vista3d));
 $('#diario').addEventListener('click', e => { const im = e.target.closest('img[data-img]'); if (im) window.open(im.src, '_blank'); const rb = e.target.closest('[data-riepilogo]'); if (rb) { S.apriRiepilogo = Number(rb.dataset.riepilogo); invia({ t: 'riepiloghi' }); } });
 $('#btnMondo').addEventListener('click', () => { const b = $('#mondoBox'); b.hidden = !b.hidden; $('#btnMondo').textContent = b.hidden ? 'Mappa del mondo' : 'Mappa del luogo'; $('#mappaBox').hidden = !b.hidden; if (!b.hidden) renderMappaMondo(); else Mappa.adatta(); });
 $('#mondoSvg').addEventListener('click', e => { const g = e.target.closest('[data-luogo]'); if (!g) return; if (capo() || masterAI()) invia({ t: 'vai', nome: g.dataset.luogo }); else toast(g.dataset.luogo); });

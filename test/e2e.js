@@ -4,7 +4,7 @@ const OUT = process.env.OUT || require('path').join(require('os').tmpdir(), 'tav
 require('fs').mkdirSync(OUT, { recursive: true });
 let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  ' : 'FAIL', n); };
 (async () => {
-  const browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'] });
+  const browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const errori = [];
   const nuovo = async (vp) => {
     const ctx = await browser.newContext({ viewport: vp, permissions: ['microphone'], deviceScaleFactor: 1 });
@@ -134,6 +134,15 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await tocca(cellaLibera.x, cellaLibera.y, 60);
   await A.waitForFunction(c => S.st.segnalini[S.io]?.x === c.x && S.st.segnalini[S.io]?.y === c.y, cellaLibera, { timeout: 5000 });
   v(true, 'tocco breve su una casella libera: il segnalino si sposta');
+  // vista 3D (three.js): si accende, disegna, si spegne senza errori
+  await A.click('#btn3d');
+  await A.waitForSelector('#mappa3dBox canvas', { timeout: 15000 }).catch(() => null);
+  await A.waitForTimeout(1500);
+  const v3 = await A.evaluate(() => ({ c: !!document.querySelector('#mappa3dBox canvas'), vis: !document.querySelector('#mappa3dBox').hidden }));
+  v(v3.c && v3.vis, 'vista 3D accesa con la mappa in rilievo');
+  await A.screenshot({ path: OUT + '/13-vista-3d.png' });
+  await A.click('#btn3d'); await A.waitForTimeout(300);
+  v(await A.evaluate(() => document.querySelector('#mappa3dBox').hidden && !document.querySelector('#mappaBox').hidden), 'si torna alla vista 2D');
   const loc = await A.evaluate(() => S.st.luogo.edifici.find(e => e.nome === 'Locanda'));
   await tocca(loc.x, loc.y, 60); await A.waitForTimeout(600);
   v(!(await A.evaluate(() => document.querySelector('#dlg').open)), 'tocco breve su un edificio: nessuna finestra');
