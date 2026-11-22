@@ -1,6 +1,10 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.2.0';
+const VERSION = '3.3.0';
 const CHANGELOG = [
+  { v: '3.3.0', data: '22/11/2026', voci: [
+    'App più semplice, senza togliere niente: le sezioni lunghe di Scheda e Altro si aprono e chiudono toccando il titolo (l\'app si ricorda come le hai lasciate); quelle che si usano meno partono chiuse.',
+    'Strumenti della mappa più compatti: tutti i bottoni restano, ma occupano metà spazio. Le istruzioni della mappa si aprono con «Come si usa la mappa».'
+  ] },
   { v: '3.2.0', data: '22/11/2026', voci: [
     'Quando il master AI finisce la quota non resta più muto: improvvisa con battute di riserva, mai uguali, finché la quota torna.',
     'Ogni bottega, taverna o tempio ha il suo personaggio che si ricorda cosa avete fatto lì e vi saluta di conseguenza.',
@@ -692,6 +696,7 @@ function renderTesoro() {
     <ul class="tesoro-ogg">${g.oggetti.map(o => `<li><span>${esc(o.nome)}${o.qta > 1 ? ' ×' + o.qta : ''}</span>${gioca ? `<button type="button" data-prendi="${esc(o.nome)}">Prendi</button>` : ''}</li>`).join('') || '<li class="piccolo">Nessun oggetto in comune</li>'}</ul>
     ${gioca ? '<form id="formTesoro" class="riga" autocomplete="off"><input id="tesOggetto" maxlength="60" placeholder="Metti un oggetto in comune"><button class="pieno">Metti</button></form>' : ''}
     <p class="piccolo">A voce: "metti 20 monete nel tesoro comune", "dividi il bottino".</p>${cartaCasa(gioca)}${cartaGioco(gioca)}`;
+  applicaPieghe();
 }
 // giochi di taverna: dadi o carte con le monete della scheda, chi vince prende il piatto
 function cartaGioco(gioca) {
@@ -827,6 +832,7 @@ function renderScheda() {
     <label>Note<textarea id="pgNote" rows="3" maxlength="4000" ${puo ? '' : 'readonly'}>${esc(pg.note || '')}</textarea></label>
     <div class="riga"><button id="btnStampa">Stampa o salva in PDF</button>${puo ? '<button id="btnAnnullaScheda">Annulla ultima modifica</button>' : ''}${puo ? '<button id="btnCaduto" class="pericolo">Il personaggio è caduto</button>' : ''}</div>
   </div>`;
+  applicaPieghe();
 }
 // obiettivo segreto, sogni, mestiere con le ricette, compagni animali
 function cartaVita(pg, puo) {
@@ -1622,6 +1628,23 @@ async function meteoVero() {
 $('#optMeteoVero').checked = !!OPZ.meteoVero;
 $('#optMeteoVero').addEventListener('change', e => { OPZ.meteoVero = e.target.checked; scrivi('ta_opzioni', OPZ); if (OPZ.meteoVero) meteoVero(); else clearTimeout(S.timerMeteo); });
 $('#btnDungeon').addEventListener('click', () => { invia({ t: 'dungeon_giorno' }); Report.log('dungeon-giorno', {}); });
+/* ============ Sezioni pieghevoli: il titolo apre e chiude, l'app si ricorda com'erano ============ */
+const APERTE = ['Invita al tavolo', 'Prossime serate', 'Schermo del master', 'Gioco', 'Caratteristiche', 'Attacchi', 'Equipaggiamento', 'Incantesimi', 'Banco', 'Tesoro del gruppo', 'Tiri salvezza'];
+const pieghe = leggi('ta_pieghe', {});
+const titoloPiega = h => h.firstChild?.textContent?.trim().split(/[·(:]/)[0].trim() || h.textContent.trim();
+function applicaPieghe() {
+  document.querySelectorAll('#vAltro > .carta > h2, #scheda .carta > h3:first-child, #tesoro > h3:first-child').forEach(h => {
+    const c = h.parentElement, k = titoloPiega(h), aperta = pieghe[k] ?? APERTE.some(a => k.startsWith(a));
+    c.classList.add('piegabile'); h.classList.add('testa-piega'); h.setAttribute('role', 'button'); h.tabIndex = 0;
+    c.classList.toggle('chiusa', !aperta); h.setAttribute('aria-expanded', aperta);
+  });
+}
+function piega(h, aperta) { const c = h.parentElement; c.classList.toggle('chiusa', !aperta); h.setAttribute('aria-expanded', aperta); pieghe[titoloPiega(h)] = aperta; scrivi('ta_pieghe', pieghe); }
+document.addEventListener('click', e => { const h = e.target.closest('.testa-piega'); if (h && !e.target.closest('button, a, input, select, label')) piega(h, h.parentElement.classList.contains('chiusa')); });
+document.addEventListener('keydown', e => { const h = e.target.closest?.('.testa-piega'); if (h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); piega(h, h.parentElement.classList.contains('chiusa')); } });
+// apre la sezione che contiene un elemento (serve anche alle prove automatiche)
+function apriSezione(sel) { const c = document.querySelector(sel)?.closest('.piegabile'); const h = c?.querySelector(':scope > .testa-piega'); if (h && c.classList.contains('chiusa')) piega(h, true); }
+applicaPieghe();
 /* ============ Traduzione automatica di master e chat ============ */
 function tradotto(t) { const x = OPZ.lingua && S.trad.get(t); return x ? `<p class="trad">🌐 ${esc(x)}</p>` : ''; }
 function traduciTesto(t) {
