@@ -61,7 +61,11 @@ const g2 = await A.aspetta(m => m.t === 'giro' && m.giro.detti.length === 0, 600
 v(!!g2, 'dopo la risposta del master il giro ricomincia');
 A.coda.length = 0; A.invia({ t: 'parlato', testo: 'vado avanti da solo', alMaster: true }); await A.aspetta(m => m.t === 'giro'); A.invia({ t: 'master_ora' });
 v(!!(await A.aspetta(m => m.t === 'narra', 12000).catch(() => null)), '«Risolvi adesso» fa rispondere il master senza aspettare');
-A.invia({ t: 'impostazioni', giro: false }); await A.aspetta(m => m.t === 'stato' && m.stato.campagna.giro === false);
+await A.aspetta(m => m.t === 'giro' && !m.giro.detti.length, 6000).catch(() => null); await pausa(300); A.coda.length = 0;
+A.invia({ t: 'parlato', testo: 'ancora una cosa', alMaster: true }); await A.aspetta(m => m.t === 'giro' && m.giro.detti.length === 1);
+A.invia({ t: 'impostazioni', giro: false });
+v(!!(await A.aspetta(m => m.t === 'narra', 12000).catch(() => null)), 'spento il giro con una mossa in attesa, il master risponde subito: nessuna mossa resta senza risposta');
+await A.aspetta(m => m.t === 'stato' && m.stato.campagna.giro === false); await pausa(600);
 
 // sussurri: messaggi privati che vedono solo i due
 B.coda.length = 0; C.coda.length = 0; A.invia({ t: 'sussurro', a: bB.io, testo: 'Non fidarti dell\'oste' });

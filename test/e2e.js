@@ -480,6 +480,8 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await A.waitForFunction(() => /manca Marco/.test($('#giroTesto').textContent), null, { timeout: 5000 }).catch(() => {});
   const lontano2 = await B.textContent('#giroTesto'), lontanoA = await A.textContent('#giroTesto');
   v(/Gioco a distanza: scrivi cosa fa il tuo personaggio quando vuoi/.test(lontano1) && /tocca a te dire cosa fai.*al più tardi domani alle \d/.test(lontano2) && /manca Marco/.test(lontanoA) && await A.evaluate(() => !$('#btnGiroOra').hidden), `gioco a distanza: «${lontano2}» (prima: «${lontano1}»; chi ha creato: «${lontanoA}»)`);
+  const ripresa = await B.evaluate(() => { S.st.diario.push({ t: Date.now(), tipo: 'narrazione', chi: 'master', testo: 'La torre trema: dal buio scende una figura.' }); $('#narrazione').hidden = true; riprendiDistanza(); const r = { vista: !$('#narrazione').hidden, testo: $('#narrTesto').textContent }; S.st.diario.push({ t: Date.now(), tipo: 'chat', chi: S.io, testo: 'Mi nascondo' }); $('#narrazione').hidden = true; riprendiDistanza(); r.dopo = $('#narrazione').hidden; S.st.diario.splice(-2); return r; });
+  v(ripresa.vista && /La torre trema/.test(ripresa.testo) && ripresa.dopo, 'gioco a distanza: chi rientra trova l\'ultima risposta del master, ma non se ha già scritto dopo');
   await A.evaluate(() => { $('#aDifferito').value = '0'; $('#btnSalvaCamp').click(); }); await B.waitForFunction(() => !S.st.campagna.differito, null, { timeout: 5000 });
   await A.evaluate(() => $('#btnMondoCrea').click()); await A.waitForFunction(() => /^[A-Z0-9]{6,12}-[A-Z0-9]{8}$/.test($('#mondoCodice').textContent), null, { timeout: 5000 });
   const codMondo = await A.textContent('#mondoCodice'), nomeMondo = await A.evaluate(() => S.st.campagna.nome), luoghiA = await A.evaluate(() => Object.keys(S.st.luoghi).length);
@@ -488,6 +490,9 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await N.waitForSelector('#gioco:not([hidden])', { timeout: 8000 });
   const primi = await N.evaluate(() => ({ nome: S.st.campagna.nome, avv: S.st.avventura?.id, carta: !$('#primiPassi').hidden, passo: $('#primiPassi .pp-ora b')?.textContent, invito: $('#invitoGuida').hidden }));
   v(primi.nome === 'Primi passi' && primi.avv === 'primi' && primi.carta && primi.passo === 'Crea il tuo personaggio' && primi.invito, 'dall\'ingresso «Mai giocato?» apre l\'avventura dei primi passi con l\'elenco guidato');
+  await N.evaluate(() => invia({ t: 'scheda', pg: Regole.nuovo(regole(), { nome: 'Tessa', razza: 'Halfling', classe: 'Ladro', carBase: { for: 8, des: 15, cos: 12, int: 12, sag: 12, car: 14 } }) }));
+  await N.waitForFunction(() => S.st.luogo?.nome === 'Locanda del Gallo Nero', null, { timeout: 12000 });
+  v(await N.evaluate(() => $('#primiPassi .pp-ora b')?.textContent === 'Di\' al master cosa fai' && $('#primiPassi summary .piccolo').textContent === '1 di 5'), 'creato il personaggio il primo passo si spunta e l\'avventura comincia da sola alla locanda');
   await N.evaluate(c => { mostraVista('vAltro'); $('#mondoEntra').value = c; $('#formMondo').requestSubmit(); }, codMondo);
   await N.click('#dlgAzioni button.pieno'); await N.waitForFunction(n => S.st.campagna.mondoDa === n, nomeMondo, { timeout: 8000 });
   const arrivato = await N.evaluate(() => ({ luoghi: Object.keys(S.st.luoghi).length, scritta: $('#mondoDa').textContent, appunti: (S.st.appunti || '').length })), nascostoB = await B.evaluate(() => $('#boxMondoCodice').hidden && $('#cartaCampagna').hidden && S.st.mondoChiave === undefined);

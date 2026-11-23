@@ -36,13 +36,13 @@ function gestisci(m) {
       S.io = m.io; if (m.chiave) S.chiave = m.chiave; S.st = m.stato; S.viewPg = S.io;
       salvaCampagna({ codice: S.codice, io: S.io, chiave: S.chiave, nome: S.st.campagna.nome, ruolo: me()?.ruolo });
       Report.log('entrato', { ruolo: me()?.ruolo, admin: me()?.admin, regole: regole(), master: S.st.campagna.masterTipo });
-      mostraGioco(); renderTutto(); avviaVoce(); controllaMappa(); meteoVero(); if (S.st.luogo) setTimeout(() => entraLuogo(S.st.luogo), 400); $('#invitoGuida').hidden = !(me()?.ruolo === 'giocatore' && !leggi('ta_guida_vista', false));
+      mostraGioco(); renderTutto(); avviaVoce(); controllaMappa(); meteoVero(); if (S.st.luogo) setTimeout(() => entraLuogo(S.st.luogo), 400); $('#invitoGuida').hidden = !(me()?.ruolo === 'giocatore' && !leggi('ta_guida_vista', false)); renderPassi(); // l'elenco dei primi passi aspetta che l'invito alla guida sia chiuso
       Mappa.pacchetti(`${SERVER_WS.replace(/^ws/, 'http')}/tavolo/${S.codice}/grafica/atlante`, S.io, S.chiave); // grafica comprata, solo per i membri
       // l'invito sparisce dalla barra degli indirizzi; resta il codice, così ricaricando si rientra da soli
       history.replaceState(null, '', `${location.pathname}?c=${S.codice}${document.body.classList.contains('tv') ? '&tv=1' : ''}`);
       scrivi('ta_attiva', S.codice);
       if (S.mondoDaPortare && me()?.admin) { invia({ t: 'mondo_importa', codice: S.mondoDaPortare }); Report.log('mondo-importa', { allaCreazione: true }); } S.mondoDaPortare = '';
-      ricordaAvvisi();
+      ricordaAvvisi(); riprendiDistanza();
       return;
     }
     case 'stato': S.st = m.stato; renderTutto(); return;
@@ -56,6 +56,7 @@ function gestisci(m) {
     case 'scheda': {
       const prima = S.st.pg[m.per];
       S.st.pg[m.per] = m.pg;
+      if (m.per === S.io && !prima) renderPassi(); // personaggio appena creato: il primo passo è fatto
       if (prima && m.pg && prima.pf !== m.pg.pf && S.st.segnalini?.[m.per]) {
         const d = m.pg.pf - prima.pf; Mappa.effettoTesto(m.per, (d > 0 ? '+' : '') + d, d > 0 ? '#7dff8a' : '#ff6a5a');
         let chiColpisce = null;
