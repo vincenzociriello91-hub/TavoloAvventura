@@ -1,6 +1,11 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.2.1';
+const VERSION = '4.2.2';
 const CHANGELOG = [
+  { v: '4.2.2', data: '23/11/2026', voci: [
+    'Cosa ricorda il master: con la memoria piena, il fatto appena aggiunto resta e si perde il più vecchio.',
+    'In combattimento lo Scatto si usa una volta per turno.',
+    'Vista spettatore: la riga delle reazioni torna su una riga sola.'
+  ] },
   { v: '4.2.1', data: '23/11/2026', voci: [
     'Gioco a distanza: quando rientri trovi subito l\'ultima risposta del master.',
     'Primi passi: l\'elenco compare dopo l\'invito alla guida, non insieme, e si spunta appena crei il personaggio.',
