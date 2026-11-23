@@ -429,6 +429,38 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   });
   v(attrezzi.aure === 1 && attrezzi.porta && attrezzi.lontano && attrezzi.barra && attrezzi.chiusa, `aura attorno alla mia figura; arrivando a una porta l'app propone di entrare (${JSON.stringify({ aure: attrezzi.aure, porta: attrezzi.porta, barra: attrezzi.barra })})`);
   v(attrezzi.immagine > 5000 && attrezzi.clessidra && attrezzi.mioTurno && /Movimento: \d+ di \d+/.test(attrezzi.movimento || '') && attrezzi.dopo && attrezzi.dopo !== attrezzi.movimento, `mappa salvabile come immagine (${Math.round(attrezzi.immagine / 1024)} KB), clessidra del turno, movimento che si scala: «${attrezzi.movimento}» → «${attrezzi.dopo}»`);
+  // regia (4.1): messaggi privati, ricerca nel diario, mazzo, cronaca, aiuto, azioni del turno, appunti del mondo, mano alzata, difficoltà
+  await A.evaluate(id => { renderDestinatari(); $('#chatA').value = id; $('#chatTesto').value = 'Occhio alla botola segreta'; $('#formChat').requestSubmit(); }, idB);
+  await B.waitForFunction(() => document.querySelector('#diario .sussurro-ev'), null, { timeout: 5000 });
+  const privato = await A.evaluate(() => ({ mio: document.querySelector('#diario .sussurro-ev')?.textContent || '', server: S.st.diario.some(d => /botola segreta/.test(d.testo)), scelta: $('#chatA').options.length }));
+  v(/In privato a .*botola segreta/.test(privato.mio) && !privato.server && privato.scelta >= 2 && /in privato: Occhio alla botola/.test(await B.textContent('#diario .sussurro-ev')), 'messaggio privato: lo vedono solo i due, con il lucchetto, e non entra nel diario di tutti');
+  const cerca = await A.evaluate(() => { const c = $('#cercaDiario'); c.value = 'botola'; c.dispatchEvent(new Event('input')); const trovati = document.querySelectorAll('#diario li').length; c.value = 'parolachenonce'; c.dispatchEvent(new Event('input')); const niente = $('#diario').textContent; c.value = ''; c.dispatchEvent(new Event('input')); return { trovati, niente, tutti: document.querySelectorAll('#diario li').length }; });
+  v(cerca.trovati === 1 && /Nessuna riga/.test(cerca.niente) && cerca.tutti > 3, `ricerca nel diario: ${cerca.trovati} riga con «botola» su ${cerca.tutti}`);
+  await A.evaluate(() => $('#btnCarta').click()); await A.waitForSelector('.carta-pescata', { timeout: 5000 });
+  await B.waitForFunction(() => /ne restano 53/.test(document.querySelector('#cartaUltima').textContent), null, { timeout: 5000 });
+  v(/ di |Jolly/.test(await A.textContent('.carta-pescata span')) && await B.evaluate(() => !document.querySelector('.carta-pescata') && $('#btnMischia').hidden) && await A.evaluate(() => !$('#btnMischia').hidden), 'mazzo del tavolo: chi pesca vede la carta grande, gli altri la leggono; rimescola solo chi guida');
+  await A.evaluate(() => { $('#ricordaTesto').value = 'La chiave d\'argento apre la torre'; $('#formRicorda').requestSubmit(); });
+  await B.waitForFunction(() => /chiave d'argento/.test(document.querySelector('#cronaca').textContent), null, { timeout: 5000 });
+  v(await B.evaluate(() => $('#formRicorda').hidden) && await A.evaluate(() => !$('#formRicorda').hidden), 'cosa ricorda il master: il fatto aggiunto da chi guida lo leggono tutti');
+  await B.evaluate(id => invia({ t: 'aiuto', per: id }), await A.evaluate(() => S.io)); await A.waitForFunction(() => S.aiuto, null, { timeout: 5000 });
+  await A.evaluate(() => { S.attesoTiro = null; tiraProva('Percezione'); }); await A.waitForFunction(() => (S.st.tiri || []).some(t => t.chi === S.io && t.modo === 'vantaggio' && /Percezione/.test(t.motivo)) || /vantaggio/.test(document.querySelector('#ultimoTiro').textContent), null, { timeout: 6000 });
+  v(await A.evaluate(() => !S.aiuto), 'aiuto di un compagno: il tiro dopo è con vantaggio, una volta sola');
+  const turno = await A.evaluate(async () => {
+    invia({ t: 'combattimento', azione: 'inizia' });
+    for (let i = 0; i < 40 && !S.st.combattimento?.attivo; i++) await new Promise(q => setTimeout(q, 100));
+    for (let i = 0; i < 12 && S.st.combattimento.ordine[S.st.combattimento.turno].id !== S.io; i++) { invia({ t: 'combattimento', azione: 'prossimo' }); await new Promise(q => setTimeout(q, 250)); }
+    const r = { azioni: [...document.querySelectorAll('.azioni-turno [data-azione]')].map(b => b.textContent), prima: document.querySelector('.combat .movimento')?.textContent };
+    document.querySelector('[data-azione="scatto"]')?.click(); await new Promise(q => setTimeout(q, 300));
+    r.dopo = document.querySelector('.combat .movimento')?.textContent; invia({ t: 'combattimento', azione: 'fine' }); return r;
+  });
+  const numero = t => Number((t || '').match(/Movimento: (\d+)/)?.[1]);
+  v(turno.azioni.length === 7 && turno.azioni.includes('Scatto') && numero(turno.dopo) > numero(turno.prima), `azioni del turno a vista (${turno.azioni.join(', ')}); lo Scatto raddoppia il movimento: ${numero(turno.prima)} → ${numero(turno.dopo)} caselle`);
+  await A.evaluate(() => { const ta = $('#aAppunti'); ta.value = 'Il sindaco è un doppiogiochista.'; ta.dispatchEvent(new Event('input')); $('#btnSalvaAppunti').click(); $('#aDifficolta').value = 'dura'; $('#aStile').value = 'acquerello'; $('#btnSalvaCamp').click(); });
+  await B.waitForFunction(() => S.st.campagna.difficolta === 'dura' && S.st.campagna.stileImg === 'acquerello', null, { timeout: 5000 });
+  await A.waitForFunction(() => /doppiogiochista/.test(S.st.appunti || ''), null, { timeout: 5000 });
+  v(await B.evaluate(() => S.st.appunti === undefined && $('#cartaCampagna').hidden) && await A.evaluate(() => $('#aDifficolta').value === 'dura' && /doppiogiochista/.test($('#aAppunti').value)), 'appunti del mondo, difficoltà e stile delle illustrazioni: li salva chi guida, gli appunti non arrivano ai giocatori');
+  await B.evaluate(() => $('#btnMano').click()); await A.waitForSelector('.reazione-vola', { timeout: 5000 });
+  v(/✋/.test(await A.textContent('.reazione-vola')) && await B.evaluate(() => !$('#btnMano').hidden), 'un giocatore alza la mano e chi guida lo vede');
   v(errori.length === 0, 'nessun errore JavaScript' + (errori.length ? ': ' + errori.slice(0, 5).join(' | ') : ''));
   await browser.close();
   console.log(`\n${ok} ok, ${ko} falliti`);

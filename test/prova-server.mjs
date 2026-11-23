@@ -82,9 +82,14 @@ for (const n of ['Cripta del Re Lich', 'Foresta di Mirkwood', 'Grotta dei Crista
   verifica(l.luogo.celle.every(r => r.length === 32), `${n}: ${l.luogo.tipo}, ${l.luogo.edifici.length} elementi`);
   if (n.startsWith('Cripta') || n.startsWith('Foresta')) console.log(l.luogo.celle.join('\n'));
 }
-B.invia({ t: 'segnalino', x: 5, y: 6 });
-const sg = await A.aspetta(m => m.t === 'segnalini');
-verifica(sg.segnalini[bB.io].x === 5, 'segnalino spostato');
+// la mappa cambia a ogni campagna: si prova un passo verso ogni casella vicina finché una è libera (il server rifiuta muri e ostacoli)
+A.coda.length = 0; B.coda.length = 0; B.invia({ t: 'stato' }); const quiB = (await B.aspetta(m => m.t === 'stato')).stato.segnalini[bB.io];
+let sg = null, meta = null;
+for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+  meta = { x: quiB.x + dx, y: quiB.y + dy }; B.invia({ t: 'segnalino', ...meta });
+  sg = await A.aspetta(m => m.t === 'segnalini', 700).catch(() => null); if (sg) break;
+}
+verifica(sg && sg.segnalini[bB.io].x === meta.x && sg.segnalini[bB.io].y === meta.y, 'segnalino spostato');
 
 B.invia({ t: 'rtc', a: bA.io, dati: { tipo: 'offerta', sdp: 'x' } });
 const r = await A.aspetta(m => m.t === 'rtc');

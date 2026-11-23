@@ -103,7 +103,13 @@ function gestisci(m) {
     case 'push_chiave': attivaNotifiche(m.pub); return;
     case 'push_ok': scrivi('ta_push', true); toast('Avvisi attivi: ti arriva una notifica il giorno prima e un\'ora prima di ogni serata'); renderSerate(); Report.log('notifiche', { esito: 'ok' }); return;
     case 'disegna_tu': disegnaDalTelefono(m); return;
-    case 'reazione': reazioneVola(m.emoji, m.nome); return;
+    case 'reazione': reazioneVola(m.emoji, m.nome); if (m.emoji === '✋' && m.nome) toast(`✋ ${m.nome} alza la mano`); return;
+    case 'giro': S.st.giro = m.giro; renderGiro(); avvisaGiro(m.giro); return;
+    case 'sussurro': arrivaSussurro(m); return;
+    case 'aiuto': arrivaAiuto(m); return;
+    case 'carta': arrivaCarta(m); return;
+    case 'cronaca': S.st.cronaca = m.cronaca; renderCronaca(); return;
+    case 'appunti': S.st.appunti = m.testo; delete $('#aAppunti').dataset.toccato; renderRegia(); return;
     case 'traduzione': { const cb = S.attesaTrad?.[m.id]; if (cb) { delete S.attesaTrad[m.id]; cb(m); } return; }
     case 'note_mappa': S.st.noteMappa = { luogo: m.luogo, note: m.note }; renderNoteMappa(); return;
     case 'disegni': S.st.disegni = { luogo: m.luogo, disegni: m.disegni }; aggiornaExtraMappa(); return;
@@ -115,6 +121,7 @@ function gestisci(m) {
       if (S.ultimoParlato) { Report.log('master-risposta', { ms: Date.now() - S.ultimoParlato, modello: m.modello, parole: m.testo.split(' ').length }); S.ultimoParlato = 0; }
       Report.log('narrazione', { png: m.png || null, testo: m.testo, modello: m.modello || null, riassunto: !!m.riassunto, riserva: !!m.riserva }); // ogni battuta parola per parola, come nei Varchi
       mostraNarrazione(m.testo, m.png); renderDiario(); traduciTesto(m.testo);
+      riassuntoArrivato(m);
       if (OPZ.narratore && altraLingua()) { S.daLeggere = m.testo; } // si legge la traduzione, appena arriva
       else if (OPZ.narratore && m.voce) { // la voce naturale arriva tra poco: si aspetta al massimo 12 secondi, poi voce del telefono
         S.vociAttese = S.vociAttese || {};
@@ -137,9 +144,10 @@ function gestisci(m) {
       if (m.pg === S.io) {
         $('#richTesto').textContent = `Il master chiede: prova di ${m.prova}${m.cd ? ' (CD ' + m.cd + ')' : ''}`;
         S.provaAttesa = { prova: m.prova, cd: Number(m.cd) || null, t: Date.now() };
-        $('#richiesta').hidden = false; $('#richTira').onclick = () => { tiraProva(m.prova); $('#richiesta').hidden = true; };
+        $('#richiesta').hidden = false; $('#richTira').textContent = 'Tira'; $('#richTira').onclick = () => { tiraProva(m.prova); $('#richiesta').hidden = true; };
+        if (S.aiuto && Date.now() - S.aiuto.t < 180000) $('#richTesto').textContent += ` · con l'aiuto di ${S.aiuto.nome} (vantaggio)`;
         if (OPZ.avvisi) Narratore.avviso(`Tocca a te: prova di ${m.prova}`);
-      } else toast(`${m.nome || 'Un personaggio'} deve fare una prova di ${m.prova}`);
+      } else proponiAiuto(m);
       return;
     }
     case 'avviso': toast(m.msg, !!m.motivo || !!m.errore || /non è riuscit|finite|errore|impossibile/i.test(m.msg), m.msg.length > 70 ? 7000 : 3500); return; // un avviso di fallimento è rosso, non verde
@@ -265,7 +273,7 @@ function renderTutto() {
   $('#optMaster').closest('label').hidden = !masterAI();
   $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); }
   if (capo()) renderAvventura(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
-  renderPresenza(); renderMappa(); renderCombat(); renderHud(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#altriStrumenti').hidden = me()?.ruolo === 'spettatore'; $('#btnArea').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#copiaBox').hidden = !me()?.admin; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro();
+  renderPresenza(); renderMappa(); renderCombat(); renderHud(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#altriStrumenti').hidden = me()?.ruolo === 'spettatore'; $('#btnArea').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#copiaBox').hidden = !me()?.admin; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro(); renderRegia();
 }
 function renderPresenza() {
   if (!S.st) return;

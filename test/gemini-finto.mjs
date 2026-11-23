@@ -24,13 +24,20 @@ http.createServer((req, res) => {
       eventi.push({ tipo: 'nemico', nome: 'Goblin', x: 10, y: 8 }, { tipo: 'nemico', nome: 'Lupo crudele', x: 12, y: 8 });
       if ((ctx.ultimi_eventi || []).some(e => e.includes('mondo vivo di prova')) && pg) eventi.push({ tipo: 'enigma', domanda: 'Più ne togli, più diventa grande. Cos\'è?', risposta: 'buca', indizio: 'si scava' }, { tipo: 'missione', titolo: 'Lupi al mulino', descrizione: 'Cacciate i lupi dal mulino', ricompensa: '50 mo' }, { tipo: 'nemesi', nome: 'Vaskar il Grigio', descrizione: 'mago rinnegato' }, { tipo: 'minaccia', nome: 'Il culto della luna', descrizione: 'rapisce i viandanti' }, { tipo: 'scelta', descrizione: 'Hanno risparmiato il goblin', peso: 'buona' }, { tipo: 'sogno', pg: pg.id, testo: 'Una torre nera sotto la luna' }, { tipo: 'reputazione_luogo', luogo: ctx.luogo_attuale?.nome, delta: 100, motivo: 'eroi' }, { tipo: 'compagno', pg: pg.id, nome: 'Zanna', specie: 'lupo' });
       if (JSON.stringify(j.systemInstruction).includes('SFIDA DELLA SETTIMANA')) eventi.push({ tipo: 'sfida_vinta' });
+      const ue = ctx.ultimi_eventi || [], sys = JSON.stringify(j.systemInstruction);
+      if (ue.some(e => e.includes('prova dei fatti'))) eventi.push({ tipo: 'fatto', testo: 'Nel forziere della cripta ci sono 30 monete e una chiave d\'argento' });
+      // per le prove della regia (4.1): cosa ha ricevuto il master
+      const regia = ue.some(e => e.includes('prova del master onesto')) ? ` [fatti:${(ctx.fatti_decisi || []).length}|appunti:${ctx.appunti_del_mondo ? 'si' : 'no'}|dura:${/MODALITÀ DURA/.test(sys)}|onesto:${/arbitro onesto/.test(sys) && /Decidi i fatti prima/.test(sys)}|giro:${ctx.giro ? 'si' : 'no'}]` : '';
       const gia = (ctx.png_incontrati || []).map(p => p.nome).join(', ');
-      out = JSON.stringify({ narrazione: 'Una rissa scoppia nella locanda. Un boccale vola verso di voi.' + (gia ? ` Di nuovo: ${gia}.` : ''), png: 'Oste Bruno', eventi });
+      out = JSON.stringify({ narrazione: 'Una rissa scoppia nella locanda. Un boccale vola verso di voi.' + (gia ? ` Di nuovo: ${gia}.` : '') + regia, png: 'Oste Bruno', eventi });
     } else if (/comando per modificare/.test(testoUtente)) out = JSON.stringify({ ops: [{ op: 'car', car: 'sag', delta: 1 }] });
     else if (/^Traduci in inglese/.test(testoUtente)) out = 'The tavern falls silent.';
     else if (/Domanda di regole/.test(testoUtente)) out = 'In 5e un attacco di opportunità si fa con la reazione.';
     else if (/Racconta la serata/.test(testoUtente)) out = JSON.stringify({ titolo: 'La rissa del Cinghiale', racconto: 'Una serata di boccali volanti e goblin sconfitti.', prompt: 'heroes celebrating in a tavern' });
     else if (/PROMPT:/.test(testoUtente)) out = 'PROMPT: a tavern brawl, flying mugs\nDIDASCALIA: Rissa nella locanda';
+    else if (/===CRONACA===/.test(testoUtente)) out = 'Memoria finta aggiornata.\n===CRONACA===\n• Il gruppo ha fatto a botte nella locanda.';
+    else if (/cantastorie di piazza/.test(testoUtente)) out = 'Riassunto in rima finto.';
+    else if (/riassunto completo/.test(testoUtente)) out = 'Riassunto completo finto.';
     else out = 'Riassunto finto.';
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: out }] } }] }));

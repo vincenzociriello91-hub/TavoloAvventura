@@ -745,6 +745,7 @@ const Mappa = (() => {
       const lx = Math.max(2, Math.min(W - tw - 8, e.id === 'bancone' ? X + Wd - tw - 12 : X + Wd / 2 - tw / 2 - 4)), ly = est ? Y + Hd / 2 - 9 : Y + 3;
       c.fillStyle = 'rgba(20,17,15,.72)'; rr(c, lx, ly, tw + 8, 17, gusti.pixel ? 0 : 5); c.fill();
       c.fillStyle = e.stato === 'integro' ? '#f3ead9' : '#ffb199'; c.fillText(label, lx + 4, ly + 12.5);
+      if (chiome) chiome.getContext('2d').clearRect((lx - 3) * dpr, (ly - 2) * dpr, (tw + 14) * dpr, 21 * dpr); // le chiome non coprono i nomi dei luoghi
     }
     cache = c0; cacheChiave = chiave;
     return cache;
@@ -790,6 +791,7 @@ const Mappa = (() => {
   // scritte sulla mappa: in pixel quando l'aspetto da videogioco è attivo
   const fontPixel = px => gusti.pixel ? `${Math.round(px * 1.32)}px 'Jersey 15', Inter, system-ui, sans-serif` : `600 ${px}px Inter, system-ui, sans-serif`;
   // nome sotto la figura: la prima parola, più il numero se ce n'è uno ("Goblin 2")
+  let targhe = []; // nomi già scritti in questo fotogramma
   function etichetta(nome, bx, y, t, nemico, ignoto) {
     if (ignoto) nome = extra.vedeTutto ? `${String(nome || '').split(/\s+/)[0]}?` : '???'; // nome non ancora svelato: i giocatori vedono ???, il master un punto di domanda
     if (t < 12 || !nome) return;
@@ -797,8 +799,11 @@ const Mappa = (() => {
     const parti = String(nome).split(/\s+/), numero = parti.length > 1 && /^\d+$/.test(parti[parti.length - 1]) ? ' ' + parti[parti.length - 1] : '';
     let n = parti[0]; while (n.length > 3 && ctx.measureText(n + numero).width > Math.max(t * 2.2, 54)) n = n.slice(0, -2) + '…';
     n += numero;
-    const nw = ctx.measureText(n).width, hh = Math.max(12, t * 0.42);
-    ctx.fillStyle = nemico ? 'rgba(70,14,12,.85)' : 'rgba(20,17,15,.78)'; rr(ctx, bx - nw / 2 - 4, y, nw + 8, hh, gusti.pixel ? 0 : 4); ctx.fill();
+    const nw = ctx.measureText(n).width, hh = Math.max(12, t * 0.42), x0 = bx - nw / 2 - 4;
+    // due figure vicine: il secondo nome scende sotto il primo invece di coprirlo
+    for (let k = 0; k < 3 && targhe.some(r => x0 < r.x + r.w && x0 + nw + 8 > r.x && y < r.y + r.h && y + hh > r.y); k++) y += hh + 1;
+    targhe.push({ x: x0, y, w: nw + 8, h: hh });
+    ctx.fillStyle = nemico ? 'rgba(70,14,12,.85)' : 'rgba(20,17,15,.78)'; rr(ctx, x0, y, nw + 8, hh, gusti.pixel ? 0 : 4); ctx.fill();
     ctx.fillStyle = '#f3ead9'; ctx.fillText(n, bx - nw / 2, y + hh * 0.78);
   }
   // stati del personaggio scritti sotto il nome (avvelenato, prono...): non solo un colore
@@ -1059,6 +1064,7 @@ const Mappa = (() => {
   }
 
   function disegna(animando) {
+    targhe = [];
     if (!ctx || !luogo) return;
     const t = tile;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(strato(), 0, 0);

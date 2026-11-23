@@ -46,7 +46,7 @@ $('#btnCopia').addEventListener('click', async () => { try { await navigator.cli
 $('#btnNuovoInvito').addEventListener('click', () => invia({ t: 'nuovo_invito' }));
 $('#btnSalvaCamp').addEventListener('click', () => {
   const ruoli = Object.fromEntries($$('[data-ruolo]').map(s => [s.dataset.ruolo, s.value]));
-  invia({ t: 'impostazioni', nome: $('#aNome').value.trim(), ambientazione: $('#aAmb').value.trim(), regole: $('input[name="aRegole"]:checked')?.value, masterTipo: $('input[name="aMaster"]:checked')?.value, timerTurno: Number($('#aTimer').value) || 0, ruoli });
+  invia({ t: 'impostazioni', nome: $('#aNome').value.trim(), ambientazione: $('#aAmb').value.trim(), regole: $('input[name="aRegole"]:checked')?.value, masterTipo: $('input[name="aMaster"]:checked')?.value, timerTurno: Number($('#aTimer').value) || 0, difficolta: $('#aDifficolta').value, giro: $('#aGiro').checked, stileImg: $('#aStile').value, ruoli });
   toast('Impostazioni salvate');
 });
 $('#btnNuovaSessione').addEventListener('click', async () => { const i = await chiedi('<h2>Nuova sessione</h2><p>Si apre una nuova sessione e si crea un nuovo codice invito: i vecchi QR smettono di funzionare. La campagna, le schede e le mappe restano.</p>', [{ testo: 'Inizia', pieno: true }, { testo: 'Annulla' }]); if (i === 0) { invia({ t: 'impostazioni', nuovaSessione: true }); if (masterAI()) setTimeout(() => invia({ t: 'riassunto' }), 800); } });

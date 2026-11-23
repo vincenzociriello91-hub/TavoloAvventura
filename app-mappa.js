@@ -78,7 +78,7 @@ function renderCombat() {
   box.querySelector('li.ora')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   $('#btnFineTurno')?.addEventListener('click', () => invia({ t: 'combattimento', azione: 'prossimo' }));
   const pg = mioPg(), tot = pg ? Math.max(1, Math.floor((pg.vel || 9) / 1.5)) : 0;
-  if (ora && ora.id === S.io && pg) box.insertAdjacentHTML('beforeend', `<p class="piccolo movimento">Movimento: ${Math.max(0, tot - (S.mosso || 0))} di ${tot} caselle${(S.mosso || 0) >= tot ? ' (finito: puoi ancora muoverti se scatti)' : ''}</p>`);
+  if (ora && ora.id === S.io && pg) box.insertAdjacentHTML('beforeend', `<p class="piccolo movimento">Movimento: ${Math.max(0, tot - (S.mosso || 0))} di ${tot} caselle${(S.mosso || 0) >= tot ? ' (finito: puoi ancora muoverti se scatti)' : ''}</p>${htmlAzioniTurno()}`);
   const sec = Number(S.st.campagna.timerTurno) || 0;
   if (sec && ora) { box.insertAdjacentHTML('beforeend', '<div class="clessidra" id="clessidra" role="timer" aria-label="Tempo del turno"><i></i><span></span></div>'); aggiornaClessidra(); }
 }
