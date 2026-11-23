@@ -497,6 +497,36 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await N.click('#dlgAzioni button.pieno'); await N.waitForFunction(n => S.st.campagna.mondoDa === n, nomeMondo, { timeout: 8000 });
   const arrivato = await N.evaluate(() => ({ luoghi: Object.keys(S.st.luoghi).length, scritta: $('#mondoDa').textContent, appunti: (S.st.appunti || '').length })), nascostoB = await B.evaluate(() => $('#boxMondoCodice').hidden && $('#cartaCampagna').hidden && S.st.mondoChiave === undefined);
   v(arrivato.luoghi >= luoghiA && /nel mondo/.test(arrivato.scritta) && arrivato.appunti > 10 && nascostoB, `mondo condiviso: con il codice ${arrivato.luoghi} luoghi (su ${luoghiA}) e gli appunti arrivano in un'altra campagna; il codice lo vede solo chi ha creato la campagna (${JSON.stringify({ ...arrivato, nascostoB })})`);
+  // 4.3: segreto al master, frecce, calendario, carte da collezione, appunti da PDF, ritratto illustrato
+  await A.evaluate(() => mostraVista('vDiario'));
+  v(await A.evaluate(() => { renderDestinatari(); return [...$('#chatA').options].some(o => o.value === 'master'); }), 'nei messaggi si può scrivere «solo il master (in segreto)»');
+  await A.evaluate(() => { renderDestinatari(); $('#chatA').value = 'master'; $('#chatTesto').value = 'Di nascosto prendo la chiave'; $('#formChat').requestSubmit(); $('#chatA').value = ''; });
+  await A.waitForFunction(() => S.sussurri.some(x => /In segreto al master: Di nascosto/.test(x.testo)), null, { timeout: 6000 });
+  v(await B.evaluate(() => !S.sussurri.some(x => /Di nascosto/.test(x.testo)) && !S.st.diario.some(d => /Di nascosto/.test(d.testo))), 'il segreto al master non lo vede nessun altro');
+  const frecce = await A.evaluate(async () => {
+    const p = clona(mioPg()); p.equip = [...p.equip.filter(e => !/^Frecce|^Arco/.test(e.nome)), { nome: 'Arco corto', qta: 1, indossato: true }, { nome: 'Frecce', qta: 2, indossato: false }];
+    invia({ t: 'scheda', pg: p }); for (let i = 0; i < 30 && !mioPg().equip.some(e => e.nome === 'Arco corto'); i++) await new Promise(q => setTimeout(q, 100));
+    const r = [usaMunizione(mioPg(), 'Arco corto'), usaMunizione(mioPg(), 'Arco corto'), usaMunizione(mioPg(), 'Arco corto')];
+    await new Promise(q => setTimeout(q, 600)); return { r, resta: Regole.munizioni(mioPg(), 'Arco corto').n, spese: mioPg().munSpese?.Frecce };
+  });
+  v(frecce.r.join() === 'true,true,false' && frecce.resta === 0 && frecce.spese === 2, `frecce: due tiri, al terzo l'arco non tira (${JSON.stringify(frecce)})`);
+  await A.evaluate(async () => { invia({ t: 'combattimento', azione: 'inizia' }); for (let i = 0; i < 30 && !S.st.combattimento?.attivo; i++) await new Promise(q => setTimeout(q, 100)); invia({ t: 'combattimento', azione: 'fine' }); });
+  await A.waitForFunction(() => Regole.munizioni(mioPg(), 'Arco corto').n === 1, null, { timeout: 6000 }).catch(() => {});
+  v(await A.evaluate(() => Regole.munizioni(mioPg(), 'Arco corto').n === 1 && !Object.keys(mioPg().munSpese || {}).length), 'finito lo scontro si raccoglie metà delle frecce tirate');
+  const cal = await A.evaluate(() => { const prima = S.st.mondo.calendario; S.st.mondo.calendario = { giorno: 14, stagione: 'primavera', inizioStagione: 1 }; S.st.missioni = [...(S.st.missioni || []), { id: 'qz', titolo: 'La lettera', stato: 'accettata', scadenza: 15 }]; renderMondo(); aggiornaTesta(); const r = { mondo: $('#mondo').textContent, testa: $('#tSotto').textContent }; S.st.mondo.calendario = prima; S.st.missioni = S.st.missioni.filter(x => x.id !== 'qz'); renderMondo(); return r; });
+  v(/Giorno del Sole, 14 di primavera/.test(cal.mondo) && /14 di primavera/.test(cal.testa) && /Prossima festa: Festa dei Fiori, tra 1 giorno/.test(cal.mondo) && /La lettera: scade tra 1 giorno/.test(cal.mondo), `calendario: «${cal.testa.split('·').pop().trim()}», festa vicina e scadenze delle missioni`);
+  await A.evaluate(() => invia({ t: 'piazza_nemici', mostri: [{ nome: 'Coboldo', numero: 1, pf: 5 }] }));
+  await B.waitForFunction(() => S.st.bestiario?.Coboldo && !$('#boxCarte').hidden && /Coboldo/.test($('#carteLista').textContent), null, { timeout: 6000 });
+  v(true, 'carte da collezione: il mostro incontrato compare nella collezione di tutti');
+  const pdf = (() => { const testo = 'Il drago dorme sotto la torre di Argentea'; const og = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>', null, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>']; const flusso = `BT /F1 18 Tf 50 700 Td (${testo}) Tj ET`; og[3] = `<< /Length ${flusso.length} >>\nstream\n${flusso}\nendstream`; let out = '%PDF-1.4\n'; const pos = []; og.forEach((o, i) => { pos.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; }); const x = out.length; out += `xref\n0 ${og.length + 1}\n0000000000 65535 f \n${pos.map(p => String(p).padStart(10, '0') + ' 00000 n \n').join('')}trailer\n<< /Size ${og.length + 1} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`; return Buffer.from(out, 'latin1'); })();
+  await A.evaluate(() => { mostraVista('vAltro'); $('#aAppunti').value = ''; });
+  await A.setInputFiles('#fileAppunti', { name: 'mondo.pdf', mimeType: 'application/pdf', buffer: pdf });
+  await A.waitForFunction(() => /drago dorme sotto la torre/.test($('#aAppunti').value), null, { timeout: 15000 }).catch(() => {});
+  v(await A.evaluate(() => /drago dorme sotto la torre/.test($('#aAppunti').value)), 'appunti del mondo caricati da un PDF');
+  await A.evaluate(() => { mostraVista('vScheda'); S.viewPg = S.io; renderScheda(); document.querySelector('[data-ritratto]').click(); });
+  await A.waitForFunction(() => mioPg().ritratto, null, { timeout: 20000 }).catch(() => {});
+  const rit = await A.evaluate(async () => { renderScheda(); await new Promise(q => setTimeout(q, 800)); const im = document.querySelector('.ritratto.illustrato img'); return { id: mioPg().ritratto, img: !!im && im.naturalWidth > 0 }; });
+  v(rit.id && rit.img, 'ritratto illustrato creato dalla scheda e mostrato al posto della figura (tocco per tornare alla figura)');
   v(errori.length === 0, 'nessun errore JavaScript' + (errori.length ? ': ' + errori.slice(0, 5).join(' | ') : ''));
   await browser.close();
   console.log(`\n${ok} ok, ${ko} falliti`);

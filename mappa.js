@@ -15,6 +15,7 @@ const Mappa = (() => {
   // effetti di battaglia: numeri dei danni, mosse d'attacco, esplosioni degli incantesimi, nemici sconfitti
   let effetti = [];
   // mappa viva (3.9): chiome che ondeggiano, lucciole, foglie, fumo, luccichio dell'acqua, polvere nella luce, nuvole, buio che si muove
+  let tetti = null, tettiLista = []; // tetti degli edifici a parte: tornano davanti, semitrasparenti, a chi passa dietro la casa
   let chiome = null, alberiLista = [], vita = [], ultimaVita = 0, fermoFino = 0, acque = [], camini = [], vitaChiave = '';
   const pfVisti = new Map(); let ultimoGesto = performance.now();
   // strumenti (4.0): righello, lavagna a mano libera
@@ -735,6 +736,16 @@ const Mappa = (() => {
         chiome = ch;
       }
     }
+    tetti = null; tettiLista = [];
+    if (esterno() && P && c0.width * c0.height < 9e6) {
+      const lista = luogo.edifici.filter(e => luogo.celle[e.y]?.[e.x] === '#' && e.stato !== 'distrutto' && e.id !== 'pozzo');
+      if (lista.length) {
+        const m = document.createElement('canvas'); m.width = c0.width; m.height = c0.height;
+        const mk = m.getContext('2d'); mk.setTransform(dpr, 0, 0, dpr, 0, 0);
+        for (const e of lista) if (edificioPacchetti(mk, e, t)) tettiLista.push(e);
+        if (tettiLista.length) { const ch = document.createElement('canvas'); ch.width = c0.width; ch.height = c0.height; const ck = ch.getContext('2d'); ck.drawImage(c0, 0, 0); ck.globalCompositeOperation = 'destination-in'; ck.drawImage(m, 0, 0); tetti = ch; }
+      }
+    }
     // nomi degli edifici e delle stanze
     for (const e of luogo.edifici) {
       if (!e.nome) continue;
@@ -998,8 +1009,15 @@ const Mappa = (() => {
   function davanti(t) {
     const dietro = new Set(); for (const [id, sg] of Object.entries(segnalini)) { const p = passi.get(id) || sg; dietro.add(Math.round(p.x) + ',' + Math.round(p.y)); }
     let fatto = false;
-    for (const [x, y] of alberiLista) if (dietro.has(x + ',' + (y - 1)) && scoperta(x, y)) { chioma(x, y, t, 0.78); fatto = true; }
+    if (chiome && !gusti.menoMoto) for (const [x, y] of alberiLista) if (dietro.has(x + ',' + (y - 1)) && scoperta(x, y)) { chioma(x, y, t, 0.78); fatto = true; }
     if (fatto) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // chi sta subito dietro una casa (le due file sopra) finisce sotto la parte alta del disegno: il tetto torna davanti, mezzo trasparente
+    if (tetti) for (const e of tettiLista) {
+      if (!scoperta(e.x, e.y) || ![...dietro].some(k => { const [x, y] = k.split(',').map(Number); return x >= e.x - 1 && x <= e.x + e.w && y >= e.y - 2 && y < e.y; })) continue;
+      const sx = Math.max(0, (e.x - 0.4) * t), sy = Math.max(0, (e.y - 1.8) * t), sw = Math.min(luogo.w * t, (e.x + e.w + 0.4) * t) - sx, shh = e.y * t + 2 - sy;
+      if (sw <= 0 || shh <= 0) continue;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 0.45; ctx.drawImage(tetti, sx * dpr, sy * dpr, sw * dpr, shh * dpr, sx, sy, sw, shh); ctx.globalAlpha = 1;
+    }
   }
   // cosa c'è di vivo in questo luogo: specchi d'acqua e comignoli (si ricalcola solo quando cambia il luogo)
   function preparaVita() {
@@ -1121,7 +1139,7 @@ const Mappa = (() => {
       if (!extra.vedeTutto && (s.tipo === 'nemico' || s.tipo === 'png') && ((luogo.visto && luogo.visto[s.y * luogo.w + s.x] === '0') || !vedo(s.x, s.y))) return;
       segnalino(id, s, pos, t);
     });
-    if (chiome && !gusti.menoMoto) davanti(t);
+    if ((chiome && !gusti.menoMoto) || tetti) davanti(t);
     if (!gusti.menoMoto) vitaAria(t);
     disegnaRighello(t);
     disegnaEffetti(t);
@@ -1365,5 +1383,5 @@ const Mappa = (() => {
   }
   return { controllo, effettoTesto, effettoArea, sconfitto, attacco, colpo, cura, proiettile, scuoti, init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, terreno3D, spriteOggetto, dati3D, azioneCasella, casa3D, figura: (id, s) => figura(id, s), mostro: s => mostro(s), grande: s => GRANDI.test(nomeMostro(s.nome)), nomeMostro, opzioni,
     strumento: m => { modo = m === modo ? null : m || null; riga = tratto = null; cv.style.cursor = modo ? 'crosshair' : ''; disegna(); return modo; }, get modo() { return modo; },
-    immagine: () => { disegna(); return cv; }, distanza, portaVicina, vivo: () => ({ modo, riga: riga && { via: !!riga.via, n: riga.via ? riga.via.length : distanza(riga.b.x - riga.a.x, riga.b.y - riga.a.y) }, disegni: (extra.disegni || []).length, aure: Object.values(segnalini).filter(x => x.aura).length, casella: tile, particelle: vita.length, tipi: [...new Set(vita.map(p => p.tipo))], alberi: alberiLista.length, chiome: !!chiome, acque: acque.length, camini: camini.length, effetti: effetti.map(e => e.tipo) }), puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea, percorso, zoom, pacchetti };
+    immagine: () => { disegna(); return cv; }, distanza, portaVicina, vivo: () => ({ tetti: tettiLista.length, modo, riga: riga && { via: !!riga.via, n: riga.via ? riga.via.length : distanza(riga.b.x - riga.a.x, riga.b.y - riga.a.y) }, disegni: (extra.disegni || []).length, aure: Object.values(segnalini).filter(x => x.aura).length, casella: tile, particelle: vita.length, tipi: [...new Set(vita.map(p => p.tipo))], alberi: alberiLista.length, chiome: !!chiome, acque: acque.length, camini: camini.length, effetti: effetti.map(e => e.tipo) }), puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea, percorso, zoom, pacchetti };
 })();

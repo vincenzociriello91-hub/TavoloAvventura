@@ -63,7 +63,7 @@ const Comandi = {
         for (const [p, k] of Object.entries(CAR_PAROLE)) if (f.includes(p)) return { dado: { formula: 'd20' + fm(Regole.tiroSalvezza(pg, k)), modo, motivo: 'Tiro salvezza ' + CAR_NOMI[k] } };
       }
       if (/iniziativa/.test(f)) return { dado: { formula: 'd20' + fm(Regole.iniziativa(pg)), modo, motivo: 'Iniziativa' } };
-      if (/colpire|attacco|attacc/.test(f)) { const arma = trovaOggetto(pg, f) || (pg.equip || []).find(e => e.indossato && ARMI[e.nome]); const a = Regole.attacco(pg, arma); return { dado: { formula: 'd20' + fm(a.colpire), modo, motivo: 'Attacco' + (arma ? ' con ' + arma.nome : '') } }; }
+      if (/colpire|attacco|attacc/.test(f)) { const arma = trovaOggetto(pg, f) || (pg.equip || []).find(e => e.indossato && ARMI[e.nome]); const a = Regole.attacco(pg, arma); return { dado: { arma: arma?.nome, formula: 'd20' + fm(a.colpire), modo, motivo: 'Attacco' + (arma ? ' con ' + arma.nome : '') } }; }
       if (/\bdanni\b|\bdanno\b/.test(f)) { const arma = trovaOggetto(pg, f) || (pg.equip || []).find(e => e.indossato && ARMI[e.nome]); const a = Regole.attacco(pg, arma); return { dado: { formula: a.danno.replace(/^1d/, 'd'), motivo: 'Danni' + (arma ? ' ' + arma.nome : '') } }; }
       for (const ab of Object.keys(set.abilita)) if (f.includes(pulisci(ab))) return { dado: { formula: 'd20' + fm(Regole.abilita(pg, ab)), modo, motivo: ab } };
       // nomi dell'altra edizione detti a voce (es. "furtività" in 3.5 = Muoversi silenziosamente)

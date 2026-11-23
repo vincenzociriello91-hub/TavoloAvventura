@@ -30,6 +30,13 @@ http.createServer((req, res) => {
       if (ue.some(e => e.includes('prova dei fatti'))) eventi.push({ tipo: 'fatto', testo: 'Nel forziere della cripta ci sono 30 monete e una chiave d\'argento' });
       // per le prove della regia (4.1): cosa ha ricevuto il master
       const regia = ue.some(e => e.includes('prova del master onesto')) ? ` [fatti:${(ctx.fatti_decisi || []).length}|appunti:${ctx.appunti_del_mondo ? 'si' : 'no'}|dura:${/MODALITÀ DURA/.test(sys)}|onesto:${/arbitro onesto/.test(sys) && /Decidi i fatti prima/.test(sys)}|giro:${ctx.giro ? 'si' : 'no'}]` : '';
+      const segr = ctx.azioni_segrete || [];
+      if (segr.length) { const id = segr[0].match(/\(pg ([^)]+)\)/)?.[1]; eventi.push({ tipo: 'privato', pg: id, testo: `Segreto ricevuto: ${segr.length}` }); }
+      if (ue.some(e => e.includes('ci accampiamo per la notte'))) eventi.push({ tipo: 'riposo', lungo: true });
+      if (ue.some(e => e.includes('missione a tempo'))) eventi.push({ tipo: 'missione', titolo: 'Il ponte crollato', descrizione: 'Riparare il ponte', ricompensa: '20 mo', entro: 3 });
+      if (ue.some(e => e.includes('passano cinque giorni'))) eventi.push({ tipo: 'tempo', giorni: 5 });
+      if (ue.some(e => e.includes('passa un mese intero'))) eventi.push({ tipo: 'tempo', giorni: 30 });
+      if (ue.some(e => e.includes('musica di festa'))) eventi.push({ tipo: 'musica', umore: 'festa' });
       const distanza = ue.some(e => e.includes('prova della prima partita')) ? ` [prima:${/PRIMA PARTITA/.test(sys)}|distanza:${/gioco a distanza/.test(String(ctx.giro))}]` : '';
       const gia = (ctx.png_incontrati || []).map(p => p.nome).join(', ');
       out = JSON.stringify({ narrazione: 'Una rissa scoppia nella locanda. Un boccale vola verso di voi.' + (gia ? ` Di nuovo: ${gia}.` : '') + regia + distanza, png: 'Oste Bruno', eventi });

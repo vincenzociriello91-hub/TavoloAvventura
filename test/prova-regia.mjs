@@ -110,6 +110,50 @@ v((await A.aspetta(m => m.t === 'narra' && m.riassunto, 10000)).testo === 'Riass
 A.coda.length = 0; B.invia({ t: 'reazione', emoji: '✋' });
 v((await A.aspetta(m => m.t === 'reazione')).emoji === '✋', 'un giocatore alza la mano e lo vedono tutti');
 
+// ---------- 4.3: messaggio segreto al master AI, riposo deciso dal master, slot e munizioni nel contesto ----------
+A.coda.length = 0; B.coda.length = 0; C.coda.length = 0;
+B.invia({ t: 'al_master', testo: 'Di nascosto infilo la chiave d\'argento nella mia tasca' });
+const eco = await B.aspetta(m => m.t === 'sussurro' && m.a === 'master');
+const risp = await B.aspetta(m => m.t === 'sussurro' && m.da === 'master', 12000).catch(() => null);
+await A.aspetta(m => m.t === 'narra', 12000).catch(() => null); await pausa(300);
+v(/chiave d'argento/.test(eco.testo) && risp && /Segreto ricevuto: 1/.test(risp.testo), 'messaggio segreto al master: il master lo riceve e risponde solo a chi l\'ha scritto');
+v(!A.coda.some(m => m.t === 'sussurro') && !C.coda.some(m => m.t === 'sussurro') && !(await stato(A)).diario.some(d => /chiave d'argento/.test(d.testo)), 'gli altri non vedono il segreto, neanche nel diario');
+C.invia({ t: 'al_master', testo: 'spettatore' }); await pausa(300);
+v(!C.coda.some(m => m.t === 'sussurro'), 'gli spettatori non mandano segreti al master');
+A.coda.length = 0; A.invia({ t: 'parlato', testo: 'ora parlo io', alMaster: true }); await A.aspetta(m => m.t === 'narra', 12000).catch(() => null); await pausa(300);
+v(!B.coda.some(m => m.t === 'sussurro' && m.da === 'master' && m.quando > risp.quando), 'il segreto il master lo legge una volta sola');
+const pB = (await stato(B)).pg[bB.io]; B.invia({ t: 'scheda', pg: { ...pB, pf: 5, slotUsati: [0, 2], slotLiberi: [0, 0] } }); await B.aspetta(m => m.t === 'scheda' && m.per === bB.io);
+A.coda.length = 0; A.invia({ t: 'parlato', testo: 'ci accampiamo per la notte', alMaster: true });
+const dopo = await A.aspetta(m => m.t === 'scheda' && m.per === bB.io && m.da === 'master', 12000).catch(() => null);
+v(dopo && dopo.pg.pf === dopo.pg.pfMax && dopo.pg.slotLiberi[1] === 2 && !dopo.pg.slotUsati.length && /riposo lungo/.test(dopo.nota), 'riposo lungo deciso dal master: tornano punti ferita e slot degli incantesimi');
+await A.aspetta(m => m.t === 'narra', 12000).catch(() => null); await pausa(500);
+
+// ---------- 4.3: calendario, missioni a tempo, musica, carte da collezione, ritratto, copia della campagna ----------
+const dice = async frase => { A.coda.length = 0; A.invia({ t: 'parlato', testo: frase, alMaster: true }); await A.aspetta(m => m.t === 'narra', 12000).catch(() => null); await pausa(400); };
+await dice('missione a tempo');
+let st43 = await stato(A); const q43 = st43.missioni.find(x => x.titolo === 'Il ponte crollato'), g0 = st43.mondo.calendario?.giorno || 1;
+v(q43 && q43.scadenza === g0 + 3, `missione con scadenza: entro il giorno ${q43?.scadenza}`);
+await dice('passano cinque giorni');
+st43 = await stato(A);
+v(st43.missioni.find(x => x.titolo === 'Il ponte crollato')?.stato === 'scaduta' && st43.diario.some(d => /Missione scaduta: Il ponte crollato/.test(d.testo)), 'passato il termine, la missione scade e il diario lo dice');
+const prima43 = st43.mondo.calendario.stagione; await dice('passa un mese intero'); st43 = await stato(A);
+v(st43.mondo.calendario.stagione !== prima43 && st43.mondo.calendario.inizioStagione > 1, `dopo 30 giorni la stagione cambia da sola (${prima43} → ${st43.mondo.calendario.stagione})`);
+B.coda.length = 0; await dice('musica di festa');
+v(B.coda.some(m => m.t === 'musica' && m.umore === 'festa'), 'il master cambia la musica secondo il momento (festa)');
+A.coda.length = 0; A.invia({ t: 'piazza_nemici', mostri: [{ nome: 'Coboldo', numero: 2, pf: 5 }] });
+const b1 = await A.aspetta(m => m.t === 'bestiario');
+const segK = (await stato(A)).segnalini, kob = Object.keys(segK).find(k => /Coboldo/.test(segK[k].nome));
+A.invia({ t: 'segnalino', id: kob, rimuovi: true }); const b2 = await A.aspetta(m => m.t === 'bestiario' && m.bestiario.Coboldo?.sconfitti === 1);
+v(b1.bestiario.Coboldo?.visti === 2 && b2.bestiario.Coboldo.sconfitti === 1 && (await stato(C)).bestiario.Coboldo, 'carte da collezione: i mostri incontrati e sconfitti finiscono nella collezione di tutti');
+B.coda.length = 0; B.invia({ t: 'ritratto' });
+const rit = await B.aspetta(m => m.t === 'scheda' && m.per === bB.io && m.pg.ritratto, 20000).catch(() => null);
+const imgR = rit ? await fetch(`http://localhost:8787/tavolo/${codice}/media/img/${rit.pg.ritratto}`) : null;
+v(rit && imgR?.ok && /image/.test(imgR.headers.get('content-type')), 'ritratto illustrato del personaggio, creato dalla sua scheda');
+const pB2 = (await stato(B)).pg[bB.io]; B.invia({ t: 'scheda', pg: { ...pB2, ritratto: undefined, pf: pB2.pf } }); await B.aspetta(m => m.t === 'scheda' && m.per === bB.io && !m.da?.startsWith?.('master'));
+v((await stato(B)).pg[bB.io].ritratto === rit?.pg.ritratto, 'il ritratto resta anche quando il telefono rimanda la scheda');
+A.coda.length = 0; A.invia({ t: 'esporta' }); const esp = await A.aspetta(m => m.t === 'esportazione', 6000);
+v(['cronaca', 'appunti', 'fatti', 'bestiario'].every(k => k in esp.dati), 'la copia della campagna salva anche cronaca, appunti del mondo, fatti e carte');
+
 // ---------- 4.2: gioco a distanza ----------
 // il giro conta anche chi non è collegato, l'attesa è in ore e allo scadere il master risponde a chi ha scritto
 A.coda.length = 0; A.invia({ t: 'impostazioni', differito: 24 });
@@ -160,7 +204,7 @@ v(bE.stato.avventure.some(a => a.id === 'primi' && a.tipo === 'primi passi'), 't
 E.invia({ t: 'scheda', pg: pg('Tessa') }); await E.aspetta(m => m.t === 'scheda');
 const ap = await E.aspetta(m => m.t === 'narra', 12000).catch(() => null); // nessuno ha ancora parlato: comincia da sola
 v(ap && /Locanda del Gallo Nero profuma/.test(ap.testo) && (await stato(E)).luogo?.nome === 'Locanda del Gallo Nero', 'creato il personaggio, i primi passi cominciano da soli alla locanda con la scena d\'apertura');
-await pausa(400); E.coda.length = 0; E.invia({ t: 'parlato', testo: 'prova della prima partita', alMaster: true });
+await pausa(1500); E.coda.length = 0; E.invia({ t: 'parlato', testo: 'prova della prima partita', alMaster: true });
 v(/prima:true/.test((await E.aspetta(m => m.t === 'narra', 12000)).testo), 'il master sa che è una prima partita e spiega una cosa alla volta');
 
 for (const c of [A, B2, C, D, E]) c.ws.close();

@@ -48,13 +48,14 @@ S.sussurri = [];
 function renderDestinatari() {
   const sel = $('#chatA'); if (!sel || !S.st) return;
   const altri = Object.entries(S.st.membri).filter(([id, m]) => id !== S.io && m.ruolo !== 'spettatore');
-  $('#chatABox').hidden = me()?.ruolo === 'spettatore' || !altri.length;
+  $('#chatABox').hidden = me()?.ruolo === 'spettatore' || (!altri.length && !(masterAI() && me()?.ruolo === 'giocatore'));
   const prima = sel.value;
-  sel.innerHTML = '<option value="">tutto il tavolo</option>' + altri.map(([id, m]) => `<option value="${esc(id)}">solo ${esc(S.st.pg[id]?.nome || m.nome)} (in privato)</option>`).join('');
+  const alMaster = masterAI() && me()?.ruolo === 'giocatore' ? '<option value="master">solo il master (in segreto)</option>' : '';
+  sel.innerHTML = '<option value="">tutto il tavolo</option>' + alMaster + altri.map(([id, m]) => `<option value="${esc(id)}">solo ${esc(S.st.pg[id]?.nome || m.nome)} (in privato)</option>`).join('');
   if ([...sel.options].some(o => o.value === prima)) sel.value = prima;
 }
 function arrivaSussurro(m) {
-  S.sussurri.push({ t: m.quando || Date.now(), tipo: 'sussurro', chi: m.da, testo: m.da === S.io ? `In privato a ${m.perNome}: ${m.testo}` : `${m.nome}, in privato: ${m.testo}` });
+  S.sussurri.push({ t: m.quando || Date.now(), tipo: 'sussurro', chi: m.da, testo: m.da === S.io ? (m.a === 'master' ? `In segreto al master: ${m.testo}` : `In privato a ${m.perNome}: ${m.testo}`) : `${m.nome}, in privato: ${m.testo}` });
   if (S.sussurri.length > 60) S.sussurri.shift();
   if (m.da !== S.io) { toast(`🤫 ${m.nome}, in privato: ${m.testo}`, false, 8000); vibra(40); }
   renderDiario(); Report.log('sussurro', { mio: m.da === S.io });
@@ -164,8 +165,12 @@ $('#aAppunti').addEventListener('input', e => { e.target.dataset.toccato = '1'; 
 $('#btnSalvaAppunti').addEventListener('click', () => { const t = $('#aAppunti').value.trim(); if (invia({ t: 'appunti', testo: t })) { delete $('#aAppunti').dataset.toccato; toast('Appunti salvati: il master li userà da adesso'); Report.log('appunti', { caratteri: t.length }); } });
 $('#fileAppunti').addEventListener('change', async e => {
   const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
-  if (f.size > 200000) { toast('Il file è troppo grande: servono appunti di poche pagine', true); return; }
-  const t = (await f.text()).replace(/\r/g, '').trim(), ta = $('#aAppunti');
+  const pdf = /\.pdf$/i.test(f.name) || f.type === 'application/pdf';
+  if (f.size > (pdf ? 15e6 : 200000)) { toast('Il file è troppo grande: servono appunti di poche pagine', true); return; }
+  let t;
+  try { t = (pdf ? await testoDaPdf(f) : await f.text()).replace(/\r/g, '').trim(); } catch (err) { toast('Non riesco a leggere questo PDF: se è una scansione (foto delle pagine) non contiene testo', true); Report.log('appunti-file', { errore: String(err?.message || err).slice(0, 120) }); return; }
+  if (!t) { toast('Nel file non c\'è testo da leggere (forse sono pagine fotografate)', true); return; }
+  const ta = $('#aAppunti');
   ta.value = ((ta.value ? ta.value + '\n\n' : '') + t).slice(0, 8000); ta.dataset.toccato = '1';
   toast(t.length > 8000 ? 'File caricato, tagliato a 8000 caratteri: controlla e salva' : 'File caricato: controlla e salva'); Report.log('appunti-file', { caratteri: t.length });
 });
@@ -259,4 +264,64 @@ $('#btnPrimiPassi').addEventListener('click', async () => {
 function ricordaAvvisi() {
   if (!('caches' in window) || !S.codice) return;
   caches.open('ta-avvisi').then(c => c.put('tavolo', new Response(JSON.stringify({ url: `${SERVER_WS.replace(/^ws/, 'http')}/tavolo/${S.codice}/avviso` }), { headers: { 'Content-Type': 'application/json' } }))).catch(() => {});
+}
+
+/* ============ MUNIZIONI ============ */
+// archi e balestre consumano una freccia o un quadrello a ogni attacco; senza munizioni non si tira
+function usaMunizione(pg, nomeArma) {
+  const m = Regole.munizioni(pg, nomeArma); if (!m) return true;
+  if (!m.n) { toast(`Niente ${m.tipo.toLowerCase()} per ${nomeArma}: comprane al banco o raccoglile dopo lo scontro`, true); Report.log('munizioni', { finite: m.tipo }); return false; }
+  const pv = S.viewPg; S.viewPg = Object.keys(S.st.pg).find(id => S.st.pg[id] === pg) || S.io;
+  modifica(p => { const r = Regole.consumaMunizione(p, nomeArma); if (r?.resta === 5 || r?.resta === 0) toast(r.resta ? `Restano 5 ${r.tipo.toLowerCase()}` : `Era l'ultima: ${r.tipo.toLowerCase()} finite`, !r.resta); return ''; });
+  S.viewPg = pv; return true;
+}
+// finito lo scontro si raccoglie metà delle frecce tirate
+function recuperaMunizioni() {
+  const pg = mioPg(); if (!pg || !Object.values(pg.munSpese || {}).some(n => n > 1)) return;
+  const pv = S.viewPg; S.viewPg = S.io;
+  modifica(p => { const f = Regole.recuperaMunizioni(p); if (f.length) toast(`Raccogli ${f.join(' e ')} dal campo`); return f.length ? `dopo lo scontro raccoglie ${f.join(' e ')}` : ''; });
+  S.viewPg = pv;
+}
+
+/* ============ CALENDARIO DI GIOCO ============ */
+// stagioni di 30 giorni, settimane di 7, una festa per stagione (stessa regola in tavolo-dati.js sul server)
+const GIORNI_SETT = ['Giorno della Luna', 'Giorno del Fuoco', 'Giorno dell\'Acqua', 'Giorno del Vento', 'Giorno della Terra', 'Giorno delle Stelle', 'Giorno del Sole'];
+const FESTE = { primavera: [15, 'Festa dei Fiori'], estate: [20, 'Notte dei Fuochi'], autunno: [10, 'Festa del Raccolto'], inverno: [25, 'Notte Lunga'] };
+function dataGioco(cal) {
+  if (!cal) return null;
+  const g = cal.giorno || 1, gs = g - (cal.inizioStagione || 1) + 1, [gf, festa] = FESTE[cal.stagione] || [0, ''];
+  return { settimana: GIORNI_SETT[(g - 1) % 7], giornoStagione: gs, festa: gf === gs ? festa : null, prossimaFesta: gf > gs ? { nome: festa, tra: gf - gs } : null };
+}
+const testoData = cal => { const d = dataGioco(cal); return d ? `${d.settimana}, ${d.giornoStagione} di ${cal.stagione}` : ''; };
+function htmlCalendario() {
+  const cal = S.st?.mondo?.calendario, d = dataGioco(cal); if (!d) return '';
+  const q = (S.st.missioni || []).filter(x => x.scadenza && x.stato !== 'completata' && x.stato !== 'scaduta').sort((a, b) => a.scadenza - b.scadenza);
+  return `<h3>Calendario</h3><p><strong>${esc(testoData(cal))}</strong> <span class="piccolo">· giorno ${cal.giorno} dall'inizio della campagna</span></p>
+    ${d.festa ? `<p>🎉 Oggi è la <strong>${esc(d.festa)}</strong>.</p>` : d.prossimaFesta ? `<p class="piccolo">Prossima festa: ${esc(d.prossimaFesta.nome)}, tra ${d.prossimaFesta.tra} ${d.prossimaFesta.tra === 1 ? 'giorno' : 'giorni'}.</p>` : ''}
+    ${q.map(x => { const r = x.scadenza - cal.giorno; return `<p class="piccolo scadenza${r <= 2 ? ' vicina' : ''}">⏳ ${esc(x.titolo)}: ${r <= 0 ? 'scade oggi' : `scade tra ${r} ${r === 1 ? 'giorno' : 'giorni'}`}</p>`; }).join('')}`;
+}
+
+/* ============ CARTE DA COLLEZIONE ============ */
+// una carta per ogni tipo di mostro incontrato; la cornice sale con quelli sconfitti
+const CORNICI_CARTE = [[10, 'oro', 'Oro'], [3, 'argento', 'Argento'], [1, 'bronzo', 'Bronzo'], [0, 'vista', 'Solo visto']];
+function renderCarte() {
+  const box = $('#boxCarte'); if (!box || !S.st) return;
+  const b = Object.entries(S.st.bestiario || {}).sort((x, y) => (y[1].sconfitti - x[1].sconfitti) || (x[1].prima - y[1].prima));
+  box.hidden = !b.length; $('#carteConta').textContent = b.length;
+  $('#carteLista').innerHTML = b.map(([nome, x]) => {
+    const [, cls, etichetta] = CORNICI_CARTE.find(([n]) => x.sconfitti >= n), img = S.st.mostri?.[Mappa.nomeMostro(nome)];
+    return `<div class="carta-coll ${cls}"><div class="cc-img">${img ? `<img src="${urlMedia('img', img)}" alt="" loading="lazy">` : `<img src="${Volti.nome(nome)}" alt="" class="pixel">`}</div><strong>${esc(nome)}</strong><span class="piccolo">${etichetta} · sconfitti ${x.sconfitti} · visti ${x.visti}</span></div>`;
+  }).join('');
+}
+
+// testo di un PDF letto nel telefono con pdf.js (Apache 2.0, in vendor/): si carica solo quando serve
+async function testoDaPdf(file) {
+  const pdfjs = await import('./vendor/pdf.min.mjs');
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL('vendor/pdf.worker.min.mjs', location.href).href;
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise, righe = [];
+  for (let i = 1; i <= Math.min(doc.numPages, 60) && righe.join('\n').length < 9000; i++) {
+    const c = await (await doc.getPage(i)).getTextContent();
+    righe.push(c.items.map(x => x.str + (x.hasEOL ? '\n' : ' ')).join('').replace(/[ \t]+/g, ' ').trim());
+  }
+  return righe.filter(Boolean).join('\n\n');
 }

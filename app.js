@@ -1,6 +1,19 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.2.2';
+const VERSION = '4.3.0';
 const CHANGELOG = [
+  { v: '4.3.0', data: '23/11/2026', voci: [
+    'Messaggio segreto al master AI: nei messaggi scegli «solo il master» e gli dici una cosa che gli altri non sanno. Lui ne tiene conto e risponde solo a te.',
+    'Frecce e quadrelli si consumano a ogni tiro con l\'arco o la balestra; senza munizioni non si tira, e dopo lo scontro se ne raccoglie metà. Ranger e warlock partono con 20.',
+    'Quando il gruppo riposa nella storia, il master fa tornare da solo punti ferita e slot degli incantesimi. Il master vede anche quanti slot e frecce vi restano.',
+    'Calendario di gioco: giorni della settimana, stagioni che cambiano da sole ogni 30 giorni, una festa per stagione e missioni con scadenza.',
+    'Carte da collezione nel Diario: ogni mostro incontrato diventa una carta, con cornice di bronzo, argento o oro secondo quanti ne sconfiggete.',
+    'Appunti del mondo anche da PDF.',
+    'Ritratto illustrato del personaggio, creato dalla scheda nello stile della campagna (tocca il ritratto per tornare alla figura in pixel).',
+    'La musica cambia anche secondo il momento: il master può renderla tesa, misteriosa, di festa, triste o epica.',
+    'Sulla mappa, chi passa dietro una casa finisce sotto il tetto, che diventa trasparente.',
+    'La cartolina della serata usa le scritte in pixel e i ritratti illustrati.',
+    'La copia della campagna ora salva anche cronaca, appunti del mondo, fatti, disegni e carte.'
+  ] },
   { v: '4.2.2', data: '23/11/2026', voci: [
     'Cosa ricorda il master: con la memoria piena, il fatto appena aggiunto resta e si perde il più vecchio.',
     'In combattimento lo Scatto si usa una volta per turno.',

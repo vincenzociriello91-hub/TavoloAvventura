@@ -78,4 +78,15 @@ v(p35.livello === 4 && p35.puntiCar === 1, '3.5: +1 caratteristica al 4° livell
 const r35 = Comandi.interpreta('tiro salvezza sui riflessi', p35, '3.5');
 v(r35.dado.formula === 'd20+4', '3.5 riflessi livello 4 → ' + JSON.stringify(r35));
 v(Comandi.interpreta('tiro per furtività', p35, '3.5')?.dado.motivo === 'Muoversi silenziosamente', '3.5: "furtività" a voce → Muoversi silenziosamente');
+// munizioni: archi e balestre consumano frecce e quadrelli, metà si ritrova dopo lo scontro
+const rng = Regole.nuovo('5e', { nome: 'Ilya', razza: 'Elfo', classe: 'Ranger', carBase: { for: 12, des: 15, cos: 12, int: 10, sag: 14, car: 8 } });
+v(Regole.munizioni(rng, 'Arco lungo')?.n === 20, 'ranger: parte con 20 frecce');
+for (let i = 0; i < 5; i++) Regole.consumaMunizione(rng, 'Arco lungo');
+rng.equip.push({ nome: 'Frecce (20)', qta: 1, indossato: false });
+v(Regole.munizioni(rng, 'Arco lungo').n === 35 && Regole.consumaMunizione(rng, 'Arco lungo').resta === 34, 'pacco «Frecce (20)» comprato: si apre al primo tiro');
+v(Regole.recuperaMunizioni(rng)[0] === '3 frecce' && Regole.munizioni(rng, 'Arco lungo').n === 37 && !Object.keys(rng.munSpese).length, 'dopo lo scontro si ritrova metà delle frecce tirate (6 → 3)');
+const vuoto = { equip: [] }; v(Regole.consumaMunizione(vuoto, 'Balestra leggera').ok === false && Regole.consumaMunizione(vuoto, 'Spada lunga') === null, 'senza quadrelli la balestra non tira; la spada non ne ha bisogno');
+const mg = Regole.ricalcola(Regole.nuovo('5e', { nome: 'Mira', razza: 'Umano', classe: 'Mago', carBase: { for: 8, des: 14, cos: 12, int: 15, sag: 12, car: 10 } }));
+Comandi.applica(mg, [{ op: 'slot', livello: 1 }]); Regole.ricalcola(mg);
+v(mg.slotLiberi[1] === 1, `slot liberi per il master: speso uno slot di 1° livello ne resta 1 (${JSON.stringify(mg.slotLiberi)})`);
 console.log(`${ok} ok, ${ko} falliti`); process.exit(ko ? 1 : 0);
