@@ -1,6 +1,22 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.0.0';
+const VERSION = '4.1.0';
 const CHANGELOG = [
+  { v: '4.1.0', data: '23/11/2026', voci: [
+    'Il vostro mondo: chi guida la campagna scrive (o carica da un file) appunti su storia, luoghi, personaggi e segreti, e il master AI li usa come verità.',
+    'Master più onesto: tiene fermi i fatti che ha deciso (chi è il colpevole, cosa c\'è dietro la porta), fa fallire le azioni impossibili e non cambia la storia per accontentare.',
+    'Difficoltà della campagna: Storia, Normale o Dura.',
+    'Turni a giro: il master AI aspetta che tutti abbiano detto cosa fanno e risponde a tutti insieme. Chi guida può farlo rispondere subito.',
+    'Messaggi privati tra giocatori: li leggono solo i due, nel diario hanno un segno a parte.',
+    'Azioni del turno sempre a vista in combattimento: Scatto, Disimpegno, Schivata, Aiuta, Spingi, Nasconditi, Cerca.',
+    'Aiuto: quando un compagno deve fare una prova puoi aiutarlo, e lui tira con vantaggio.',
+    'Cosa ricorda il master: nel Diario si legge la memoria della campagna, e chi guida può aggiungere un fatto da non dimenticare.',
+    'Ricerca nel diario.',
+    'Mazzo di carte del tavolo (52 carte e 2 jolly) nella scheda Dadi.',
+    'Riassunto completo e riassunto da cantastorie in rima, da condividere con un tocco.',
+    'Stile delle illustrazioni a scelta: realistico, acquerello, fumetto, pixel art, inchiostro antico, pittura a olio.',
+    'Alzo la mano: un tasto per chiedere la parola senza interrompere.',
+    'Sulla mappa i nomi di due figure vicine non si coprono più, e gli alberi non nascondono i nomi dei luoghi.'
+  ] },
   { v: '4.0.0', data: '23/11/2026', voci: [
     'Righello sulla mappa: trascina per misurare in linea d\'aria, tocca una casella per sapere quanti passi servono girando intorno ai muri.',
     'In combattimento, nel tuo turno, vedi quanto movimento ti resta: le caselle si scalano a ogni passo.',

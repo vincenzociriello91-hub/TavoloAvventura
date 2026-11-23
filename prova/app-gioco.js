@@ -13,13 +13,13 @@ function tira(formula, motivo, modo, segreto) {
   if (invia({ t: 'dado', formula, motivo: motivo || '', modo, segreto: !!segreto })) Report.log('dado', { formula, motivo, modo });
 }
 function tiraProva(prova) {
-  const pg = mioPg(); if (!pg) { tira('d20', prova); return; }
+  const pg = mioPg(), aiutato = aiutoFresco() ? 'vantaggio' : undefined; if (!pg) { tira('d20', prova, aiutato); return; }
   const set = Regole.set(pg.regole);
   const ab = Object.keys(set.abilita).find(a => pulisci(a) === pulisci(prova));
-  if (ab) return tira('d20' + fm(Regole.abilita(pg, ab)), ab);
+  if (ab) return tira('d20' + fm(Regole.abilita(pg, ab)), ab, aiutato);
   const r = Comandi.interpreta('tiro ' + prova, pg, pg.regole);
-  if (r?.dado) return tira(r.dado.formula, r.dado.motivo || prova, r.dado.modo);
-  tira('d20', prova);
+  if (r?.dado) return tira(r.dado.formula, r.dado.motivo || prova, r.dado.modo || aiutato);
+  tira('d20', prova, aiutato);
 }
 function mostraTiro(t, senzaAvviso) {
   const el = $('#ultimoTiro');
@@ -33,19 +33,22 @@ function renderTiri() {
 
 /* ============ DIARIO ============ */
 function renderDiario() {
-  const l = [...(S.st?.diario || [])].reverse().slice(0, 150);
+  const cerca = pulisci($('#cercaDiario')?.value || ''), tutti = [...(S.st?.diario || []), ...(S.sussurri || [])].sort((a, b) => a.t - b.t);
+  const l = (cerca ? tutti.filter(d => pulisci(`${d.testo || ''} ${d.png || ''} ${S.st.membri[d.chi]?.nome || ''}`).includes(cerca)) : tutti).reverse().slice(0, 150);
   const ora = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
   $('#diario').innerHTML = l.map(d => {
     if (d.tipo === 'narrazione') return `<li class="narrazione-ev">${Volti.faccia(d)}<span class="chi">${ora(d.t)} · ${esc(d.png || (d.chi === 'master' ? 'Master AI' : S.st.membri[d.chi]?.nome || 'Master'))}</span><p>${esc(d.testo)}</p>${tradotto(d.testo)}</li>`;
     if (d.tipo === 'riepilogo') return `<li class="illustrazione-ev">${Volti.faccia(d)}<span class="chi">${ora(d.t)} · Riepilogo della serata</span><p><button type="button" data-riepilogo="${d.riepilogo}">${esc(d.testo)}</button></p></li>`;
     if (d.tipo === 'illustrazione' && d.img) return `<li class="illustrazione-ev">${Volti.faccia(d)}<span class="chi">${ora(d.t)} · Illustrazione</span><img src="${urlMedia('img', d.img)}" alt="${esc(d.testo)}" loading="lazy" data-img="${esc(d.img)}" onerror="this.remove()"><p>${esc(d.testo)}</p></li>`;
+    if (d.tipo === 'sussurro') return `<li class="sussurro-ev">${Volti.faccia({ tipo: 'chat', chi: d.chi })}<span class="chi">${ora(d.t)} · 🤫 solo per voi due</span> <span class="corpo-ev">${esc(d.testo)}</span></li>`;
     const cls = { scheda: 'scheda-ev', comando: 'comando' }[d.tipo] || d.tipo;
     const chi = d.tipo === 'chat' ? `<strong>${esc(S.st.membri[d.chi]?.nome || '?')}:</strong> ` : '';
     return `<li class="${esc(cls)}">${Volti.faccia(d)}<span class="chi">${ora(d.t)}</span> <span class="corpo-ev">${chi}${esc(d.testo)}${d.tipo === 'chat' ? tradotto(d.testo) : ''}</span></li>`;
-  }).join('') || '<li class="piccolo">Il diario della campagna è vuoto: iniziate a giocare!</li>';
+  }).join('') || `<li class="piccolo">${cerca ? 'Nessuna riga del diario contiene queste parole.' : 'Il diario della campagna è vuoto: iniziate a giocare!'}</li>`;
 }
 $('#formChat').addEventListener('submit', e => {
   e.preventDefault(); const t = $('#chatTesto').value.trim(); if (!t) return;
+  if ($('#chatA').value && !$('#chatABox').hidden) { invia({ t: 'sussurro', a: $('#chatA').value, testo: t }); $('#chatTesto').value = ''; return; }
   const r = mioPg() ? Comandi.interpreta(t, mioPg(), regole(), S.st.mondo) : null;
   if (r) eseguiComando(r, t, 'scritto');
   else { invia({ t: 'chat', testo: t, alMaster: masterAI() && $('#alMaster').checked }); if (masterAI() && $('#alMaster').checked) S.ultimoParlato = Date.now(); }

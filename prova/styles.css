@@ -609,3 +609,34 @@ body.gs .passaggio { background-color: #2a2212; border-image-source: var(--corni
 .clessidra span { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--pixel); font-size: .9rem; color: #fff; text-shadow: 0 1px 0 #000, 0 0 3px #000; line-height: 1; }
 .combat .movimento { margin: 6px 0 0; }
 body.tv .altri-strumenti, body.tv #passaggio { display: none !important; }
+
+/* ============ 4.1 — Regia: turni a giro, cronaca, messaggi privati, azioni del turno, mazzo ============ */
+.chat-riga { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.chat-a { display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: .85rem; color: var(--testo2); margin: 6px 0; flex: 1 1 220px; }
+.chat-a select { flex: 1; width: auto; min-width: 0; min-height: 40px; margin: 0; }
+.giro-stato { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-color: var(--oro); }
+.giro-stato span { flex: 1 1 180px; font-size: .9rem; }
+.cronaca { max-height: 260px; overflow-y: auto; margin: 8px 0; }
+.cronaca p { margin: 4px 0; font-size: .9rem; line-height: 1.4; }
+#cercaDiario { width: 100%; margin: 10px 0 4px; min-height: 42px; }
+.diario li.sussurro-ev { border-left: 3px solid #9b7fd1; background: color-mix(in srgb, #9b7fd1 12%, var(--superficie2)); }
+.azioni-turno { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 2px; }
+.azioni-turno .chip { flex: none; white-space: nowrap; }
+.mazzo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.mazzo #cartaUltima { flex: 1 1 160px; font-size: .85rem; color: var(--testo2); }
+.carta-pescata { position: fixed; left: 50%; top: 42%; z-index: 60; width: 150px; height: 210px; margin: -105px 0 0 -75px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: #f4ead2; color: #1c1712; border: 3px solid #1c1712; border-radius: 12px; box-shadow: 0 10px 0 rgba(0, 0, 0, .35); animation: cartaEsce .45s cubic-bezier(.2, 1.4, .4, 1); cursor: pointer; }
+.carta-pescata b { font-size: 3.2rem; line-height: 1; }
+.carta-pescata span { font-size: .85rem; text-align: center; padding: 0 8px; }
+.carta-pescata.rossa { color: #b3261e; }
+@keyframes cartaEsce { from { transform: translateY(60px) rotate(-14deg) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+body.gs .carta-pescata { border-radius: 0; border: 6px solid transparent; border-image: var(--cornice) 6 / 6px stretch; background-clip: padding-box; background-color: #f4ead2; font-family: var(--pixel); }
+body.gs .carta-pescata b { font-size: 4rem; }
+body.gs .carta-pescata span { font-size: 1.15rem; }
+body.gs .giro-stato span, body.gs .cronaca p { font-size: 1.1rem; }
+body.gs .chat-a { font-size: 1.05rem; }
+body.gs .diario li.sussurro-ev { background-color: #2b2440; }
+body.meno-moto .carta-pescata { animation: none; }
+#aAppunti { width: 100%; min-height: 150px; font-size: .95rem; line-height: 1.4; }
+#boxAppunti, #boxFatti { margin: 10px 0; }
+#fattiLista { padding-left: 18px; }
+#fattiLista li { margin: 4px 0; }

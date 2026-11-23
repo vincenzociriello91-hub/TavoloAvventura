@@ -99,7 +99,7 @@
     <div class="vista vista-mappa attiva" id="vMappa">
       <div class="carta-mini guida-invito" id="invitoGuida" hidden><span>Prima volta a D&amp;D? Ti spiego come si gioca in un minuto.</span><div class="riga"><button type="button" class="pieno" data-guida data-invito-guida>Come si gioca</button><button type="button" class="testo-btn" data-invito-guida>No grazie</button></div></div>
       <div class="narrazione" id="narrazione" hidden>
-        <div class="narr-testa"><span id="narrChi">Il master</span><button id="btnZitto" class="testo-btn" type="button">Silenzio</button></div>
+        <div class="narr-testa"><span id="narrChi">Il master</span><span class="riga"><button id="btnCondividiNarr" class="testo-btn" type="button" hidden>Condividi</button><button id="btnZitto" class="testo-btn" type="button">Silenzio</button></span></div>
         <div class="narr-corpo"><div class="narr-volto" id="narrVolto" hidden></div><p id="narrTesto"></p></div>
       </div>
       <div class="combat" id="combat" hidden></div>
@@ -116,7 +116,7 @@
       <div class="mappa-box" id="mappaBox"><canvas id="mappa" aria-label="Mappa del luogo"></canvas><div class="volano" id="volano" aria-hidden="true"></div>
         <div class="vuoto" id="mappaVuota"><canvas class="fondo-vivo" id="fondoVuoto" width="200" height="120" aria-hidden="true"></canvas><p>Il gruppo non è ancora in nessun luogo.</p><p class="piccolo" id="mappaVuotaSugg">Il master AI vi porterà nel primo luogo appena iniziate a giocare. Potete anche scrivere un luogo qui sopra.</p></div>
       </div>
-      <div class="reazioni" id="reazioni" hidden aria-label="Reazioni"><button type="button" data-reazione="👏">👏</button><button type="button" data-reazione="😂">😂</button><button type="button" data-reazione="😱">😱</button><button type="button" data-reazione="🔥">🔥</button><button type="button" data-reazione="❤️">❤️</button><button type="button" data-reazione="🎲">🎲</button></div>
+      <div class="reazioni" id="reazioni" hidden aria-label="Reazioni"><button type="button" data-reazione="👏">👏</button><button type="button" data-reazione="😂">😂</button><button type="button" data-reazione="😱">😱</button><button type="button" data-reazione="🔥">🔥</button><button type="button" data-reazione="❤️">❤️</button><button type="button" data-reazione="🎲">🎲</button><button type="button" data-reazione="✋" title="Alzo la mano: voglio dire una cosa" aria-label="Alzo la mano">✋</button></div>
       <details class="carta-mini" id="noteMappaBox" hidden><summary>📌 Note sulla mappa (<span id="noteMappaConta">0</span>)</summary><div id="noteMappaLista"></div></details>
       <div class="mappa3d-box" id="mappa3dBox" hidden></div>
       <div class="mondo-box" id="mondoBox" hidden><canvas id="mondoCanvas" role="img" aria-label="Mappa del mondo illustrata: luoghi conosciuti e viaggi del gruppo"></canvas></div>
@@ -145,6 +145,7 @@
       <label class="spunta" id="dSegretoBox" hidden><input type="checkbox" id="dSegreto"> Tiro segreto (lo vedi solo tu)</label>
       <div class="ultimo-tiro" id="ultimoTiro" aria-live="polite"></div>
       <div class="riga" id="tiroAzioni" hidden><button id="btnPreferito" type="button">☆ Salva nei preferiti</button></div>
+      <div class="riga mazzo"><button id="btnCarta" type="button">🂠 Pesca una carta</button><button id="btnMischia" type="button" hidden>Rimescola il mazzo</button><span id="cartaUltima" class="piccolo" aria-live="polite"></span></div>
       <h3>Rapidi</h3>
       <div class="chips" id="rapidi"></div>
       <h3>Tiri del tavolo</h3>
@@ -156,6 +157,8 @@
         <input id="chatTesto" maxlength="600" placeholder="Scrivi al tavolo o descrivi cosa fai" aria-label="Messaggio">
         <button class="pieno" type="submit">Invia</button>
       </form>
+      <div class="chat-riga"><label class="chat-a" id="chatABox" hidden>Lo legge<select id="chatA"><option value="">tutto il tavolo</option></select></label><button id="btnMano" class="testo-btn" type="button" hidden>✋ Alzo la mano</button></div>
+      <div class="carta-mini giro-stato" id="giroStato" hidden><span id="giroTesto"></span><button id="btnGiroOra" type="button" hidden>Risolvi adesso</button></div>
       <label class="spunta" id="alMasterBox"><input type="checkbox" id="alMaster" checked> Fallo sentire al master AI</label>
       <div class="carta-mini" id="boxNarra" hidden>
         <strong>Narra come master</strong>
@@ -167,10 +170,12 @@
         <button type="submit">Chiedi</button>
       </form>
       <div id="rispostaRegola" class="carta-mini" hidden></div>
+      <details class="carta-mini" id="boxCronaca"><summary>Cosa ricorda il master</summary><div id="cronaca" class="cronaca"></div><form id="formRicorda" class="riga" autocomplete="off" hidden><input id="ricordaTesto" maxlength="300" placeholder="Un fatto che il master deve ricordare" aria-label="Fatto da ricordare"><button type="submit">Fallo ricordare</button></form></details>
       <div id="mondoVivo" class="mondo-vivo"></div>
       <details class="carta-mini" id="boxMondo"><summary>Il mondo: fazioni, valute, notizie</summary><div id="mondo"></div></details>
       <details class="carta-mini" id="galleriaPng" hidden><summary>Personaggi incontrati (<span id="galleriaPngConta">0</span>)</summary><div id="galleriaPngLista" class="galleria-png"></div></details>
       <details class="carta-mini" id="memoriale" hidden><summary>Memoriale dei caduti</summary><div id="memorialeLista"></div></details>
+      <input id="cercaDiario" type="search" maxlength="60" placeholder="Cerca nel diario (es. fabbro, chiave, Bruno)" aria-label="Cerca nel diario">
       <ul class="diario" id="diario"></ul>
     </div>
 
@@ -199,8 +204,12 @@
           <label><input type="radio" name="aMaster" value="ai"><span>AI</span></label>
           <label><input type="radio" name="aMaster" value="umano"><span>Persona</span></label>
         </fieldset>
+        <label>Difficoltà<select id="aDifficolta"><option value="storia">Storia: conta il racconto, non si muore</option><option value="normale">Normale</option><option value="dura">Dura: nemici letali, la morte è definitiva</option></select></label>
+        <label class="spunta"><input type="checkbox" id="aGiro"> Turni a giro: il master AI risponde quando tutti hanno detto cosa fanno</label>
+        <label>Stile delle illustrazioni<select id="aStile"><option value="realistico">Realistico</option><option value="acquerello">Acquerello</option><option value="fumetto">Fumetto</option><option value="pixel">Pixel art</option><option value="inchiostro">Inchiostro antico</option><option value="olio">Pittura a olio</option></select></label>
         <label>Clessidra del turno in combattimento<select id="aTimer"><option value="0">Nessuna</option><option value="30">30 secondi</option><option value="60">1 minuto</option><option value="90">1 minuto e mezzo</option><option value="120">2 minuti</option></select></label>
         <div class="riga"><button id="btnSalvaCamp" class="pieno" type="button">Salva</button><button id="btnNuovaSessione" type="button">Inizia nuova sessione</button></div>
+        <details id="boxAppunti"><summary>Il vostro mondo: appunti per il master</summary><p class="piccolo">Storia, luoghi, personaggi e segreti del vostro mondo. Il master AI li usa come verità e tiene nascosti i segreti finché non li scoprite giocando. Li legge solo chi guida la campagna.</p><textarea id="aAppunti" rows="7" maxlength="8000" placeholder="Es. Il regno di Argentea è governato da una regina bambina. Sotto il tempio c'è una cripta dimenticata. Il fabbro Ulrico è una spia."></textarea><div class="riga"><button id="btnSalvaAppunti" type="button" class="pieno">Salva gli appunti</button><label class="bottone" for="fileAppunti">Carica da un file di testo</label><input id="fileAppunti" type="file" accept=".txt,.md,text/plain" hidden></div></details>
         <div class="riga" id="copiaBox"><button id="btnEsporta" type="button">💾 Scarica una copia</button><label class="bottone" for="fileImporta">Ripristina da una copia</label><input id="fileImporta" type="file" accept="application/json,.json" hidden></div>
         <div id="ruoliBox"></div>
       </div>
@@ -212,6 +221,7 @@
         <div class="riga"><label>GS<input id="smGs" type="number" min="0" max="20" value="1" inputmode="numeric" style="width:70px"></label><button type="button" data-strumento="tesoro">Tesoro casuale</button></div>
         <div class="riga"><input id="smNegozio" maxlength="60" placeholder="Nome del negozio (es. Fabbro Ulrico)"><select id="smTipoNeg" aria-label="Tipo di negozio"><option value="emporio">emporio</option><option value="fabbro">fabbro</option><option value="alchimista">alchimista</option><option value="magia">magia</option></select><button type="button" id="smApriNeg">Apri negozio</button><button type="button" id="smChiudiNeg">Chiudi</button></div>
         <div id="smAvventura"></div>
+        <details id="boxFatti" hidden><summary>Fatti decisi dal master (<span id="fattiConta">0</span>)</summary><p class="piccolo">Verità nascoste che il master AI ha fissato e non cambierà: le vedi solo tu.</p><ul id="fattiLista" class="piccolo"></ul></details>
         <div id="smRisultato" class="piccolo"></div>
         <label>Note segrete (le vedi solo tu)<textarea id="smNote" rows="4" maxlength="8000" placeholder="Trame, segreti dei PNG, idee per la prossima sessione"></textarea></label>
         <button type="button" id="smSalvaNote">Salva le note</button>
@@ -219,6 +229,7 @@
       <div class="carta">
         <h2>Gioco</h2>
         <button id="btnRiassunto" type="button" class="largo">Nella puntata precedente…</button>
+        <div class="riga"><button id="btnRiassuntoLungo" type="button">Riassunto completo</button><button id="btnRiassuntoRima" type="button">Riassunto da cantastorie</button></div>
         <button id="btnRiepilogo" type="button" class="largo" hidden>Fine serata: riepilogo illustrato</button>
         <button id="btnLibro" type="button" class="largo">Libro della campagna (PDF)</button>
         <button id="btnStatistiche" type="button" class="largo">Statistiche e trofei</button>
@@ -315,5 +326,6 @@
 <script src="app-avvio.js"></script>
 <script src="app-extra.js"></script>
 <script src="app-stile.js"></script>
+<script src="app-regia.js"></script>
 </body>
 </html>
