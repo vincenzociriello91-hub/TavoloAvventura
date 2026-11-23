@@ -127,6 +127,52 @@ function striscioneCombattimento(prima, c) {
   if (ora.id === S.io) vibra([40, 40, 40]);
 }
 
+/* ============ COLPI CHE SI SENTONO ============ */
+// un colpo va a segno: la figura lampeggia e arretra, la mappa trema, la musica si abbassa un attimo, il telefono vibra se è toccato a te
+function colpoASegno(id, da, quanto, aMe) {
+  const forte = quanto >= 0.34;
+  Mappa.colpo(id, da, forte ? 1.8 : 1);
+  Suoni.effetto('impatto'); if (forte) Suoni.effetto('colpo'); Suoni.abbassa(forte ? 600 : 450);
+  if (aMe) vibra(forte ? [50, 30, 80] : 40);
+}
+// 1 naturale: il contrario del 20
+function momentoFiasco(tiro) {
+  if (!stileGioco()) return;
+  const el = document.createElement('div'); el.className = 'epico fiasco';
+  el.innerHTML = `<div><b>1</b><span>fallimento critico</span><small>${esc(tiro.nome || '')}${tiro.motivo ? ' · ' + esc(tiro.motivo) : ''}</small></div>`;
+  document.body.appendChild(el); setTimeout(() => el.remove(), 2200); vibra([120, 60, 40]);
+}
+
+/* ============ TIRO DI PROVA DA VIDEOGIOCO ============ */
+// difficoltà in alto, dado, bonus che vola sul dado, totale e verdetto. Vale per i miei tiri di d20 con un bonus o una difficoltà.
+function provaInVista(tiro) {
+  if (!stileGioco() || tiro.segreto || !/^1?d20/.test(tiro.formula || '')) return false;
+  const a = S.provaAttesa, norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[^a-z ]/g, '').trim();
+  const mia = a && Date.now() - a.t < 180000 && norm(tiro.motivo) && (norm(tiro.motivo).includes(norm(a.prova)) || norm(a.prova).includes(norm(tiro.motivo)));
+  const cd = mia ? a.cd : null; if (mia) S.provaAttesa = null;
+  if (cd == null && !tiro.mod) return false;
+  mostraProva(tiro, cd); return true;
+}
+function mostraProva(tiro, cd) {
+  document.querySelectorAll('.prova').forEach(e => e.remove());
+  const el = document.createElement('div'); el.className = 'prova'; el.setAttribute('role', 'status');
+  const dado = tiro.dadi?.[0] ?? tiro.totale - (tiro.mod || 0), scartato = tiro.scartati?.[0], riuscita = cd == null ? null : tiro.totale >= cd;
+  el.innerHTML = `<div class="prova-testa"><span>${esc(tiro.motivo || 'Tiro')}${tiro.modo ? ` <small>${esc(tiro.modo)}</small>` : ''}</span>${cd != null ? `<span class="prova-cd">CD ${cd}</span>` : ''}</div>
+    <div class="prova-conti"><span class="prova-dado${tiro.critico ? ' crit' : tiro.fallimento ? ' fail' : ''}">${dado}</span>${scartato !== undefined ? `<span class="prova-dado scartato">${scartato}</span>` : ''}${tiro.mod ? `<span class="prova-mod">${tiro.mod > 0 ? '+' : '−'}${Math.abs(tiro.mod)}</span>` : ''}<span class="prova-uguale">=</span><b class="prova-tot">${tiro.totale}</b></div>
+    ${riuscita == null ? '' : `<div class="prova-esito ${riuscita ? 'ok' : 'ko'}">${riuscita ? 'Riuscita!' : 'Fallita'}</div>`}`;
+  document.body.appendChild(el);
+  const chiudi = () => el.remove(); el.addEventListener('click', chiudi);
+  const passi = [...el.querySelectorAll('.prova-dado, .prova-mod, .prova-uguale, .prova-tot, .prova-esito')];
+  if (menoMoto()) { passi.forEach(p => p.classList.add('su')); setTimeout(chiudi, 3600); return; }
+  // se i dadi 3D stanno rotolando si aspetta che si fermino, poi i pezzi arrivano uno alla volta
+  const attesa = OPZ.dadi3d !== false ? 1250 : 0, v = velocita(); let t = attesa;
+  const nd = el.querySelector('.prova-dado');
+  if (!attesa) { const giro = setInterval(() => { nd.textContent = 1 + Math.floor(Math.random() * 20); }, 50); setTimeout(() => { clearInterval(giro); nd.textContent = dado; }, 600 / v); t += 600 / v; }
+  for (const p of passi) { setTimeout(() => { p.classList.add('su'); if (p.classList.contains('prova-esito')) { Suoni.effetto(riuscita ? 'successo' : 'fallimento'); vibra(riuscita ? 40 : [60, 40, 60]); } }, t); t += (p.classList.contains('prova-dado') ? 260 : 330) / v; }
+  setTimeout(chiudi, t + 2400);
+  Report.log('prova-vista', { cd, totale: tiro.totale, riuscita });
+}
+
 /* ============ PAESAGGIO VIVO IN PIXEL: schermata iniziale e mappa ancora vuota ============ */
 const FondoVivo = (() => {
   const tele = [...document.querySelectorAll('.fondo-vivo')]; let timer = null; const t0 = performance.now();

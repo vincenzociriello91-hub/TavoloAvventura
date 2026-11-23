@@ -1,6 +1,16 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.8.0';
+const VERSION = '3.9.0';
 const CHANGELOG = [
+  { v: '3.9.0', data: '23/11/2026', voci: [
+    'La mappa è viva: gli alberi ondeggiano al vento, l\'acqua luccica, dai comignoli sale il fumo, d\'autunno cadono le foglie, di notte ci sono le lucciole e le finestre delle case fanno luce. Nei sotterranei la polvere brilla vicino alle torce e il buio si muove.',
+    'Di giorno passano le ombre delle nuvole. Chi cammina dietro un albero resta mezzo coperto dalla chioma.',
+    'Le figure ferme respirano. Chi è di turno ha una freccia sopra la testa e un anello dorato ai piedi.',
+    'I colpi si sentono: la figura lampeggia e arretra, sale la polvere, la mappa trema, la musica si abbassa un attimo e il telefono vibra se hanno colpito te.',
+    'Frecce e incantesimi volano verso il bersaglio e scoppiano. Le cure fanno salire crocette verdi. Il nemico sconfitto sparisce in uno sbuffo di fumo e scintille.',
+    'Nemici: barra della vita sopra la testa (senza numeri per i giocatori), basetta a rombo per riconoscerli anche senza i colori, numero nel nome («Goblin 2»).',
+    'Tiro di prova da videogioco: quando il master chiede una prova compaiono difficoltà, dado, bonus, totale e «Riuscita!» o «Fallita». L\'1 naturale ha il suo annuncio, come il 20.',
+    'Sotto il nome del personaggio compare lo stato (avvelenato, prono…). Con «Meno movimento» (Altro → Gioco) tutte le animazioni si fermano.'
+  ] },
   { v: '3.8.0', data: '23/11/2026', voci: [
     'Aspetto da videogioco: cornici e pulsanti in pixel, scritte da gioco, una sola tavolozza di colori. Se preferisci com\'era prima: Altro → Gioco → togli «Aspetto da videogioco».',
     'Il master parla come nei giochi di ruolo: nella casella c\'è il volto di chi parla (o il master col cappuccio) e il testo compare lettera per lettera. Un tocco lo mostra tutto.',

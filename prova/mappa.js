@@ -14,6 +14,9 @@ const Mappa = (() => {
   const passi = new Map(); let inMovimento = false, ultimoPasso = 0;
   // effetti di battaglia: numeri dei danni, mosse d'attacco, esplosioni degli incantesimi, nemici sconfitti
   let effetti = [];
+  // mappa viva (3.9): chiome che ondeggiano, lucciole, foglie, fumo, luccichio dell'acqua, polvere nella luce, nuvole, buio che si muove
+  let chiome = null, alberiLista = [], vita = [], ultimaVita = 0, fermoFino = 0, acque = [], camini = [], vitaChiave = '';
+  const pfVisti = new Map(); let ultimoGesto = performance.now();
   let tileManuale = 0, gCache = null, pizzico = null, pan = null, dopoPizzico = false; const tocchi = new Map();
   // scelte di chi gioca (da Altro → Gioco): meno movimento, velocità delle animazioni, scritte in pixel, simboli oltre ai colori
   let gusti = { menoMoto: false, velocita: 1, pixel: true, simboli: true };
@@ -82,9 +85,12 @@ const Mappa = (() => {
   // animazione leggera (~15 fotogrammi al secondo) solo se la mappa si vede e c'è qualcosa che si muove
   function anima() {
     effetti = effetti.filter(e => performance.now() - e.t0 < e.durata);
-    const vivo = luogo && cv.offsetParent !== null && document.visibilityState === 'visible' && (inMovimento || effetti.length || fiamme.length || (esterno() && ['pioggia', 'temporale', 'neve', 'nebbia'].includes(meteo())));
-    if (vivo && !trascina) disegna(true);
-    setTimeout(() => requestAnimationFrame(anima), inMovimento || effetti.length ? 40 : vivo ? 66 : 500);
+    const visibile = luogo && cv.offsetParent !== null && document.visibilityState === 'visible';
+    const vivo = visibile && (inMovimento || effetti.length || fiamme.length || (esterno() && ['pioggia', 'temporale', 'neve', 'nebbia'].includes(meteo())));
+    const ambiente = visibile && !gusti.menoMoto; // alberi, lucciole, acqua, figure che respirano: pochi fotogrammi al secondo
+    if ((vivo || ambiente) && !trascina && performance.now() >= fermoFino) disegna(true);
+    // dopo due minuti senza toccare niente la mappa rallenta, per non consumare batteria
+    setTimeout(() => requestAnimationFrame(anima), inMovimento || effetti.length ? 40 : vivo ? 66 : ambiente ? (performance.now() - ultimoGesto > 120000 ? 320 : 110) : 500);
   }
   // pioggia, neve, nebbia e lampi sopra la mappa (solo all'aperto)
   function meteoAnimato(t) {
@@ -119,7 +125,7 @@ const Mappa = (() => {
     cacheChiave = ''; disegna();
   }
   function imposta(l, s, m) { const nuovo = !luogo || !l || luogo.id !== l.id; if (l !== luogo) { cacheChiave = ''; gCache = null; } if (nuovo) tileManuale = 0; luogo = l; segnalini = s || {}; membri = m || membri; if (nuovo) adatta(); else disegna(); if (opz.vediTutto?.()) zoom('tutta'); cambiato(); }
-  function aggiornaSegnalini(s) { segnalini = s || {}; disegna(); cambiato(); }
+  function aggiornaSegnalini(s) { segnalini = s || {}; ultimoGesto = performance.now(); disegna(); cambiato(); }
   function cella(x, y) { return luogo.celle[y]?.[x] ?? '#'; }
   const muro = c => c === '#' || c === 'w' || c === 'R';
   const esterno = () => ['citta', 'villaggio', 'porto', 'foresta', 'aperto', 'castello'].includes(luogo.tipo);
@@ -469,6 +475,7 @@ const Mappa = (() => {
     }
     for (const [id, sg] of Object.entries(segnalini)) { if (sg.tipo === 'pg' && torcia(id)) out.push({ x: sg.x + 0.5, y: sg.y + 0.5, r: torcia(id), rgb: [1, 0.7, 0.35], i: 0.95, fiamma: true }); }
     for (const e of luogo.edifici) if (e.stato === 'bruciato' && esterno()) out.push({ x: e.x + e.w / 2, y: e.y + e.h / 2, r: 2.5, rgb: [1, 0.35, 0.1], i: 0.35 });
+    if (notte() && esterno()) for (const e of luogo.edifici) if (e.stato === 'integro' && e.w >= 3 && luogo.celle[e.y]?.[e.x] === '#' && e.y + e.h < luogo.h && !muro(cella(Math.floor(e.x + e.w / 2), e.y + e.h))) out.push({ x: e.x + e.w * (0.25 + 0.5 * rnd(e.x, e.y, 11)()), y: e.y + e.h + 0.3, r: 2.3, rgb: [1, 0.78, 0.45], i: 0.55 });
     return out;
   }
   const BLOCCA_LUCE = ['colonna', 'statua', 'scaffale', 'masso', 'stalagmite'];
@@ -713,15 +720,28 @@ const Mappa = (() => {
     for (let x = 0; x <= luogo.w; x++) { c.moveTo(x * t + .5, 0); c.lineTo(x * t + .5, H); }
     for (let y = 0; y <= luogo.h; y++) { c.moveTo(0, y * t + .5); c.lineTo(W, y * t + .5); }
     c.stroke();
+    // chiome degli alberi a parte, già illuminate: ondeggiano al vento e coprono chi ci passa dietro
+    chiome = null; alberiLista = [];
+    if (esterno() && !gusti.menoMoto) {
+      for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) if (cella(x, y) === 'T') alberiLista.push([x, y]);
+      if (alberiLista.length && alberiLista.length <= 500 && c0.width * c0.height < 9e6) {
+        const m = document.createElement('canvas'); m.width = c0.width; m.height = c0.height;
+        const mk = m.getContext('2d'); mk.setTransform(dpr, 0, 0, dpr, 0, 0);
+        for (const [x, y] of alberiLista) if (!(P && alberoPacchetti(mk, x, y, t))) albero(mk, x, y, t);
+        const ch = document.createElement('canvas'); ch.width = c0.width; ch.height = c0.height;
+        const ck = ch.getContext('2d'); ck.drawImage(c0, 0, 0); ck.globalCompositeOperation = 'destination-in'; ck.drawImage(m, 0, 0);
+        chiome = ch;
+      }
+    }
     // nomi degli edifici e delle stanze
     for (const e of luogo.edifici) {
       if (!e.nome) continue;
       const X = e.x * t, Y = e.y * t, Wd = e.w * t, Hd = e.h * t, est = esterno();
-      c.font = `600 ${Math.max(10, Math.min(13, t * 0.42))}px Inter, system-ui, sans-serif`;
+      c.font = fontPixel(Math.max(10, Math.min(13, t * 0.42)));
       // l'oste sta dietro il bancone verso sinistra (server: banco.x + 4): il nome del bancone va a destra per non finirgli sotto
       const label = e.nome + (e.stato !== 'integro' ? ` (${e.stato})` : ''), tw = c.measureText(label).width;
       const lx = Math.max(2, Math.min(W - tw - 8, e.id === 'bancone' ? X + Wd - tw - 12 : X + Wd / 2 - tw / 2 - 4)), ly = est ? Y + Hd / 2 - 9 : Y + 3;
-      c.fillStyle = 'rgba(20,17,15,.72)'; rr(c, lx, ly, tw + 8, 17, 5); c.fill();
+      c.fillStyle = 'rgba(20,17,15,.72)'; rr(c, lx, ly, tw + 8, 17, gusti.pixel ? 0 : 5); c.fill();
       c.fillStyle = e.stato === 'integro' ? '#f3ead9' : '#ffb199'; c.fillText(label, lx + 4, ly + 12.5);
     }
     cache = c0; cacheChiave = chiave;
@@ -764,102 +784,245 @@ const Mappa = (() => {
   const GRANDI = /drag|gigant|troll|ogre|orco gigante|beholder|idra|hydra|elemental|golem|manticora|grifone|viverna|chimera/;
   // foglio LPC della figura (personaggio, PNG o nemico con forma umana) se pronto
   function figura(id, s) { if (typeof Lpc === 'undefined') return null; return Lpc.foglio(s.tipo === 'pg' ? Lpc.daPg(opz.pg?.(id)) : Lpc.daNome(s.nome, s.tipo)); }
+  const hashId = id => { let v = 7; for (const ch of String(id)) v = (v * 31 + ch.charCodeAt(0)) >>> 0; return v; };
+  // scritte sulla mappa: in pixel quando l'aspetto da videogioco è attivo
+  const fontPixel = px => gusti.pixel ? `${Math.round(px * 1.32)}px 'Jersey 15', Inter, system-ui, sans-serif` : `600 ${px}px Inter, system-ui, sans-serif`;
+  // nome sotto la figura: la prima parola, più il numero se ce n'è uno ("Goblin 2")
+  function etichetta(nome, bx, y, t, nemico) {
+    if (t < 12 || !nome) return;
+    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic'; ctx.font = fontPixel(Math.max(9, t * 0.34));
+    const parti = String(nome).split(/\s+/), numero = parti.length > 1 && /^\d+$/.test(parti[parti.length - 1]) ? ' ' + parti[parti.length - 1] : '';
+    let n = parti[0]; while (n.length > 3 && ctx.measureText(n + numero).width > Math.max(t * 2.2, 54)) n = n.slice(0, -2) + '…';
+    n += numero;
+    const nw = ctx.measureText(n).width, hh = Math.max(12, t * 0.42);
+    ctx.fillStyle = nemico ? 'rgba(70,14,12,.85)' : 'rgba(20,17,15,.78)'; rr(ctx, bx - nw / 2 - 4, y, nw + 8, hh, gusti.pixel ? 0 : 4); ctx.fill();
+    ctx.fillStyle = '#f3ead9'; ctx.fillText(n, bx - nw / 2, y + hh * 0.78);
+  }
+  // stati del personaggio scritti sotto il nome (avvelenato, prono...): non solo un colore
+  function statoTag(stati, bx, y, t) {
+    const testoS = stati[0] + (stati.length > 1 ? ` +${stati.length - 1}` : '');
+    ctx.font = fontPixel(Math.max(8, t * 0.26)); ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+    const nw = ctx.measureText(testoS).width, hh = Math.max(10, t * 0.34);
+    ctx.fillStyle = 'rgba(88,40,120,.9)'; ctx.fillRect(bx - nw / 2 - 3, y, nw + 6, hh);
+    ctx.fillStyle = '#f0e0ff'; ctx.fillText(testoS, bx - nw / 2, y + hh * 0.78);
+  }
+  // basetta a terra: tonda per amici e personaggi, a rombo per i nemici (forma diversa, non solo colore), anello dorato a chi tocca
+  function basetta(bx, by, rx, ry, t, col, o = {}) {
+    ovale(ctx, bx + t * 0.05, by + t * 0.05, rx * 1.05, ry * 1.1, 'rgba(0,0,0,.5)');
+    const rombo = o.nemico && gusti.simboli;
+    const forma = (kx, ky) => { ctx.beginPath(); if (rombo) { ctx.moveTo(bx - rx * 1.14 * kx, by); ctx.lineTo(bx, by - ry * 1.22 * ky); ctx.lineTo(bx + rx * 1.14 * kx, by); ctx.lineTo(bx, by + ry * 1.22 * ky); ctx.closePath(); } else ctx.ellipse(bx, by, rx * kx, ry * ky, 0, 0, 7); };
+    ctx.fillStyle = col; forma(1, 1); ctx.fill();
+    if (o.buco !== false) { ctx.fillStyle = 'rgba(0,0,0,.35)'; forma(0.72, 0.62); ctx.fill(); }
+    if (o.vita !== undefined) { const f = Math.max(0, Math.min(1, o.vita)); ctx.strokeStyle = f > 0.5 ? '#5cc85c' : f > 0.25 ? '#e8b04b' : '#e04a3a'; ctx.lineWidth = Math.max(2, t / 11); ctx.beginPath(); ctx.ellipse(bx, by, rx * 0.86, ry * 0.8, 0, -Math.PI / 2, -Math.PI / 2 + f * 6.283); ctx.stroke(); }
+    ctx.strokeStyle = o.io ? '#ffffff' : 'rgba(20,17,15,.9)'; ctx.lineWidth = Math.max(1.5, t / 16); forma(1, 1); ctx.stroke();
+    if (o.turno) { const k = gusti.menoMoto ? 1 : 1 + Math.sin(performance.now() / 260) * 0.07; ctx.strokeStyle = '#ffd25a'; ctx.lineWidth = Math.max(2, t / 10); forma(1.3 * k, 1.4 * k); ctx.stroke(); }
+  }
+  // freccia che saltella sopra chi è di turno
+  function freccia(bx, y, t) {
+    const o = gusti.menoMoto ? 0 : Math.abs(Math.sin(performance.now() / 300)) * t * 0.14, a = Math.max(5, t * 0.2);
+    ctx.fillStyle = '#ffd25a'; ctx.strokeStyle = '#0b0810'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(bx - a, y - a * 1.1 - o); ctx.lineTo(bx + a, y - a * 1.1 - o); ctx.lineTo(bx, y - o); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  // barra della vita dei nemici, senza numeri per i giocatori (il master vede anche i punti)
+  function barraNemico(id, s, bx, y, t) {
+    if (s.pf === undefined) return;
+    const max = Math.max(pfVisti.get(id) || 0, s.pfMax || 0, s.pf, 1); pfVisti.set(id, max);
+    const f = Math.max(0, Math.min(1, s.pf / max)), w = Math.max(18, t * 0.9), hh = Math.max(4, Math.round(t * 0.13)), x = bx - w / 2, pieno = Math.max(1, Math.round(w * f));
+    ctx.fillStyle = '#0b0810'; ctx.fillRect(x - 1.5, y - 1.5, w + 3, hh + 3);
+    ctx.fillStyle = '#3a1210'; ctx.fillRect(x, y, w, hh);
+    ctx.fillStyle = f > 0.5 ? '#e04a3a' : f > 0.25 ? '#e8843a' : '#f0c040'; ctx.fillRect(x, y, pieno, hh);
+    ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(x, y, pieno, Math.max(1, hh * 0.35));
+    if (extra.vedeTutto) { ctx.font = fontPixel(Math.max(8, t * 0.27)); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.strokeText(`${s.pf}`, bx, y - 3); ctx.fillStyle = '#ffd6cc'; ctx.fillText(`${s.pf}`, bx, y - 3); ctx.textAlign = 'start'; }
+  }
+  // spinta della figura: rinculo e lampo bianco quando è colpita, carica e affondo quando attacca
+  function spinta(id, t) {
+    const adesso = performance.now(); let dx = 0, dy = 0, lampo = false;
+    for (const e of effetti) {
+      if (e.id !== id) continue; const f = (adesso - e.t0) / e.durata; if (f < 0 || f > 1) continue;
+      if (e.tipo === 'colpo') { if (!gusti.menoMoto) { const k = (1 - f) * (1 - f) * 0.2; dx += e.dx * k * t; dy += e.dy * k * t; } if (f < 0.4 && !gusti.menoMoto) lampo = true; }
+      else if (e.tipo === 'attacco' && !gusti.menoMoto) { const k = f < 0.18 ? -0.1 * (f / 0.18) : f < 0.42 ? 0.22 : 0.22 * Math.max(0, 1 - (f - 0.42) / 0.3); dx += (e.dx || 0) * k * t; dy += (e.dy || 0) * k * t; }
+    }
+    return { dx, dy, lampo };
+  }
+  // le figure ferme respirano: un pixel su e giù, ognuna col suo tempo
+  const respiro = (id, t) => gusti.menoMoto ? 0 : (Math.floor(performance.now() * gusti.velocita / 560 + (hashId(id) % 7) / 7) % 2) * -Math.max(1, t * 0.035);
+  const LAMPO = 'brightness(2.6) saturate(.2)';
   function segnalino(id, s, pos, t) {
-    const cx = pos.x * t + t / 2, cy = pos.y * t + t / 2, R = t * 0.44;
-    ovale(ctx, cx + t * 0.06, cy + t * 0.1, R, R * 0.9, 'rgba(0,0,0,.45)');
+    const cx = pos.x * t + t / 2, cy = pos.y * t + t / 2, R = t * 0.44, bx = cx, by = cy + t * 0.22, rx = R * 0.95, ry = R * 0.42;
+    const nemico = s.tipo === 'nemico', turno = extra.turno === id, sp = spinta(id, t), su = respiro(id, t);
     if (s.animale) {
       // compagno animale: il disegno della sua specie (o un'icona) su una basetta del colore del suo giocatore
-      const im = mostro({ nome: s.animale }), bx = cx, by = cy + t * 0.22, rx = R * 0.8, ry = R * 0.36;
-      ctx.fillStyle = s.colore || '#5cc85c'; ctx.beginPath(); ctx.ellipse(bx, by, rx, ry, 0, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(20,17,15,.9)'; ctx.lineWidth = Math.max(1.5, t / 16); ctx.stroke();
-      if (im) { const H = t * (/cavall|pony|mulo/.test(s.animale) ? 1.5 : 1.05), W = H * im.width / im.height; ctx.drawImage(im, bx - W / 2, by - H + ry * 0.4, W, H); }
-      else { ctx.font = `${Math.round(t * 0.7)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(ANIMALI[s.animale] || '🐾', bx, by + ry * 0.2); }
-      ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
-      if (t >= 12 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.3)}px Inter, system-ui, sans-serif`; const nw = ctx.measureText(s.nome).width; ctx.fillStyle = 'rgba(20,17,15,.75)'; rr(ctx, bx - nw / 2 - 4, by + ry + 1, nw + 8, Math.max(12, t * 0.4), 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(s.nome, bx - nw / 2, by + ry + Math.max(10, t * 0.32)); }
+      const im = mostro({ nome: s.animale });
+      basetta(bx, by, rx * 0.84, ry * 0.86, t, s.colore || '#5cc85c', { buco: false, turno });
+      if (im) { const H = t * (/cavall|pony|mulo/.test(s.animale) ? 1.5 : 1.05), W = H * im.width / im.height; ctx.save(); if (sp.lampo) ctx.filter = LAMPO; ctx.drawImage(im, bx - W / 2 + sp.dx, by - H + ry * 0.4 + sp.dy + su, W, H); ctx.restore(); }
+      else { ctx.font = `${Math.round(t * 0.7)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(ANIMALI[s.animale] || '🐾', bx + sp.dx, by + ry * 0.2 + sp.dy + su); }
+      etichetta(s.nome, bx, by + ry + 1, t, false);
       return;
     }
-    if (s.tipo === 'nemico' && !figura(id, s) && mostro(s)) {
+    if (nemico && !figura(id, s) && mostro(s)) {
       // mostro disegnato in piedi sulla basetta rossa, girato verso il personaggio più vicino
-      const im = mostro(s), bx = cx, by = cy + t * 0.22, rx = R * 0.95, ry = R * 0.42, grande = GRANDI.test(nomeMostro(s.nome));
+      const im = mostro(s), grande = GRANDI.test(nomeMostro(s.nome));
       const H = t * (grande ? 2.6 : 1.5), W = H * im.width / im.height, vicino = Object.values(segnalini).filter(o => o.tipo === 'pg').sort((a, b) => Math.hypot(a.x - s.x, a.y - s.y) - Math.hypot(b.x - s.x, b.y - s.y))[0];
-      ovale(ctx, bx + t * 0.05, by + t * 0.05, rx * (grande ? 1.6 : 1.05), ry * 1.1, 'rgba(0,0,0,.5)');
-      ctx.fillStyle = '#d84b3c'; ctx.beginPath(); ctx.ellipse(bx, by, rx, ry, 0, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(20,17,15,.9)'; ctx.lineWidth = Math.max(1.5, t / 16); ctx.stroke();
-      ctx.save(); ctx.translate(bx, 0); if (vicino && vicino.x < s.x) ctx.scale(-1, 1); ctx.drawImage(im, -W / 2, by - H + ry * 0.4, W, H); ctx.restore();
-      if (s.pf !== undefined && extra.vedeTutto) { ctx.font = `700 ${Math.max(9, t * 0.3)}px Inter, sans-serif`; ctx.fillStyle = '#ffd6cc'; ctx.textAlign = 'center'; ctx.fillText(`PF ${s.pf}`, bx, by - H - 2); ctx.textAlign = 'start'; }
-      if (t >= 12 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome.split(/\s+/)[0]; while (nome.length > 3 && ctx.measureText(nome).width > Math.max(t * 2.2, 54)) nome = nome.slice(0, -2) + '…'; const nw = ctx.measureText(nome).width; ctx.fillStyle = 'rgba(70,14,12,.85)'; rr(ctx, bx - nw / 2 - 4, by + ry + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(nome, bx - nw / 2, by + ry + t * 0.33); }
+      basetta(bx, by, rx * (grande ? 1.5 : 1), ry * (grande ? 1.3 : 1), t, '#d84b3c', { buco: false, nemico: true, turno });
+      ctx.save(); if (sp.lampo) ctx.filter = LAMPO; ctx.translate(bx + sp.dx, sp.dy + su); if (vicino && vicino.x < s.x) ctx.scale(-1, 1); ctx.drawImage(im, -W / 2, by - H + ry * 0.4, W, H); ctx.restore();
+      barraNemico(id, s, bx, by - H + ry * 0.4 - Math.max(7, t * 0.24), t);
+      if (turno) freccia(bx, by - H + ry * 0.4 - Math.max(12, t * 0.5), t);
+      etichetta(s.nome, bx, by + ry + 2, t, true);
       return;
     }
-    if (s.tipo === 'nemico' && !figura(id, s)) {
-      ctx.fillStyle = '#3a0e0c'; ctx.beginPath();
-      for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, d = k % 2 ? R : R * 0.82; k ? ctx.lineTo(cx + Math.cos(a) * d, cy + Math.sin(a) * d) : ctx.moveTo(cx + Math.cos(a) * d, cy + Math.sin(a) * d); }
-      ctx.closePath(); ctx.fill(); ctx.strokeStyle = s.colore || '#d84b3c'; ctx.lineWidth = Math.max(2, t / 12); ctx.stroke();
-      const g = ctx.createRadialGradient(cx - R * 0.2, cy - R * 0.2, 1, cx, cy, R * 0.75); g.addColorStop(0, '#b0302a'); g.addColorStop(1, '#5a1210'); ovale(ctx, cx, cy, R * 0.72, R * 0.72, g);
-      ctx.fillStyle = '#ffe8e0'; ctx.font = `800 ${Math.max(10, t * 0.42)}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((s.nome || '?').charAt(0).toUpperCase(), cx, cy + 1);
-      if (s.pf !== undefined && extra.vedeTutto) { ctx.font = `700 ${Math.max(9, t * 0.3)}px Inter, sans-serif`; ctx.fillStyle = '#ffd6cc'; ctx.fillText(`PF ${s.pf}`, cx, cy - R - t * 0.15); }
-    } else if (figura(id, s)) {
-      const sh = figura(id, s), p = passi.get(id), bx = cx, by = cy + t * 0.22, rx = R * 0.95, ry = R * 0.42;
-      const colBase = s.tipo === 'nemico' ? '#d84b3c' : s.tipo === 'png' ? '#bfae86' : s.colore || '#e8b04b';
-      ovale(ctx, bx + t * 0.05, by + t * 0.05, rx * 1.05, ry * 1.1, 'rgba(0,0,0,.5)');
-      ctx.fillStyle = colBase; ctx.beginPath(); ctx.ellipse(bx, by, rx, ry, 0, 0, 7); ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(bx, by, rx * 0.72, ry * 0.62, 0, 0, 7); ctx.fill();
-      const pg = s.tipo === 'pg' ? opz.pg?.(id) : null;
-      if (pg?.pfMax) { const f = Math.max(0, Math.min(1, pg.pf / pg.pfMax)); ctx.strokeStyle = f > 0.5 ? '#5cc85c' : f > 0.25 ? '#e8b04b' : '#e04a3a'; ctx.lineWidth = Math.max(2, t / 11); ctx.beginPath(); ctx.ellipse(bx, by, rx * 0.86, ry * 0.8, 0, -Math.PI / 2, -Math.PI / 2 + f * 6.283); ctx.stroke(); }
-      ctx.strokeStyle = id === opz.io() ? '#ffffff' : 'rgba(20,17,15,.9)'; ctx.lineWidth = Math.max(1.5, t / 16); ctx.beginPath(); ctx.ellipse(bx, by, rx, ry, 0, 0, 7); ctx.stroke();
+    if (nemico && !figura(id, s)) {
+      const X = cx + sp.dx, Y = cy + sp.dy + su;
+      ctx.fillStyle = sp.lampo ? '#fff' : '#3a0e0c'; ctx.beginPath();
+      for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, d = k % 2 ? R : R * 0.82; k ? ctx.lineTo(X + Math.cos(a) * d, Y + Math.sin(a) * d) : ctx.moveTo(X + Math.cos(a) * d, Y + Math.sin(a) * d); }
+      ctx.closePath(); ctx.fill(); ctx.strokeStyle = turno ? '#ffd25a' : s.colore || '#d84b3c'; ctx.lineWidth = Math.max(2, t / 12); ctx.stroke();
+      const g = ctx.createRadialGradient(X - R * 0.2, Y - R * 0.2, 1, X, Y, R * 0.75); g.addColorStop(0, sp.lampo ? '#fff' : '#b0302a'); g.addColorStop(1, sp.lampo ? '#fdd' : '#5a1210'); ovale(ctx, X, Y, R * 0.72, R * 0.72, g);
+      ctx.fillStyle = '#ffe8e0'; ctx.font = fontPixel(Math.max(10, t * 0.42)); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((s.nome || '?').charAt(0).toUpperCase(), X, Y + 1);
+      barraNemico(id, s, cx, cy - R - Math.max(8, t * 0.3), t);
+      if (turno) freccia(cx, cy - R - Math.max(13, t * 0.52), t);
+      etichetta(s.nome, cx, cy + R + 2, t, true);
+      return;
+    }
+    if (figura(id, s)) {
+      const sh = figura(id, s), p = passi.get(id), pg = s.tipo === 'pg' ? opz.pg?.(id) : null;
+      const colBase = nemico ? '#d84b3c' : s.tipo === 'png' ? '#bfae86' : s.colore || '#e8b04b';
+      basetta(bx, by, rx, ry, t, colBase, { nemico, io: id === opz.io(), turno, vita: pg?.pfMax ? pg.pf / pg.pfMax : undefined });
       const F = t * 1.6, col = p?.cammina ? 1 + Math.floor(p.fase) % 8 : 0, riga = p?.dir ?? 2;
       const cond = new Set((pg?.condizioni || []).map(c => String(c).toLowerCase())), ko = pg && pg.pf <= 0;
       const att = effetti.find(e => e.tipo === 'attacco' && e.id === id), mossa = att ? Lpc.foglio(s.tipo === 'pg' ? Lpc.daPg(pg) : Lpc.daNome(s.nome, s.tipo), att.anim) : null;
+      const aTerra = ko || cond.has('prono') || cond.has('incosciente'), ox = sp.dx, oy = sp.dy + (p?.cammina || aTerra || mossa ? 0 : su);
       ctx.save(); ctx.imageSmoothingEnabled = false;
-      ctx.filter = cond.has('avvelenato') ? 'sepia(1) hue-rotate(50deg) saturate(2.5)' : cond.has('paralizzato') || cond.has('pietrificato') ? 'grayscale(.6) hue-rotate(170deg)' : ko ? 'grayscale(.8) brightness(.8)' : 'none';
+      ctx.filter = sp.lampo ? LAMPO : cond.has('avvelenato') ? 'sepia(1) hue-rotate(50deg) saturate(2.5)' : cond.has('paralizzato') || cond.has('pietrificato') ? 'grayscale(.6) hue-rotate(170deg)' : ko ? 'grayscale(.8) brightness(.8)' : 'none';
       if (cond.has('invisibile')) ctx.globalAlpha = 0.35;
       if (mossa) { // mossa di battaglia: riga verso destra, specchiata se il bersaglio è a sinistra
         const n = Math.max(1, Math.floor(mossa.width / 192)), k = Math.min(n - 1, Math.floor((performance.now() - att.t0) / att.durata * n)), G = F * 3;
-        ctx.translate(bx, 0); ctx.scale(att.verso, 1); ctx.drawImage(mossa, k * 192, 0, 192, 192, -G / 2, by - G * 121 / 192, G, G);
-      } else if (ko || cond.has('prono') || cond.has('incosciente')) { ctx.translate(bx, by - t * 0.15); ctx.rotate(Math.PI / 2); ctx.drawImage(sh, 0, 2 * 64, 64, 64, -F * 0.75, -F / 2, F, F); }
-      else ctx.drawImage(sh, col * 64, riga * 64, 64, 64, bx - F / 2, by - F * 57 / 64, F, F);
+        ctx.translate(bx + ox, oy); ctx.scale(att.verso, 1); ctx.drawImage(mossa, k * 192, 0, 192, 192, -G / 2, by - G * 121 / 192, G, G);
+      } else if (aTerra) { ctx.translate(bx + ox, by - t * 0.15 + sp.dy); ctx.rotate(Math.PI / 2); ctx.drawImage(sh, 0, 2 * 64, 64, 64, -F * 0.75, -F / 2, F, F); }
+      else ctx.drawImage(sh, col * 64, riga * 64, 64, 64, bx - F / 2 + ox, by - F * 57 / 64 + oy, F, F);
       ctx.restore(); ctx.imageSmoothingEnabled = true;
       if (cond.has('spaventato')) { ctx.font = `800 ${t * 0.5}px Inter, sans-serif`; ctx.fillStyle = '#c99bff'; ctx.textAlign = 'center'; ctx.fillText('!', bx + t * 0.4, by - F * 0.75); ctx.textAlign = 'start'; }
       if (cond.has('stordito') || cond.has('confuso')) for (let k = 0; k < 3; k++) { const a = performance.now() / 300 + k * 2.1; ctx.fillStyle = '#ffe070'; ctx.font = `700 ${t * 0.3}px Inter, sans-serif`; ctx.fillText('★', bx + Math.cos(a) * t * 0.35 - t * 0.1, by - F * 0.82 + Math.sin(a) * t * 0.1); }
       if (cond.has('avvelenato')) for (let k = 0; k < 3; k++) { const f = ((performance.now() / 900) + k / 3) % 1; ovale(ctx, bx + (k - 1) * t * 0.2, by - F * 0.5 - f * t * 0.6, t * 0.05, t * 0.05, `rgba(120,220,80,${1 - f})`); }
-      if (s.tipo === 'nemico' && s.pf !== undefined && extra.vedeTutto) { ctx.font = `700 ${Math.max(9, t * 0.3)}px Inter, sans-serif`; ctx.fillStyle = '#ffd6cc'; ctx.textAlign = 'center'; ctx.fillText(`PF ${s.pf}`, bx, by - F * 0.8); }
-      ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
-      if (t >= 12 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome.split(/\s+/)[0]; while (nome.length > 3 && ctx.measureText(nome).width > Math.max(t * 2.2, 54)) nome = nome.slice(0, -2) + '…'; const nw = ctx.measureText(nome).width; ctx.fillStyle = s.tipo === 'nemico' ? 'rgba(70,14,12,.85)' : 'rgba(20,17,15,.78)'; rr(ctx, bx - nw / 2 - 4, by + ry + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(nome, bx - nw / 2, by + ry + t * 0.33); }
+      if (nemico) barraNemico(id, s, bx, by - F * 0.84, t);
+      if (turno) freccia(bx, by - F * (nemico && s.pf !== undefined ? 0.98 : 0.8), t);
+      etichetta(s.nome, bx, by + ry + 2, t, nemico);
+      if (cond.size && t >= 16) statoTag([...cond], bx, by + ry + 3 + Math.max(12, t * 0.42), t);
       return;
-    } else if (['pg', 'alleato'].includes(s.tipo) && ritratto(id, s)) {
-      // figura in piedi (HD-2D): basetta colorata a terra con i punti ferita, personaggio intero sopra
-      const im = ritratto(id, s), bx = cx, by = cy + t * 0.22, rx = R * 0.95, ry = R * 0.42;
-      ovale(ctx, bx + t * 0.05, by + t * 0.05, rx * 1.05, ry * 1.1, 'rgba(0,0,0,.5)');
-      ctx.fillStyle = s.colore || '#e8b04b'; ctx.beginPath(); ctx.ellipse(bx, by, rx, ry, 0, 0, 7); ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(bx, by, rx * 0.72, ry * 0.62, 0, 0, 7); ctx.fill();
-      const pg = opz.pg?.(id);
-      if (pg?.pfMax) { const f = Math.max(0, Math.min(1, pg.pf / pg.pfMax)); ctx.strokeStyle = f > 0.5 ? '#5cc85c' : f > 0.25 ? '#e8b04b' : '#e04a3a'; ctx.lineWidth = Math.max(2, t / 11); ctx.beginPath(); ctx.ellipse(bx, by, rx * 0.86, ry * 0.8, 0, -Math.PI / 2, -Math.PI / 2 + f * 6.283); ctx.stroke(); }
-      ctx.strokeStyle = id === opz.io() ? '#ffffff' : 'rgba(20,17,15,.9)'; ctx.lineWidth = Math.max(1.5, t / 16); ctx.beginPath(); ctx.ellipse(bx, by, rx, ry, 0, 0, 7); ctx.stroke();
-      const iw = t * 1.05, ih = iw * 44 / 36;
-      ctx.imageSmoothingEnabled = false; ctx.drawImage(im, bx - iw / 2, by - ih + ry * 0.6, iw, ih); ctx.imageSmoothingEnabled = true;
-      ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
-      if (t >= 12 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome.split(/\s+/)[0]; while (nome.length > 3 && ctx.measureText(nome).width > Math.max(t * 2.2, 54)) nome = nome.slice(0, -2) + '…'; const nw = ctx.measureText(nome).width; ctx.fillStyle = 'rgba(20,17,15,.78)'; rr(ctx, bx - nw / 2 - 4, by + ry + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(nome, bx - nw / 2, by + ry + t * 0.33); }
-      return;
-    } else {
-      ctx.fillStyle = s.colore || '#e8b04b'; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
-      const im = ritratto(id);
-      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R * 0.84, 0, 7); ctx.clip();
-      ctx.fillStyle = '#1a1512'; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
-      if (im) { ctx.imageSmoothingEnabled = false; const iw = R * 2.4, ih = iw * 44 / 36; ctx.drawImage(im, cx - iw / 2, cy - R * 1.05, iw, ih); ctx.imageSmoothingEnabled = true; }
-      else { ctx.fillStyle = '#f3ead9'; ctx.font = `700 ${Math.max(10, t * 0.45)}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((s.nome || '?').charAt(0).toUpperCase(), cx, cy + 1); }
-      ctx.restore();
-      // punti ferita come arco attorno al ritratto
-      const pg = opz.pg?.(id);
-      if (pg?.pfMax) { const f = Math.max(0, Math.min(1, pg.pf / pg.pfMax)); ctx.strokeStyle = f > 0.5 ? '#5cc85c' : f > 0.25 ? '#e8b04b' : '#e04a3a'; ctx.lineWidth = Math.max(2, t / 12); ctx.beginPath(); ctx.arc(cx, cy, R * 0.92, -Math.PI / 2, -Math.PI / 2 + f * 6.283); ctx.stroke(); }
-      ctx.strokeStyle = id === opz.io() ? '#ffffff' : 'rgba(20,17,15,.9)'; ctx.lineWidth = Math.max(1.5, t / 16); ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
     }
-    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
-    if (t >= 12 && s.nome) { ctx.font = `600 ${Math.max(9, t * 0.34)}px Inter, system-ui, sans-serif`; let nome = s.nome.split(/\s+/)[0]; while (nome.length > 3 && ctx.measureText(nome).width > Math.max(t * 2.2, 54)) nome = nome.slice(0, -2) + '…'; s = { ...s, nome }; const nw = ctx.measureText(s.nome).width; ctx.fillStyle = 'rgba(20,17,15,.78)'; rr(ctx, cx - nw / 2 - 4, cy + R + 2, nw + 8, t * 0.42, 4); ctx.fill(); ctx.fillStyle = '#f3ead9'; ctx.fillText(s.nome, cx - nw / 2, cy + R + t * 0.33); }
+    if (['pg', 'alleato'].includes(s.tipo) && ritratto(id, s)) {
+      // figura in piedi (HD-2D): basetta colorata a terra con i punti ferita, personaggio intero sopra
+      const im = ritratto(id, s), pg = opz.pg?.(id), iw = t * 1.05, ih = iw * 44 / 36;
+      basetta(bx, by, rx, ry, t, s.colore || '#e8b04b', { io: id === opz.io(), turno, vita: pg?.pfMax ? pg.pf / pg.pfMax : undefined });
+      ctx.save(); if (sp.lampo) ctx.filter = LAMPO; ctx.imageSmoothingEnabled = false; ctx.drawImage(im, bx - iw / 2 + sp.dx, by - ih + ry * 0.6 + sp.dy + su, iw, ih); ctx.restore(); ctx.imageSmoothingEnabled = true;
+      if (turno) freccia(bx, by - ih + ry * 0.6 - 2, t);
+      etichetta(s.nome, bx, by + ry + 2, t, false);
+      return;
+    }
+    ctx.fillStyle = s.colore || '#e8b04b'; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
+    const im = ritratto(id);
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R * 0.84, 0, 7); ctx.clip();
+    ctx.fillStyle = '#1a1512'; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+    if (im) { ctx.imageSmoothingEnabled = false; const iw = R * 2.4, ih = iw * 44 / 36; ctx.drawImage(im, cx - iw / 2, cy - R * 1.05, iw, ih); ctx.imageSmoothingEnabled = true; }
+    else { ctx.fillStyle = '#f3ead9'; ctx.font = `700 ${Math.max(10, t * 0.45)}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((s.nome || '?').charAt(0).toUpperCase(), cx, cy + 1); }
+    ctx.restore();
+    // punti ferita come arco attorno al ritratto
+    const pg = opz.pg?.(id);
+    if (pg?.pfMax) { const f = Math.max(0, Math.min(1, pg.pf / pg.pfMax)); ctx.strokeStyle = f > 0.5 ? '#5cc85c' : f > 0.25 ? '#e8b04b' : '#e04a3a'; ctx.lineWidth = Math.max(2, t / 12); ctx.beginPath(); ctx.arc(cx, cy, R * 0.92, -Math.PI / 2, -Math.PI / 2 + f * 6.283); ctx.stroke(); }
+    ctx.strokeStyle = turno ? '#ffd25a' : id === opz.io() ? '#ffffff' : 'rgba(20,17,15,.9)'; ctx.lineWidth = Math.max(1.5, t / 16); ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+    etichetta(s.nome, cx, cy + R + 2, t, false);
+  }
+
+  /* ---------------- mappa viva ---------------- */
+  // una chioma, piegata dal vento attorno al piede dell'albero (presa dalla mappa già illuminata)
+  function chioma(x, y, t, alfa) {
+    const adesso = performance.now() / 1000 * gusti.velocita, vento = { temporale: 2.4, pioggia: 1.6, nebbia: 0.5 }[meteo()] || 1;
+    const k = Math.sin(adesso * 1.25 + (h(x, y) % 628) / 100) * 0.026 * vento + Math.sin(adesso * 3.1 + (h(x, y, 2) % 628) / 100) * 0.006 * vento, y0 = (y + 1) * t;
+    const sx = Math.max(0, (x - 1) * t), sy = Math.max(0, (y - 1.7) * t), sw = Math.min(luogo.w * t, (x + 2) * t) - sx, shh = Math.min(luogo.h * t, (y + 1) * t) - sy;
+    if (sw <= 0 || shh <= 0) return;
+    ctx.setTransform(dpr, 0, -k * dpr, dpr, k * y0 * dpr, 0); ctx.globalAlpha = alfa;
+    ctx.drawImage(chiome, sx * dpr, sy * dpr, sw * dpr, shh * dpr, sx, sy, sw, shh);
+    ctx.globalAlpha = 1;
+  }
+  function ondeggia(t) {
+    const passo = Math.max(1, Math.ceil(alberiLista.length / 150));
+    for (let i = 0; i < alberiLista.length; i += passo) { const [x, y] = alberiLista[i]; if (scoperta(x, y)) chioma(x, y, t, 1); }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  // chi passa dietro un albero resta mezzo coperto dalla chioma
+  function davanti(t) {
+    const dietro = new Set(); for (const [id, sg] of Object.entries(segnalini)) { const p = passi.get(id) || sg; dietro.add(Math.round(p.x) + ',' + Math.round(p.y)); }
+    let fatto = false;
+    for (const [x, y] of alberiLista) if (dietro.has(x + ',' + (y - 1)) && scoperta(x, y)) { chioma(x, y, t, 0.78); fatto = true; }
+    if (fatto) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  // cosa c'è di vivo in questo luogo: specchi d'acqua e comignoli (si ricalcola solo quando cambia il luogo)
+  function preparaVita() {
+    const chiave = luogo.id + ':' + (luogo.oggetti || []).length + ':' + luogo.edifici.map(e => e.stato).join('');
+    if (chiave === vitaChiave) return; vitaChiave = chiave; acque = []; camini = []; vita = [];
+    for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) if (cella(x, y) === '~') acque.push([x, y]);
+    if (esterno()) for (const e of luogo.edifici) if (e.stato === 'integro' && e.w >= 3 && e.h >= 3 && luogo.celle[e.y]?.[e.x] === '#' && !/pozzo|torre|ponte|viadotto|guado|radura|mulino|stalla|tempio|mastio|mura/i.test(e.nome || '')) camini.push({ x: e.x + e.w * (0.3 + 0.4 * rnd(e.x, e.y, 5)()), y: e.y + e.h * 0.25 });
+  }
+  const terrenoLibero = (x, y) => '.,_'.includes(cella(Math.floor(x), Math.floor(y))) && !casaDi(Math.floor(x), Math.floor(y));
+  // a terra, sotto le figure: ombre delle nuvole che passano e luccichio dell'acqua
+  function vitaTerra(t) {
+    preparaVita();
+    const adesso = performance.now() / 1000 * gusti.velocita, W = luogo.w * t, H = luogo.h * t;
+    if (sole()) {
+      const nuvolo = meteo() === 'nuvoloso', n = nuvolo ? 4 : 2, a = nuvolo ? 0.2 : 0.13;
+      for (let i = 0; i < n; i++) {
+        const R = t * (5 + i * 1.6), x = ((i * 0.37 * W + adesso * t * (0.3 + i * 0.07)) % (W + R * 2)) - R, y = H * ((i * 0.61 + 0.22) % 1);
+        ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.62); const g = ctx.createRadialGradient(0, 0, R * 0.25, 0, 0, R); g.addColorStop(0, `rgba(12,16,34,${a})`); g.addColorStop(1, 'rgba(12,16,34,0)'); ctx.fillStyle = g; ctx.fillRect(-R, -R, R * 2, R * 2); ctx.restore();
+      }
+    }
+    if (acque.length) {
+      const px = Math.max(1, Math.round(t / 12));
+      for (const [x, y] of acque) {
+        if (!scoperta(x, y)) continue;
+        const semi = h(x, y) % 628, fase = Math.sin(adesso * 1.9 + semi / 50); if (fase < 0.8) continue;
+        const giro = Math.floor((adesso * 1.9 + semi / 50) / 6.283), r = rnd(x, y, 20 + giro % 50), X = Math.round(x * t + (0.15 + r() * 0.7) * t), Y = Math.round(y * t + (0.15 + r() * 0.7) * t), al = (fase - 0.8) * 5;
+        ctx.fillStyle = `rgba(225,244,255,${0.5 * al})`; ctx.fillRect(X - px * 2, Y, px * 5, px); ctx.fillStyle = `rgba(255,255,255,${0.9 * al})`; ctx.fillRect(X, Y, px, px); // un trattino di luce sull'onda, col centro più chiaro
+      }
+    }
+  }
+  // in aria, sopra le figure: lucciole, foglie, fumo dei comignoli, polvere nella luce, braci, buio che si muove
+  function vitaAria(t) {
+    const ora0 = performance.now(), dt = Math.min(0.2, (ora0 - (ultimaVita || ora0)) / 1000) * gusti.velocita; ultimaVita = ora0;
+    const W = luogo.w * t, H = luogo.h * t, est = esterno(), m = meteo(), bagnato = ['pioggia', 'temporale', 'neve'].includes(m), aut = stagione() === 'autunno';
+    const conta = tipo => vita.reduce((n, p) => n + (p.tipo === tipo ? 1 : 0), 0), caso = Math.random;
+    const nasce = (tipo, x, y, vx, vy, dura, dim) => vita.push({ tipo, x, y, vx, vy, eta: 0, dura, dim, f: caso() * 6.28 });
+    if (est) {
+      if (notte() && !bagnato && conta('lucciola') < 12 && caso() < dt * 3) { const x = caso() * W, y = caso() * H; if (terrenoLibero(x / t, y / t)) nasce('lucciola', x, y, 0, 0, 4 + caso() * 4, 1); }
+      if (alberiLista.length && !innevato() && stagione() !== 'inverno' && conta('foglia') < (aut ? 14 : 5) && caso() < dt * (aut ? 4 : 1.2)) { const [ax, ay] = alberiLista[Math.floor(caso() * alberiLista.length)]; nasce('foglia', (ax + 0.2 + caso() * 0.6) * t, (ay - 0.6 + caso() * 0.8) * t, t * (0.5 + caso() * 0.6), t * (0.5 + caso() * 0.4), 2.2 + caso() * 1.5, 1); }
+      if (!bagnato) for (const c of camini) if (caso() < dt * 1.5) nasce('fumo', c.x * t, c.y * t, t * 0.22, -t * 0.5, 2.8, 0.8 + caso() * 0.5);
+    } else {
+      if (fiamme.length && conta('polvere') < 18 && caso() < dt * 5) { const f = fiamme[Math.floor(caso() * fiamme.length)], a = caso() * 6.28, d = 0.5 + caso() * 3; nasce('polvere', (f.x + Math.cos(a) * d) * t, (f.y + Math.sin(a) * d) * t, (caso() - 0.5) * t * 0.15, -t * (0.05 + caso() * 0.08), 3 + caso() * 3, 1); }
+      if (['dungeon', 'grotta'].includes(luogo.tipo) && conta('ombra') < 5 && caso() < dt * 0.8) nasce('ombra', caso() * W, caso() * H, (caso() - 0.5) * t * 0.5, (caso() - 0.5) * t * 0.3, 9 + caso() * 6, 3 + caso() * 2);
+    }
+    for (const f of fiamme) if (caso() < dt * 2) nasce('brace', f.x * t + (caso() - 0.5) * t * 0.3, f.y * t - t * 0.1, (caso() - 0.5) * t * 0.4, -t * (0.8 + caso() * 0.7), 0.9 + caso() * 0.6, 1);
+    vita = vita.filter(p => (p.eta += dt) < p.dura); if (vita.length > 120) vita.splice(0, vita.length - 120);
+    const px = Math.max(1, Math.round(t / 12)), luce = luceAmbiente().liv;
+    for (const p of vita) {
+      const k = p.eta / p.dura, su = Math.sin(Math.PI * k);
+      if (p.tipo === 'lucciola') { p.x += Math.sin(p.f + p.eta * 1.3) * t * 0.3 * dt; p.y += Math.cos(p.f * 1.7 + p.eta) * t * 0.24 * dt; }
+      else if (p.tipo === 'foglia') { p.x += (p.vx + Math.sin(p.eta * 5 + p.f) * t * 0.5) * dt; p.y += p.vy * dt; }
+      else { p.x += p.vx * dt; p.y += p.vy * dt; }
+      const cxx = Math.floor(p.x / t), cyy = Math.floor(p.y / t);
+      if (cxx < 0 || cyy < 0 || cxx >= luogo.w || cyy >= luogo.h || !scoperta(cxx, cyy)) continue;
+      if (p.tipo === 'lucciola') { const a = su * (0.55 + 0.45 * Math.sin(p.eta * 6 + p.f)); if (a <= 0.05) continue; ovale(ctx, p.x, p.y, t * 0.2, t * 0.2, `rgba(200,255,120,${a * 0.22})`); ctx.fillStyle = `rgba(225,255,150,${a})`; ctx.fillRect(Math.round(p.x) - px / 2, Math.round(p.y) - px / 2, px, px); }
+      else if (p.tipo === 'foglia') { ctx.fillStyle = aut ? ['#d98a2b', '#c75a22', '#e0b040'][Math.floor(p.f) % 3] : '#7fbf55'; ctx.globalAlpha = Math.min(1, (1 - k) * 3); const gira = Math.sin(p.eta * 7 + p.f) > 0; ctx.fillRect(Math.round(p.x), Math.round(p.y), gira ? px * 2 : px, gira ? px : px * 2); ctx.globalAlpha = 1; }
+      else if (p.tipo === 'fumo') { const g = Math.round(110 + 104 * Math.min(1, luce)); ovale(ctx, p.x, p.y, t * (0.14 + k * 0.42) * p.dim, t * (0.12 + k * 0.36) * p.dim, `rgba(${g},${g - 6},${g - 10},${0.3 * (1 - k)})`); }
+      else if (p.tipo === 'polvere') { ctx.fillStyle = `rgba(255,232,190,${0.55 * su})`; ctx.fillRect(Math.round(p.x), Math.round(p.y), px, px); }
+      else if (p.tipo === 'brace') { ctx.fillStyle = `rgba(255,${150 + Math.round(80 * (1 - k))},70,${1 - k})`; ctx.fillRect(Math.round(p.x + Math.sin(p.eta * 9 + p.f) * t * 0.06), Math.round(p.y), px, px); }
+      else if (p.tipo === 'ombra') { const R = p.dim * t, g = ctx.createRadialGradient(p.x, p.y, R * 0.2, p.x, p.y, R); g.addColorStop(0, `rgba(4,3,10,${0.26 * su})`); g.addColorStop(1, 'rgba(4,3,10,0)'); ctx.fillStyle = g; ctx.fillRect(p.x - R, p.y - R, R * 2, R * 2); }
+    }
   }
 
   function disegna(animando) {
     if (!ctx || !luogo) return;
     const t = tile;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(strato(), 0, 0);
+    if (chiome && !gusti.menoMoto) ondeggia(t);
     if (bagliore) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.82 + Math.random() * 0.18; ctx.drawImage(bagliore, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = true;
+    if (!gusti.menoMoto) vitaTerra(t);
     for (const f of fiamme) if (!luogo.visto || extra.vedeTutto || luogo.visto[Math.floor(f.y) * luogo.w + Math.floor(f.x)] !== '0') fiamma(ctx, f.x * t + (Math.random() - 0.5) * t * 0.04, f.y * t + (Math.random() - 0.5) * t * 0.04, t * (0.12 + Math.random() * 0.06));
     if (trascina?.ogg) { const o = luogo.oggetti.find(o => o.id === trascina.ogg); if (o) { ctx.globalAlpha = 0.85; oggetto(ctx, o, t, trascina.x * t, trascina.y * t); ctx.globalAlpha = 1; } }
     // caselle raggiungibili nel turno
@@ -874,7 +1037,7 @@ const Mappa = (() => {
       ctx.fillStyle = (a.colore || '#e0602a') + '55';
       for (const [x, y] of celleArea(a)) ctx.fillRect(x * t, y * t, t, t);
       ctx.strokeStyle = a.colore || '#e0602a'; ctx.lineWidth = 2; ctx.strokeRect(a.x * t + 1, a.y * t + 1, t - 2, t - 2);
-      if (a.nome && t >= 12) { ctx.font = `600 ${Math.max(9, t * 0.42)}px Inter, system-ui, sans-serif`; ctx.fillStyle = '#fff'; ctx.fillText(a.nome, a.x * t + 2, a.y * t - 3); }
+      if (a.nome && t >= 12) { ctx.font = fontPixel(Math.max(9, t * 0.42)); ctx.fillStyle = '#fff'; ctx.fillText(a.nome, a.x * t + 2, a.y * t - 3); }
     }
     // nebbia di guerra: il master vede attraverso
     if (luogo.visto) {
@@ -888,7 +1051,7 @@ const Mappa = (() => {
       const cx = (n.x + 0.5) * t, cy = (n.y + 0.35) * t, r = Math.max(3.5, t * 0.2);
       ctx.strokeStyle = '#3a2a10'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + t * 0.45); ctx.stroke();
       ctx.fillStyle = '#e8c86a'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill(); ctx.stroke();
-      if (t >= 14) { ctx.font = `600 ${Math.max(9, t * 0.36)}px Inter, system-ui, sans-serif`; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.75)'; ctx.strokeText(n.testo, cx + r + 2, cy + 3); ctx.fillStyle = '#fff3d0'; ctx.fillText(n.testo, cx + r + 2, cy + 3); }
+      if (t >= 14) { ctx.font = fontPixel(Math.max(9, t * 0.36)); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.75)'; ctx.strokeText(n.testo, cx + r + 2, cy + 3); ctx.fillStyle = '#fff3d0'; ctx.fillText(n.testo, cx + r + 2, cy + 3); }
     }
     if (evidenzia) { const e = luogo.edifici.find(e => e.id === evidenzia); if (e) { ctx.strokeStyle = '#ffd25a'; ctx.lineWidth = 2; ctx.strokeRect(e.x * t + 1, e.y * t + 1, e.w * t - 2, e.h * t - 2); } }
     // segnalini dal fondo verso chi sta davanti, così le figure in piedi si sovrappongono come in HD-2D
@@ -908,6 +1071,8 @@ const Mappa = (() => {
       if (!extra.vedeTutto && (s.tipo === 'nemico' || s.tipo === 'png') && ((luogo.visto && luogo.visto[s.y * luogo.w + s.x] === '0') || !vedo(s.x, s.y))) return;
       segnalino(id, s, pos, t);
     });
+    if (chiome && !gusti.menoMoto) davanti(t);
+    if (!gusti.menoMoto) vitaAria(t);
     disegnaEffetti(t);
     meteoAnimato(t);
   }
@@ -924,28 +1089,90 @@ const Mappa = (() => {
         ctx.restore();
       } else if (e.tipo === 'testo') {
         const sg = segnalini[e.id] || e.pos; if (!sg) continue;
-        const p = passi.get(e.id) || sg, x = p.x * t + t / 2, y = p.y * t - t * 0.6 - f * t * 1.1;
-        ctx.save(); ctx.globalAlpha = Math.min(1, (1 - f) * 2); ctx.font = `900 ${Math.max(14, t * 0.62)}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center';
-        ctx.lineWidth = Math.max(3, t / 8); ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(e.testo, x, y); ctx.fillStyle = e.colore; ctx.fillText(e.testo, x, y); ctx.restore();
+        // il numero salta fuori grande, poi sale e svanisce
+        const p = passi.get(e.id) || sg, x = p.x * t + t / 2, y = p.y * t - t * 0.6 - f * t * 1.1, salto = gusti.menoMoto ? 1 : f < 0.12 ? 0.7 + f / 0.12 * 0.75 : Math.max(1, 1.45 - (f - 0.12) * 3);
+        ctx.save(); ctx.globalAlpha = Math.min(1, (1 - f) * 2); ctx.font = gusti.pixel ? `${Math.round(Math.max(18, t * 0.85) * salto)}px 'Jersey 15', Inter, sans-serif` : `900 ${Math.max(14, t * 0.62) * salto}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center';
+        ctx.lineWidth = Math.max(3, t / 8); ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(e.testo, x, y); ctx.fillStyle = e.colore; ctx.fillText(e.testo, x, y); ctx.restore();
       } else if (e.tipo === 'sconfitto') {
-        const x = e.pos.x * t + t / 2, y = e.pos.y * t + t / 2;
-        ctx.save(); ctx.globalAlpha = 1 - f; for (let k = 0; k < 10; k++) { const a = k * 0.628, d = t * (0.2 + f * 0.9); ovale(ctx, x + Math.cos(a) * d, y + Math.sin(a) * d - f * t * 0.3, t * 0.12 * (1 - f), t * 0.12 * (1 - f), 'rgba(200,190,180,.9)'); } ctx.restore();
+        // sbuffo di fumo e scintille dove cade il nemico
+        const x = e.pos.x * t + t / 2, y = e.pos.y * t + t / 2, G = e.grande ? 1.7 : 1;
+        ctx.save();
+        for (let k = 0; k < 9; k++) { const a = k * 0.7 + 0.3, d = t * (0.15 + f * 0.75) * G; ovale(ctx, x + Math.cos(a) * d, y + Math.sin(a) * d * 0.7 - f * t * 0.45, t * (0.1 + f * 0.2) * G, t * (0.09 + f * 0.17) * G, `rgba(206,198,190,${0.75 * (1 - f)})`); }
+        ctx.globalCompositeOperation = 'lighter';
+        for (let k = 0; k < 12; k++) { const a = k * 0.5236 + 0.2, d = t * (0.2 + f * 1.5) * G, px = Math.max(2, t / 10) * (1 - f); ctx.fillStyle = `rgba(255,${200 - k * 6},90,${1 - f})`; ctx.fillRect(x + Math.cos(a) * d - px / 2, y + Math.sin(a) * d * 0.75 - f * t * 0.2 - px / 2, px, px); }
+        if (f < 0.25) { const g = ctx.createRadialGradient(x, y, 0, x, y, t * 1.3 * G); g.addColorStop(0, `rgba(255,240,200,${0.7 * (1 - f * 4)})`); g.addColorStop(1, 'rgba(255,240,200,0)'); ctx.fillStyle = g; ctx.fillRect(x - t * 2 * G, y - t * 2 * G, t * 4 * G, t * 4 * G); }
+        ctx.restore();
+      } else if (e.tipo === 'polvere') {
+        // sbuffo di polvere ai piedi di chi viene colpito
+        const x = e.pos.x * t + t / 2, y = e.pos.y * t + t * 0.78;
+        for (let k = 0; k < 6; k++) { const a = Math.PI + k * (Math.PI / 5), d = t * (0.2 + f * 0.5); ovale(ctx, x + Math.cos(a) * d, y + Math.sin(a) * d * 0.35 - f * t * 0.12, t * (0.08 + f * 0.1), t * (0.06 + f * 0.07), `rgba(200,188,170,${0.6 * (1 - f)})`); }
+      } else if (e.tipo === 'cura') {
+        // crocette verdi che salgono attorno a chi viene curato
+        const sg = segnalini[e.id]; if (!sg) continue; const p = passi.get(e.id) || sg, x = p.x * t + t / 2, y = p.y * t + t * 0.6, px = Math.max(2, Math.round(t / 9));
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        for (let k = 0; k < 7; k++) { const fk = (f * 1.3 + k * 0.11) % 1, X = x + Math.sin(k * 2.4) * t * 0.45, Y = y - fk * t * 1.5; ctx.fillStyle = `rgba(130,255,150,${(1 - fk) * (1 - f * 0.6)})`; ctx.fillRect(X - px * 1.5, Y - px / 2, px * 3, px); ctx.fillRect(X - px / 2, Y - px * 1.5, px, px * 3); }
+        const g = ctx.createRadialGradient(x, y - t * 0.4, 0, x, y - t * 0.4, t); g.addColorStop(0, `rgba(120,255,150,${0.28 * (1 - f)})`); g.addColorStop(1, 'rgba(120,255,150,0)'); ctx.fillStyle = g; ctx.fillRect(x - t, y - t * 1.4, t * 2, t * 2);
+        ctx.restore();
+      } else if (e.tipo === 'proiettile') {
+        // freccia o dardo magico: un punto luminoso con la scia, dal tiratore al bersaglio
+        const x = (e.da.x + (e.a.x - e.da.x) * f) * t + t / 2, y = (e.da.y + (e.a.y - e.da.y) * f) * t + t * 0.3 - Math.sin(f * Math.PI) * t * (e.arco ? 0.8 : 0.15);
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        for (let k = 0; k < 6; k++) { const fk = Math.max(0, f - k * 0.035), X = (e.da.x + (e.a.x - e.da.x) * fk) * t + t / 2, Y = (e.da.y + (e.a.y - e.da.y) * fk) * t + t * 0.3 - Math.sin(fk * Math.PI) * t * (e.arco ? 0.8 : 0.15), r = t * (e.arco ? 0.07 : 0.16) * (1 - k / 7); ovale(ctx, X, Y, r, r, `rgba(${e.rgb},${0.8 * (1 - k / 6)})`); }
+        if (!e.arco) { const g = ctx.createRadialGradient(x, y, 0, x, y, t * 0.7); g.addColorStop(0, `rgba(${e.rgb},.45)`); g.addColorStop(1, `rgba(${e.rgb},0)`); ctx.fillStyle = g; ctx.fillRect(x - t * 0.7, y - t * 0.7, t * 1.4, t * 1.4); }
+        ctx.restore();
+      } else if (e.tipo === 'scoppio') {
+        const x = e.pos.x * t + t / 2, y = e.pos.y * t + t * 0.3;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = `rgba(${e.rgb},${1 - f})`; ctx.lineWidth = Math.max(2, t * 0.14 * (1 - f)); ctx.beginPath(); ctx.arc(x, y, t * (0.15 + f * 0.75), 0, 7); ctx.stroke();
+        for (let k = 0; k < 8; k++) { const a = k * 0.785 + 0.4, d = t * (0.2 + f * 0.9), px = Math.max(2, t / 9) * (1 - f); ctx.fillStyle = `rgba(${e.rgb},${1 - f})`; ctx.fillRect(x + Math.cos(a) * d - px / 2, y + Math.sin(a) * d - px / 2, px, px); }
+        ctx.restore();
       }
     }
   }
   // chiamati dall'app quando succede qualcosa
   function effettoTesto(id, testo, colore, pos) { effetti.push({ tipo: 'testo', id, testo, colore, pos, t0: performance.now(), durata: 1400 }); disegna(); }
   function effettoArea(area) { effetti.push({ tipo: 'area', area, t0: performance.now(), durata: 1500 }); disegna(); }
-  function sconfitto(pos) { effetti.push({ tipo: 'sconfitto', pos, t0: performance.now(), durata: 900 }); disegna(); }
+  function sconfitto(pos, nome) { const grande = GRANDI.test(nomeMostro(nome)); effetti.push({ tipo: 'sconfitto', pos, grande, t0: performance.now(), durata: grande ? 1300 : 950 }); scuoti(grande ? 2.2 : 1.3); disegna(); }
+  const opposti = s => Object.entries(segnalini).filter(([, o]) => s.tipo === 'nemico' ? ['pg', 'alleato'].includes(o.tipo) || o.animale : o.tipo === 'nemico').sort(([, a], [, b]) => Math.hypot(a.x - s.x, a.y - s.y) - Math.hypot(b.x - s.x, b.y - s.y));
+  // la mappa trema per un attimo (colpi forti, nemici che cadono); niente scosse se chi gioca ha chiesto meno movimento
+  function scuoti(forza = 1) {
+    if (gusti.menoMoto || !cv) return;
+    const t0 = performance.now(), dura = 120 * Math.min(2.5, forza);
+    const giro = () => { const f = (performance.now() - t0) / dura; if (f >= 1) { cv.style.translate = ''; return; } const a = (1 - f) * 2.5 * forza; cv.style.translate = `${((Math.random() - 0.5) * a * 2).toFixed(1)}px ${((Math.random() - 0.5) * a * 2).toFixed(1)}px`; requestAnimationFrame(giro); };
+    giro();
+  }
+  // un colpo va a segno: lampo bianco, rinculo lontano da chi ha colpito, polvere ai piedi, un istante di fermo, mappa che trema
+  function colpo(id, da, forza = 1) {
+    const s = segnalini[id]; if (!s) return;
+    const a = (da && segnalini[da]) || opposti(s)[0]?.[1]; let dx = 0, dy = -1;
+    if (a && (a.x !== s.x || a.y !== s.y)) { const d = Math.hypot(s.x - a.x, s.y - a.y); dx = (s.x - a.x) / d; dy = (s.y - a.y) / d; }
+    const adesso = performance.now();
+    effetti = effetti.filter(e => !(e.tipo === 'colpo' && e.id === id));
+    effetti.push({ tipo: 'colpo', id, dx, dy, t0: adesso, durata: 340 }, { tipo: 'polvere', pos: { x: s.x, y: s.y }, t0: adesso, durata: 420 });
+    disegna();
+    if (!gusti.menoMoto) fermoFino = adesso + 50;
+    scuoti(forza);
+  }
+  function cura(id) { if (!segnalini[id]) return; effetti.push({ tipo: 'cura', id, t0: performance.now(), durata: 1000 }); disegna(); }
+  // freccia o incantesimo che vola verso il nemico più vicino (o verso [a]); all'arrivo scoppia
+  const TINTE_MAGIA = [[/fuoco|fiamm|infern|brucia/i, '255,130,40'], [/gelo|ghiacc|fredd|neve/i, '130,215,255'], [/fulmin|tuono|elettr|lampo/i, '250,240,150'], [/acid|veleno/i, '140,225,80'], [/necro|ombra|morte|oscur/i, '170,100,230'], [/luce|sacr|radios|cura|guarig/i, '255,240,190']];
+  function proiettile(da, motivo, a) {
+    const s = segnalini[da]; if (!s) return;
+    const b = (a && segnalini[a]) || opposti(s)[0]?.[1]; if (!b) return;
+    const arco = /arco|frecci|balestr|quadrell|fionda|giavellott|lanci/i.test(motivo || ''), rgb = arco ? '235,225,200' : (TINTE_MAGIA.find(([re]) => re.test(motivo || '')) || [0, '190,150,255'])[1];
+    const adesso = performance.now(), dist = Math.hypot(b.x - s.x, b.y - s.y), durata = Math.min(700, 180 + dist * 45), parte = adesso + 180;
+    effetti.push({ tipo: 'proiettile', da: { x: s.x, y: s.y }, a: { x: b.x, y: b.y }, rgb, arco, t0: parte, durata }, { tipo: 'scoppio', pos: { x: b.x, y: b.y }, rgb, t0: parte + durata, durata: 380 });
+    disegna();
+  }
   function attacco(id) {
-    const s = segnalini[id]; if (!s || typeof Lpc === 'undefined') return;
-    const desc = s.tipo === 'pg' ? Lpc.daPg(opz.pg?.(id)) : Lpc.daNome(s.nome, s.tipo); if (!desc) return;
-    const avversari = Object.values(segnalini).filter(o => s.tipo === 'nemico' ? o.tipo === 'pg' : o.tipo === 'nemico');
-    const vicino = avversari.sort((a, b) => Math.hypot(a.x - s.x, a.y - s.y) - Math.hypot(b.x - s.x, b.y - s.y))[0];
-    const anim = Lpc.mossa(desc);
-    Lpc.foglio(desc, anim); // inizia a scaricarla
+    const s = segnalini[id]; if (!s) return;
+    const vicino = opposti(s)[0]?.[1]; let dx = 0, dy = 0;
+    if (vicino && (vicino.x !== s.x || vicino.y !== s.y)) { const d = Math.hypot(vicino.x - s.x, vicino.y - s.y); dx = (vicino.x - s.x) / d; dy = (vicino.y - s.y) / d; }
+    const desc = typeof Lpc === 'undefined' ? null : s.tipo === 'pg' ? Lpc.daPg(opz.pg?.(id)) : Lpc.daNome(s.nome, s.tipo);
+    const anim = desc ? Lpc.mossa(desc) : null;
+    if (desc) Lpc.foglio(desc, anim); // inizia a scaricarla
     effetti = effetti.filter(e => !(e.tipo === 'attacco' && e.id === id));
-    effetti.push({ tipo: 'attacco', id, anim, verso: vicino && vicino.x < s.x ? -1 : 1, t0: performance.now(), durata: anim === 'shoot' ? 1100 : 750 });
+    effetti.push({ tipo: 'attacco', id, anim, dx, dy, verso: vicino && vicino.x < s.x ? -1 : 1, t0: performance.now(), durata: anim === 'shoot' ? 1100 : 750 });
     disegna();
   }
 
@@ -954,6 +1181,7 @@ const Mappa = (() => {
   const oggettoIn = (x, y) => (luogo.oggetti || []).find(o => o.x === x && o.y === y);
   function giu(ev) {
     if (!luogo) return;
+    ultimoGesto = performance.now();
     tocchi.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     if (tocchi.size === 2) { // due dita: zoom (annulla il tocco o il trascinamento appena iniziato)
       const [a, b] = [...tocchi.values()]; annullaPremi(); trascina = null; pan = null; dopoPizzico = true;
@@ -1067,5 +1295,5 @@ const Mappa = (() => {
     if (/foresta|bosco|selva/.test(n) && luogo.tipo !== 'foresta') prob.push(`"${luogo.nome}" disegnato come ${luogo.tipo}`);
     return prob;
   }
-  return { controllo, effettoTesto, effettoArea, sconfitto, attacco, init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, terreno3D, spriteOggetto, dati3D, azioneCasella, casa3D, figura: (id, s) => figura(id, s), mostro: s => mostro(s), grande: s => GRANDI.test(nomeMostro(s.nome)), nomeMostro, opzioni, puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea, percorso, zoom, pacchetti };
+  return { controllo, effettoTesto, effettoArea, sconfitto, attacco, colpo, cura, proiettile, scuoti, init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, terreno3D, spriteOggetto, dati3D, azioneCasella, casa3D, figura: (id, s) => figura(id, s), mostro: s => mostro(s), grande: s => GRANDI.test(nomeMostro(s.nome)), nomeMostro, opzioni, vivo: () => ({ particelle: vita.length, tipi: [...new Set(vita.map(p => p.tipo))], alberi: alberiLista.length, chiome: !!chiome, acque: acque.length, camini: camini.length, effetti: effetti.map(e => e.tipo) }), puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea, percorso, zoom, pacchetti };
 })();

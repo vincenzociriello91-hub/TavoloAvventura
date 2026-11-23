@@ -21,10 +21,10 @@ function tiraProva(prova) {
   if (r?.dado) return tira(r.dado.formula, r.dado.motivo || prova, r.dado.modo);
   tira('d20', prova);
 }
-function mostraTiro(t) {
+function mostraTiro(t, senzaAvviso) {
   const el = $('#ultimoTiro');
   el.innerHTML = `<div class="tot gira ${t.critico ? 'crit' : t.fallimento ? 'fail' : ''}">${t.totale}</div><div>${esc(t.nome)} · ${esc(t.formula)}${t.motivo ? ' · ' + esc(t.motivo) : ''}</div><div class="piccolo">dadi: ${t.dadi.join(', ')}${t.scartati?.length ? ` (scartato ${t.scartati.join(', ')}, ${t.modo})` : ''}${t.mod ? ' · modificatore ' + fm(t.mod) : ''}${t.segreto ? ' · segreto' : ''}${t.critico ? ' · CRITICO!' : t.fallimento ? ' · fallimento critico' : ''}</div>`;
-  if (t.chi === S.io && S.vista !== 'vDadi' && !largo()) toast(`${t.motivo || t.formula}: ${t.totale}${t.critico ? ' — CRITICO!' : t.fallimento ? ' — fallimento critico' : ''}`);
+  if (t.chi === S.io && S.vista !== 'vDadi' && !largo() && !senzaAvviso) toast(`${t.motivo || t.formula}: ${t.totale}${t.critico ? ' — CRITICO!' : t.fallimento ? ' — fallimento critico' : ''}`);
 }
 function renderTiri() {
   const l = [...(S.st?.dadi || [])].reverse().slice(0, 30);

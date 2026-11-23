@@ -54,7 +54,12 @@ function gestisci(m) {
     case 'scheda': {
       const prima = S.st.pg[m.per];
       S.st.pg[m.per] = m.pg;
-      if (prima && m.pg && prima.pf !== m.pg.pf && S.st.segnalini?.[m.per]) { const d = m.pg.pf - prima.pf; Mappa.effettoTesto(m.per, (d > 0 ? '+' : '') + d, d > 0 ? '#7dff8a' : '#ff6a5a'); if (d < 0 && m.da === 'master') { const me_ = S.st.segnalini[m.per], nem = Object.entries(S.st.segnalini).filter(([, v]) => v.tipo === 'nemico').sort(([, a], [, b]) => Math.hypot(a.x - me_.x, a.y - me_.y) - Math.hypot(b.x - me_.x, b.y - me_.y))[0]; if (nem && Math.hypot(nem[1].x - me_.x, nem[1].y - me_.y) < 8) Mappa.attacco(nem[0]); } }
+      if (prima && m.pg && prima.pf !== m.pg.pf && S.st.segnalini?.[m.per]) {
+        const d = m.pg.pf - prima.pf; Mappa.effettoTesto(m.per, (d > 0 ? '+' : '') + d, d > 0 ? '#7dff8a' : '#ff6a5a');
+        let chiColpisce = null;
+        if (d < 0 && m.da === 'master') { const me_ = S.st.segnalini[m.per], nem = Object.entries(S.st.segnalini).filter(([, v]) => v.tipo === 'nemico').sort(([, a], [, b]) => Math.hypot(a.x - me_.x, a.y - me_.y) - Math.hypot(b.x - me_.x, b.y - me_.y))[0]; if (nem && Math.hypot(nem[1].x - me_.x, nem[1].y - me_.y) < 8) { Mappa.attacco(nem[0]); chiColpisce = nem[0]; } }
+        if (d < 0) colpoASegno(m.per, chiColpisce, -d / Math.max(1, m.pg.pfMax || 10), m.per === S.io); else { Mappa.cura(m.per); Suoni.effetto('cura'); }
+      }
       if (m.per === S.io && m.da !== S.io) {
         if (OPZ.avvisi && prima && prima.pf > prima.pfMax / 2 && m.pg.pf <= m.pg.pfMax / 2 && m.pg.pf > 0) Narratore.avviso('Attenzione: sei sotto metà dei punti ferita');
         if (OPZ.avvisi && prima && prima.pf > 0 && m.pg.pf <= 0) Narratore.avviso('Sei a terra, privo di sensi');
@@ -65,11 +70,13 @@ function gestisci(m) {
     }
     case 'dado': {
       S.st.dadi = [...(S.st.dadi || []), m.tiro].slice(-60);
-      if (/attacc|colp|fendent|affond|spada|ascia|mazza|martell|pugnal|arco|frecci|balestr|incantesim|dardo|palla di fuoco|raggio|per colpire|tiro per colpire/i.test(m.tiro.motivo || '')) Mappa.attacco(m.tiro.chi);
+      if (/attacc|colp|fendent|affond|spada|ascia|mazza|martell|pugnal|arco|frecci|balestr|incantesim|dardo|palla di fuoco|raggio|per colpire|tiro per colpire/i.test(m.tiro.motivo || '')) { Mappa.attacco(m.tiro.chi); S.ultimoAttacco = { chi: m.tiro.chi, t: Date.now() }; if (/arco|frecci|balestr|quadrell|fionda|giavellott|incantesim|dardo|palla di fuoco|raggio|fulmin|magic|trucchett/i.test(m.tiro.motivo || '')) { Mappa.proiettile(m.tiro.chi, m.tiro.motivo); Suoni.effetto(/arco|frecci|balestr|quadrell|fionda|giavellott/i.test(m.tiro.motivo) ? 'fruscio' : 'magia'); } }
       if (m.tiro.chi === S.io) { S.ultimoMio = m.tiro; $('#tiroAzioni').hidden = false; Suoni.effetto(m.tiro.critico ? 'critico' : m.tiro.fallimento ? 'fallimento' : 'dado'); }
-      if (m.tiro.chi === S.io || document.body.classList.contains('tv')) mostraTiro(m.tiro);
+      const conPannello = m.tiro.chi === S.io && provaInVista(m.tiro);
+      if (m.tiro.chi === S.io || document.body.classList.contains('tv')) mostraTiro(m.tiro, conPannello);
       if (OPZ.dadi3d !== false && (m.tiro.chi === S.io || S.vista === 'vMappa' || document.body.classList.contains('tv'))) import('./dadi3d.js').then(d => d.lancia(m.tiro, m.tiro.chi === S.io ? { colore: OPZ.dadiColore, materiale: OPZ.dadiMateriale } : { colore: S.st.membri?.[m.tiro.chi]?.colore, materiale: 'opaco' })).catch(e => Report.log('dadi-3d', { errore: String(e?.message || e) }));
       if (m.tiro.critico && /^1?d20/.test(m.tiro.formula) && !m.tiro.segreto) momentoEpico(m.tiro);
+      if (m.tiro.fallimento && /^1?d20/.test(m.tiro.formula) && !m.tiro.segreto && (m.tiro.chi === S.io || document.body.classList.contains('tv'))) momentoFiasco(m.tiro);
       renderTiri(); renderRapidi(); return;
     }
     case 'suono': Suoni.effetto(m.nome); return;
@@ -85,8 +92,8 @@ function gestisci(m) {
       for (const [id, v] of Object.entries(prima)) {
         if (v.tipo !== 'nemico') continue;
         const ora = m.segnalini[id];
-        if (!ora) { Mappa.effettoTesto(id, 'Sconfitto!', '#ffd25a', v); Mappa.sconfitto(v); }
-        else if (v.pf !== undefined && ora.pf !== undefined && ora.pf !== v.pf) Mappa.effettoTesto(id, (ora.pf > v.pf ? '+' : '') + (ora.pf - v.pf), ora.pf > v.pf ? '#7dff8a' : '#ff6a5a');
+        if (!ora) { Mappa.effettoTesto(id, 'Sconfitto!', '#ffd25a', v); Mappa.sconfitto(v, v.nome); Suoni.effetto('impatto'); Suoni.abbassa(600); vibra([30, 30, 60]); }
+        else if (v.pf !== undefined && ora.pf !== undefined && ora.pf !== v.pf) { Mappa.effettoTesto(id, (ora.pf > v.pf ? '+' : '') + (ora.pf - v.pf), ora.pf > v.pf ? '#7dff8a' : '#ff6a5a'); if (ora.pf < v.pf) colpoASegno(id, S.ultimoAttacco && Date.now() - S.ultimoAttacco.t < 15000 ? S.ultimoAttacco.chi : null, (v.pf - ora.pf) / Math.max(v.pf, 1), false); else Mappa.cura(id); }
       }
       S.st.segnalini = m.segnalini; Mappa.aggiornaSegnalini(m.segnalini); return;
     }
@@ -128,6 +135,7 @@ function gestisci(m) {
     case 'richiesta_tiro': {
       if (m.pg === S.io) {
         $('#richTesto').textContent = `Il master chiede: prova di ${m.prova}${m.cd ? ' (CD ' + m.cd + ')' : ''}`;
+        S.provaAttesa = { prova: m.prova, cd: Number(m.cd) || null, t: Date.now() };
         $('#richiesta').hidden = false; $('#richTira').onclick = () => { tiraProva(m.prova); $('#richiesta').hidden = true; };
         if (OPZ.avvisi) Narratore.avviso(`Tocca a te: prova di ${m.prova}`);
       } else toast(`${m.nome || 'Un personaggio'} deve fare una prova di ${m.prova}`);
