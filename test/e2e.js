@@ -169,6 +169,8 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await A.evaluate(() => invia({ t: 'chiudi_negozio' }));
   await A.click('#nav button[data-v="vAltro"]'); await A.waitForTimeout(300);
   v(await A.locator('#schermoMaster').isVisible(), 'schermo del master visibile al master');
+  const spunte = await A.evaluate(() => { if (typeof apriSezione === 'function') apriSezione('#optMeteoVero'); return [...document.querySelectorAll('.spunta input')].filter(i => i.offsetParent).map(i => [i.id, Math.round(i.getBoundingClientRect().width)]).filter(([, w]) => w < 20); });
+  v(!spunte.length, 'caselle da spuntare tutte della stessa misura, anche con testo lungo ' + JSON.stringify(spunte));
   await A.click('[data-strumento="png"]');
   await A.waitForFunction(() => document.querySelector('#smRisultato strong'), null, { timeout: 8000 });
   v(true, 'lo schermo del master genera un PNG');
@@ -212,6 +214,7 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await T.waitForTimeout(600);
   v(await T.evaluate(() => document.body.classList.contains('tv') && me().ruolo === 'spettatore'), 'modalità TV: entra come spettatore');
   await T.screenshot({ path: OUT + '/7-tv.png' });
+  v(await T.evaluate(() => { renderScheda(); return S.st.membri[S.viewPg]?.ruolo === 'giocatore' && !/non ha ancora creato/.test(document.querySelector('#scheda').textContent); }), 'chi non gioca (spettatore, master) vede la scheda di un giocatore, non "X non ha ancora creato il personaggio"');
 
   const pacc = await A.evaluate(async () => Report.cifra({ prova: 1 }));
   v(pacc.key && pacc.iv && pacc.data && pacc.app === 'TavoloAvventura', 'rapporto cifrato pronto');

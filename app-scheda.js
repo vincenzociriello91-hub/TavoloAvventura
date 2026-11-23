@@ -7,7 +7,7 @@ function renderScheda() {
   if (!S.st) return;
   const sel = $('#selPg');
   const ids = Object.entries(S.st.membri).filter(([, m]) => m.ruolo === 'giocatore').map(([id]) => id);
-  if (!S.viewPg || !S.st.membri[S.viewPg]) S.viewPg = ids.includes(S.io) ? S.io : ids[0];
+  if (!ids.includes(S.viewPg)) S.viewPg = ids.includes(S.io) ? S.io : ids.find(id => S.st.pg[id]) || ids[0]; // master e spettatori non hanno scheda: si mostra quella di un giocatore
   sel.innerHTML = ids.map(id => `<option value="${id}" ${id === S.viewPg ? 'selected' : ''}>${esc(S.st.pg[id]?.nome || '—')} (${esc(S.st.membri[id].nome)}${id === S.io ? ', tu' : ''})</option>`).join('');
   $('#selPgBox').hidden = ids.length < 2;
   const box = $('#scheda');

@@ -90,6 +90,8 @@ A.invia({ t: 'statistiche' });
 const st = await A.aspetta(m => m.t === 'statistiche').catch(() => null);
 v(st && Object.values(st.s).some(o => o.tiri >= 1) && Object.values(st.s).some(o => o.danniSubiti >= 4) && st.tot, 'statistiche della serata: dadi tirati e danni subiti contati');
 v(st?.trofei.some(t => t.titolo === 'Muro vivente'), 'trofei della serata');
+const { trofei } = await import('../../rapporti-vincenzo/src/tavolo-dati.js');
+v(trofei({ a: { tiri: 1, critici: 1, cure: 1 } }, { a: 'Aldo' }).every(t => !/^1 \S+i\b/.test(t.motivo)), 'trofei: "1 dado tirato", non "1 dadi tirati"');
 // avventura pronta in una campagna nuova, in solitaria
 const codice2 = 'AVV' + Math.random().toString(36).slice(2, 7).toUpperCase();
 const C = (() => { const ws = new WebSocket(`ws://localhost:8787/tavolo/${codice2}/ws`, { origin: 'http://localhost:8765' }); const coda = [], attese = []; ws.on('message', d => { const m = JSON.parse(d); const i = attese.findIndex(a => a.f(m)); if (i >= 0) { attese[i].r(m); attese.splice(i, 1); } else coda.push(m); }); const aspetta = (f, ms = 8000) => new Promise((r, j) => { const i = coda.findIndex(f); if (i >= 0) return r(coda.splice(i, 1)[0]); const a = { f, r }; attese.push(a); setTimeout(() => { const k = attese.indexOf(a); if (k >= 0) { attese.splice(k, 1); j(new Error('timeout')); } }, ms); }); return { ws, aspetta, pronto: new Promise(r => ws.on('open', r)), invia: o => ws.send(JSON.stringify(o)), coda }; })();
@@ -109,5 +111,7 @@ C.invia({ t: 'avventura_scena', scena: 'bosco' });
 const lb = await C.aspetta(m => m.t === 'luogo' && m.luogo.nome === 'Bosco dei Corvi', 8000).catch(() => null);
 const sb = await C.aspetta(m => m.t === 'segnalini' && Object.values(m.segnalini).some(x => x.tipo === 'nemico' && /Lupo/.test(x.nome)), 8000).catch(() => null);
 v(lb && sb, 'scena del bosco: luogo e lupi sulla mappa');
+const db = await C.aspetta(m => m.t === 'diario' && m.ev?.tipo === 'luogo' && /Bosco dei Corvi/.test(m.ev.testo), 8000).catch(() => null);
+v(/per la prima volta/.test(db?.ev?.testo || ''), 'luogo preparato dall\'avventura: la prima visita non dice "torna a"');
 C.ws.close();
 console.log(`\n${ok} ok, ${ko} falliti`); process.exit(ko ? 1 : 0);
