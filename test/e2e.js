@@ -461,6 +461,37 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   v(await B.evaluate(() => S.st.appunti === undefined && $('#cartaCampagna').hidden) && await A.evaluate(() => $('#aDifficolta').value === 'dura' && /doppiogiochista/.test($('#aAppunti').value)), 'appunti del mondo, difficoltà e stile delle illustrazioni: li salva chi guida, gli appunti non arrivano ai giocatori');
   await B.evaluate(() => $('#btnMano').click()); await A.waitForSelector('.reazione-vola', { timeout: 5000 });
   v(/✋/.test(await A.textContent('.reazione-vola')) && await B.evaluate(() => !$('#btnMano').hidden), 'un giocatore alza la mano e chi guida lo vede');
+  // 4.2: primi passi guidati, gioco a distanza, mondi condivisi
+  const guidati = await A.evaluate(async () => {
+    $('#invitoGuida').hidden = true; scrivi('ta_passi', { fatti: {} }); mostraVista('vMappa'); renderPassi();
+    const r = { visibile: !$('#primiPassi').hidden, testo: $('#primiPassi .pp-ora b')?.textContent, conta: $('#primiPassi summary .piccolo')?.textContent };
+    $('#primiPassi [data-pp="parla"]').click(); r.vista = S.vista; r.punta = $('#formChat').classList.contains('pp-punta');
+    invia({ t: 'chat', testo: 'Saluto l\'oste' }); r.dopoParla = $('#primiPassi .pp-ora b')?.textContent;
+    tira('d20', 'prova'); r.dopoDado = $('#primiPassi .pp-ora b')?.textContent; r.fatti = leggi('ta_passi', {}).fatti;
+    $('#primiPassi [data-pp="chiudi"]').click(); r.nascosto = $('#primiPassi').hidden && leggi('ta_passi', {}).chiuso === true;
+    return r;
+  });
+  v(guidati.visibile && guidati.testo === 'Di\' al master cosa fai' && guidati.conta === '1 di 5' && guidati.vista === 'vDiario' && guidati.punta && guidati.dopoParla === 'Tira un dado' && guidati.dopoDado === 'Muoviti sulla mappa' && guidati.nascosto, `primi passi: l'elenco si spunta da solo mentre giochi (${Object.keys(guidati.fatti).join(', ')}), «Mostrami» porta nel punto giusto, si può nascondere`);
+  await A.evaluate(() => { mostraVista('vAltro'); $('#aDifferito').value = '24'; $('#btnSalvaCamp').click(); });
+  await B.waitForFunction(() => S.st.campagna.differito === 24 && !$('#giroStato').hidden, null, { timeout: 5000 });
+  const lontano1 = await B.textContent('#giroTesto');
+  await A.evaluate(() => { $('#chatA').value = ''; $('#chatTesto').value = 'Oggi esploro la torre'; $('#formChat').requestSubmit(); });
+  await B.waitForFunction(() => S.st.giro?.scade > 0, null, { timeout: 5000 });
+  await A.waitForFunction(() => /manca Marco/.test($('#giroTesto').textContent), null, { timeout: 5000 }).catch(() => {});
+  const lontano2 = await B.textContent('#giroTesto'), lontanoA = await A.textContent('#giroTesto');
+  v(/Gioco a distanza: scrivi cosa fa il tuo personaggio quando vuoi/.test(lontano1) && /tocca a te dire cosa fai.*al più tardi domani alle \d/.test(lontano2) && /manca Marco/.test(lontanoA) && await A.evaluate(() => !$('#btnGiroOra').hidden), `gioco a distanza: «${lontano2}» (prima: «${lontano1}»; chi ha creato: «${lontanoA}»)`);
+  await A.evaluate(() => { $('#aDifferito').value = '0'; $('#btnSalvaCamp').click(); }); await B.waitForFunction(() => !S.st.campagna.differito, null, { timeout: 5000 });
+  await A.evaluate(() => $('#btnMondoCrea').click()); await A.waitForFunction(() => /^[A-Z0-9]{6,12}-[A-Z0-9]{8}$/.test($('#mondoCodice').textContent), null, { timeout: 5000 });
+  const codMondo = await A.textContent('#mondoCodice'), nomeMondo = await A.evaluate(() => S.st.campagna.nome), luoghiA = await A.evaluate(() => Object.keys(S.st.luoghi).length);
+  const N = await nuovo({ width: 412, height: 915 });
+  await N.goto('http://localhost:8765/'); await N.click('#btnPrimiPassi'); await N.fill('#ppNome', 'Giulia'); await N.click('#dlgAzioni button.pieno');
+  await N.waitForSelector('#gioco:not([hidden])', { timeout: 8000 });
+  const primi = await N.evaluate(() => ({ nome: S.st.campagna.nome, avv: S.st.avventura?.id, carta: !$('#primiPassi').hidden, passo: $('#primiPassi .pp-ora b')?.textContent, invito: $('#invitoGuida').hidden }));
+  v(primi.nome === 'Primi passi' && primi.avv === 'primi' && primi.carta && primi.passo === 'Crea il tuo personaggio' && primi.invito, 'dall\'ingresso «Mai giocato?» apre l\'avventura dei primi passi con l\'elenco guidato');
+  await N.evaluate(c => { mostraVista('vAltro'); $('#mondoEntra').value = c; $('#formMondo').requestSubmit(); }, codMondo);
+  await N.click('#dlgAzioni button.pieno'); await N.waitForFunction(n => S.st.campagna.mondoDa === n, nomeMondo, { timeout: 8000 });
+  const arrivato = await N.evaluate(() => ({ luoghi: Object.keys(S.st.luoghi).length, scritta: $('#mondoDa').textContent, appunti: (S.st.appunti || '').length })), nascostoB = await B.evaluate(() => $('#boxMondoCodice').hidden && $('#cartaCampagna').hidden && S.st.mondoChiave === undefined);
+  v(arrivato.luoghi >= luoghiA && /nel mondo/.test(arrivato.scritta) && arrivato.appunti > 10 && nascostoB, `mondo condiviso: con il codice ${arrivato.luoghi} luoghi (su ${luoghiA}) e gli appunti arrivano in un'altra campagna; il codice lo vede solo chi ha creato la campagna (${JSON.stringify({ ...arrivato, nascostoB })})`);
   v(errori.length === 0, 'nessun errore JavaScript' + (errori.length ? ': ' + errori.slice(0, 5).join(' | ') : ''));
   await browser.close();
   console.log(`\n${ok} ok, ${ko} falliti`);

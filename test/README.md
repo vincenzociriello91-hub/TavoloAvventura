@@ -10,7 +10,7 @@ Servono: Node 20+, `npm i ws playwright wrangler@4 eslint@9 globals` (tutti insi
    - `node test/comandi.test.js` (regole 5e/3.5 e comandi vocali)
    - `node test/mappe.test.mjs` (mappe generate: oggetti fuori dai muri, ogni casella raggiungibile, percorsi senza attraversare muri; non serve il server)
    - `node test/prova-server.mjs` e `node test/prova-master.mjs` (server e master AI)
-   - `node test/prova-regia.mjs` (regia: appunti del mondo, master onesto, fatti fissati, turni a giro, messaggi privati, aiuto, mazzo, cronaca, riassunti)
+   - `node test/prova-regia.mjs` (regia: appunti del mondo, master onesto, fatti fissati, turni a giro, messaggi privati, aiuto, mazzo, cronaca, riassunti; gioco a distanza, mondi condivisi, avventura dei primi passi)
    - `node test/e2e.js` (app intera nel browser: due giocatori, TV, voce, bot di prova)
 
    - `node test/push.test.mjs` (firma delle notifiche) e `sh test/controllo-codice.sh` (nomi non definiti e doppioni in app e server)

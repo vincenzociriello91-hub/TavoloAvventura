@@ -47,7 +47,7 @@ const errori = [], foto = [];
   // 9. altro + finestre
   await vista(A, 'vAltro'); await scatta(A, 'altro');
   await A.evaluate(() => document.querySelectorAll('.piegabile.chiusa > .testa-piega').forEach(h => h.click())); await scatta(A, 'altro-tutto-aperto');
-  for (const [id, nome] of [['#btnGuida', 'guida'], ['#btnStatistiche', 'statistiche'], ['#btnRiassunto', 'riassunto']]) { await A.click(id).catch(() => {}); await A.waitForTimeout(2500); await scatta(A, nome, { full: false }); await chiudiDialogo(A); }
+  for (const [id, nome] of [['#btnGuida', 'guida'], ['#btnStatistiche', 'statistiche'], ['#btnRiassunto', 'riassunto']]) { await A.click(id).catch(() => {}); await A.waitForTimeout(2500); if (nome === 'riassunto') await A.waitForSelector('dialog[open]', { timeout: 25000 }).catch(() => {}); await scatta(A, nome, { full: false }); await chiudiDialogo(A); } // il riassunto arriva dal master dopo qualche secondo, in una finestra
   await A.click('#optGrandi'); await vista(A, 'vScheda'); await scatta(A, 'caratteri-grandi', { full: false }); await vista(A, 'vAltro'); await A.click('#optGrandi');
   await A.selectOption('#optLingua', 'en'); await A.evaluate(() => invia({ t: 'chat', testo: 'Cerco tracce di goblin', alMaster: true })); await A.waitForTimeout(9000); await vista(A, 'vDiario'); await scatta(A, 'traduzione', { full: false }); await vista(A, 'vAltro'); await A.selectOption('#optLingua', '');
   // 10. spettatore e TV

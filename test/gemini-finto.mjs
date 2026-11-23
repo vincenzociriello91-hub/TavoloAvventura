@@ -28,8 +28,9 @@ http.createServer((req, res) => {
       if (ue.some(e => e.includes('prova dei fatti'))) eventi.push({ tipo: 'fatto', testo: 'Nel forziere della cripta ci sono 30 monete e una chiave d\'argento' });
       // per le prove della regia (4.1): cosa ha ricevuto il master
       const regia = ue.some(e => e.includes('prova del master onesto')) ? ` [fatti:${(ctx.fatti_decisi || []).length}|appunti:${ctx.appunti_del_mondo ? 'si' : 'no'}|dura:${/MODALITÀ DURA/.test(sys)}|onesto:${/arbitro onesto/.test(sys) && /Decidi i fatti prima/.test(sys)}|giro:${ctx.giro ? 'si' : 'no'}]` : '';
+      const distanza = ue.some(e => e.includes('prova della prima partita')) ? ` [prima:${/PRIMA PARTITA/.test(sys)}|distanza:${/gioco a distanza/.test(String(ctx.giro))}]` : '';
       const gia = (ctx.png_incontrati || []).map(p => p.nome).join(', ');
-      out = JSON.stringify({ narrazione: 'Una rissa scoppia nella locanda. Un boccale vola verso di voi.' + (gia ? ` Di nuovo: ${gia}.` : '') + regia, png: 'Oste Bruno', eventi });
+      out = JSON.stringify({ narrazione: 'Una rissa scoppia nella locanda. Un boccale vola verso di voi.' + (gia ? ` Di nuovo: ${gia}.` : '') + regia + distanza, png: 'Oste Bruno', eventi });
     } else if (/comando per modificare/.test(testoUtente)) out = JSON.stringify({ ops: [{ op: 'car', car: 'sag', delta: 1 }] });
     else if (/^Traduci in inglese/.test(testoUtente)) out = 'The tavern falls silent.';
     else if (/Domanda di regole/.test(testoUtente)) out = 'In 5e un attacco di opportunità si fa con la reazione.';

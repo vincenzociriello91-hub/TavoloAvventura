@@ -16,7 +16,7 @@ function connetti(codice, primo) {
     setTimeout(() => { if (S.ws === ws && S.io) connetti(S.codice, () => ({ t: 'ciao', membro: S.io, chiave: S.chiave })); }, attesa);
   };
 }
-function invia(o) { if (S.ws?.readyState === 1) { S.ws.send(JSON.stringify(o)); return true; } toast('Non connesso: riprovo tra poco', true); return false; }
+function invia(o) { if (S.ws?.readyState === 1) { S.ws.send(JSON.stringify(o)); if (window.passoFatto) passoFatto(o); return true; } toast('Non connesso: riprovo tra poco', true); return false; }
 setInterval(() => { if (S.ws?.readyState === 1) { S.ping = performance.now(); S.ws.send('{"t":"ping"}'); } }, 25000);
 // telefono che si risveglia o rete che torna: si riconnette subito; una connessione muta (nessuna risposta in 5 s) si rifà
 function svegliaRete() {
@@ -41,6 +41,8 @@ function gestisci(m) {
       // l'invito sparisce dalla barra degli indirizzi; resta il codice, così ricaricando si rientra da soli
       history.replaceState(null, '', `${location.pathname}?c=${S.codice}${document.body.classList.contains('tv') ? '&tv=1' : ''}`);
       scrivi('ta_attiva', S.codice);
+      if (S.mondoDaPortare && me()?.admin) { invia({ t: 'mondo_importa', codice: S.mondoDaPortare }); Report.log('mondo-importa', { allaCreazione: true }); } S.mondoDaPortare = '';
+      ricordaAvvisi();
       return;
     }
     case 'stato': S.st = m.stato; renderTutto(); return;
@@ -101,7 +103,7 @@ function gestisci(m) {
     case 'serate': S.st.serate = m.serate; renderSerate(); return;
     case 'esportazione': { const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([JSON.stringify({ app: 'TavoloAvventura', versione: VERSION, salvata: new Date().toISOString(), codice: S.codice, dati: m.dati })], { type: 'application/json' })), download: `campagna-${(S.st.campagna.nome || 'tavolo').replace(/[^\w]+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.json` }); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('Copia della campagna scaricata'); Report.log('copia', { voci: Object.keys(m.dati).length }); return; }
     case 'push_chiave': attivaNotifiche(m.pub); return;
-    case 'push_ok': scrivi('ta_push', true); toast('Avvisi attivi: ti arriva una notifica il giorno prima e un\'ora prima di ogni serata'); renderSerate(); Report.log('notifiche', { esito: 'ok' }); return;
+    case 'push_ok': scrivi('ta_push', true); toast(S.st.campagna.differito ? 'Avvisi attivi: ti arriva una notifica quando tocca a te' : 'Avvisi attivi: ti arriva una notifica il giorno prima e un\'ora prima di ogni serata'); renderSerate(); renderGiro(); ricordaAvvisi(); Report.log('notifiche', { esito: 'ok' }); return;
     case 'disegna_tu': disegnaDalTelefono(m); return;
     case 'reazione': reazioneVola(m.emoji, m.nome); if (m.emoji === '✋' && m.nome) toast(`✋ ${m.nome} alza la mano`); return;
     case 'giro': S.st.giro = m.giro; renderGiro(); avvisaGiro(m.giro); return;
@@ -109,6 +111,7 @@ function gestisci(m) {
     case 'aiuto': arrivaAiuto(m); return;
     case 'carta': arrivaCarta(m); return;
     case 'cronaca': S.st.cronaca = m.cronaca; renderCronaca(); return;
+    case 'mondo_chiave': S.st.mondoChiave = m.chiave; renderMondoCondiviso(); toast(m.chiave ? 'Codice del mondo pronto: dallo a chi vuoi far giocare nel vostro mondo' : 'Codice ritirato: non funziona più'); return;
     case 'appunti': S.st.appunti = m.testo; delete $('#aAppunti').dataset.toccato; renderRegia(); return;
     case 'traduzione': { const cb = S.attesaTrad?.[m.id]; if (cb) { delete S.attesaTrad[m.id]; cb(m); } return; }
     case 'note_mappa': S.st.noteMappa = { luogo: m.luogo, note: m.note }; renderNoteMappa(); return;
@@ -244,6 +247,7 @@ $('#btnCrea').addEventListener('click', () => {
   if (!mioNome) { toast('Scrivi il tuo nome', true); $('#cMioNome').focus(); return; }
   scrivi('ta_nome', mioNome);
   const dati = { t: 'crea', nome: $('#cNome').value.trim() || 'La nostra campagna', regole: $('input[name="cRegole"]:checked').value, ambientazione: $('#cAmbientazione').value.trim() || 'Fantasy classico', masterTipo: $('input[name="cMaster"]:checked').value, ruolo: $('input[name="cMioRuolo"]:checked').value, mioNome, avventura: $('#cAvventura').value || undefined, solitaria: $('#cSolitaria').checked };
+  S.mondoDaPortare = $('#cMondo').value.trim();
   Voce.riattivaAudio();
   connetti(codiceNuovo(), () => dati);
 });
@@ -273,7 +277,7 @@ function renderTutto() {
   $('#optMaster').closest('label').hidden = !masterAI();
   $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); }
   if (capo()) renderAvventura(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
-  renderPresenza(); renderMappa(); renderCombat(); renderHud(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#altriStrumenti').hidden = me()?.ruolo === 'spettatore'; $('#btnArea').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#copiaBox').hidden = !me()?.admin; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro(); renderRegia();
+  renderPresenza(); renderMappa(); renderCombat(); renderHud(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#altriStrumenti').hidden = me()?.ruolo === 'spettatore'; $('#btnArea').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#copiaBox').hidden = !me()?.admin; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro(); renderRegia(); renderPassi();
 }
 function renderPresenza() {
   if (!S.st) return;
@@ -294,6 +298,6 @@ function mostraVista(id) {
   $$('#nav button').forEach(b => b.classList.toggle('attivo', b.dataset.v === id));
   if (id === 'vScheda') renderScheda();
   if (id === 'vMappa') Mappa.adatta();
-  Report.log('vista', { id });
+  Report.log('vista', { id }); if (window.passoFatto) passoFatto({ t: 'vista', id });
 }
 $('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) mostraVista(b.dataset.v); });

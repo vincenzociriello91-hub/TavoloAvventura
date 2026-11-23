@@ -4,6 +4,7 @@
 set -e
 qui=$(cd "$(dirname "$0")" && pwd); tmp=$(mktemp -d); mkdir "$tmp/server"
 cd "$qui/.."
+doppi=$(grep -o 'id="[^"]*"' index.html | sort | uniq -d); [ -z "$doppi" ] || { echo "id ripetuti in index.html: $doppi"; exit 1; } # due elementi con lo stesso id: il codice ne trova uno solo
 ordine=$(grep -o '<script src="[^"]*"' index.html | sed 's/.*src="//; s/"//' | grep -v qrcode)
 cat $ordine > "$tmp/cliente.js"
 cp mappa3d.js dadi3d.js sw.js "$tmp/"; cp ../rapporti-vincenzo/src/*.js "$tmp/server/"
