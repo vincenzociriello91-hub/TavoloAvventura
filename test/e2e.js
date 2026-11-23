@@ -369,6 +369,30 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   v(stile.facceDiario > 3 && stile.facciaDisegnata, `diario con un volto per ogni voce (${stile.facceDiario})`);
   v(stile.striscione && stile.paesaggio > 8, `striscione sulla mappa e paesaggio animato all'ingresso (${stile.paesaggio} colori)`);
   v(stile.menoMoto && stile.contrasto && stile.classico && stile.tornato, `opzioni di comodità: meno movimento, alto contrasto, aspetto classico e ritorno (${JSON.stringify({ moto: stile.menoMoto, contrasto: stile.contrasto, classico: stile.classico, tornato: stile.tornato })})`);
+  // mappa viva e colpi che si sentono (3.9)
+  await A.click('#nav button[data-v="vMappa"]').catch(() => {});
+  await A.evaluate(() => invia({ t: 'vai', nome: 'Villaggio di Pietrarossa' })); await A.waitForFunction(() => S.st.luogo?.nome === 'Villaggio di Pietrarossa', null, { timeout: 8000 });
+  await A.evaluate(() => Mappa.setAmbiente({ ora: 22, meteo: 'sereno', stagione: 'estate' })); await A.waitForTimeout(3500);
+  const notte = await A.evaluate(() => Mappa.vivo());
+  await A.evaluate(() => Mappa.setAmbiente({ ora: 11, meteo: 'sereno', stagione: 'autunno' })); await A.waitForTimeout(3500);
+  const giorno = await A.evaluate(() => Mappa.vivo());
+  v(notte.particelle > 0 && notte.tipi.includes('lucciola') && giorno.alberi > 0 && giorno.chiome && giorno.tipi.some(t => t === 'foglia' || t === 'fumo'), `mappa viva: di notte le lucciole, di giorno foglie e fumo, chiome che ondeggiano (${JSON.stringify({ notte: notte.tipi, giorno: giorno.tipi, alberi: giorno.alberi })})`);
+  const colpi = await A.evaluate(async () => {
+    invia({ t: 'piazza_nemici', mostri: [{ nome: 'Goblin', numero: 2, pf: 7 }] });
+    for (let i = 0; i < 40 && !Object.values(S.st.segnalini).some(s => s.tipo === 'nemico'); i++) await new Promise(q => setTimeout(q, 100));
+    const nem = Object.keys(S.st.segnalini).find(k => S.st.segnalini[k].tipo === 'nemico'), r = { nemico: S.st.segnalini[nem]?.nome };
+    Mappa.attacco(S.io); Mappa.proiettile(S.io, 'dardo di fuoco', nem); colpoASegno(nem, S.io, 0.5, false); Mappa.cura(S.io);
+    r.effetti = [...new Set(Mappa.vivo().effetti)]; r.trema = getComputedStyle(document.querySelector('#mappa')).translate;
+    Mappa.sconfitto(S.st.segnalini[nem], 'Goblin'); await new Promise(q => setTimeout(q, 700)); Mappa.disegna();
+    S.provaAttesa = { prova: 'Percezione', cd: 12, t: Date.now() };
+    gestisci({ t: 'dado', tiro: { chi: S.io, nome: 'Prova', formula: 'd20+3', dadi: [14], scartati: [6], modo: 'vantaggio', mod: 3, totale: 17, motivo: 'Percezione' } });
+    r.prova = document.querySelector('.prova')?.textContent.replace(/\s+/g, ' ').trim(); document.querySelectorAll('.prova').forEach(e => e.remove());
+    gestisci({ t: 'dado', tiro: { chi: S.io, nome: 'Prova', formula: 'd20', dadi: [1], totale: 1, motivo: 'Atletica', fallimento: true } });
+    r.fiasco = !!document.querySelector('.epico.fiasco'); r.senzaPannello = !document.querySelector('.prova'); document.querySelectorAll('.epico').forEach(e => e.remove());
+    return r;
+  });
+  v(/Goblin \d/.test(colpi.nemico || '') && ['attacco', 'proiettile', 'scoppio', 'colpo', 'polvere', 'cura'].every(t => colpi.effetti.includes(t)), `colpi che si sentono: mossa, dardo, scoppio, rinculo, polvere, cura su ${colpi.nemico} (${colpi.effetti.join(', ')})`);
+  v(/Percezione vantaggio.*CD 12.*14.*6.*\+3.*=.*17.*Riuscita/.test(colpi.prova || '') && colpi.fiasco && colpi.senzaPannello, `tiro di prova da videogioco con difficoltà e verdetto; 1 naturale annunciato (${colpi.prova})`);
   v(errori.length === 0, 'nessun errore JavaScript' + (errori.length ? ': ' + errori.slice(0, 5).join(' | ') : ''));
   await browser.close();
   console.log(`\n${ok} ok, ${ko} falliti`);

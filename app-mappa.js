@@ -47,7 +47,7 @@ function aggiornaExtraMappa() {
   aggiornaScenaSonora();
   const c = S.st?.combattimento, ora = c?.attivo && c.ordine[c.turno];
   const pg = mioPg();
-  Mappa.setExtra({ aree: S.st?.aree || [], vedeTutto: capo(), movimento: ora && ora.id === S.io && pg ? { id: S.io, celle: Math.max(1, Math.floor((pg.vel || 9) / 1.5)) } : null });
+  Mappa.setExtra({ aree: S.st?.aree || [], vedeTutto: capo(), turno: ora ? ora.id : null, movimento: ora && ora.id === S.io && pg ? { id: S.io, celle: Math.max(1, Math.floor((pg.vel || 9) / 1.5)) } : null });
 }
 // ogni mappa nuova si controlla da sola: se qualcosa non va finisce nel rapporto (e lo vedo senza che nessuno lo dica)
 function controllaMappa() {
