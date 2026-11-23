@@ -43,6 +43,7 @@ export function crea(contenitore, opz) {
     if (dati) { const W = dati.luogo.w, H = dati.luogo.h, mezzo = Math.min(W / 2, cam.dist * camera.aspect * 0.32); cam.x = Math.max(mezzo, Math.min(W - mezzo, cam.x)); cam.z = Math.max(Math.min(H / 2, cam.dist * 0.22), Math.min(H - 1, cam.z)); }
     camera.position.set(cam.x, Math.sin(cam.alto) * cam.dist, cam.z + Math.cos(cam.alto) * cam.dist);
     camera.lookAt(cam.x, 0, cam.z);
+    if (scena.fog) scena.fog.density = 0.32 / cam.dist; // nebbia che segue la distanza: da lontano non copre tutta la mappa (le zone non esplorate restano nere, fuori dalla nebbia)
   }
   function adatta() {
     const w = contenitore.clientWidth || 360, h = Math.max(240, Math.min(window.innerHeight * 0.62, w * 0.8));
@@ -224,10 +225,10 @@ export function crea(contenitore, opz) {
     for (const m of [nebbia, velo]) if (m) { mondo.remove(m); m.geometry.dispose(); m.material.dispose(); }
     // nebbia di guerra: blocchi neri sopra le caselle mai viste
     nebbia = null;
-    if (L.visto) { const celle = []; for (let i = 0; i < L.visto.length; i++) if (L.visto[i] === '0') celle.push(i); if (celle.length) { nebbia = new THREE.InstancedMesh(new THREE.BoxGeometry(1.02, 4, 1.02), new THREE.MeshBasicMaterial({ color: 0x0b0908, transparent: d.extra.vedeTutto, opacity: d.extra.vedeTutto ? 0.5 : 1 }), celle.length); const m4 = new THREE.Matrix4(); celle.forEach((i, k) => { m4.makeTranslation(i % W + 0.5, 2, Math.floor(i / W) + 0.5); nebbia.setMatrixAt(k, m4); }); mondo.add(nebbia); } }
+    if (L.visto) { const celle = []; for (let i = 0; i < L.visto.length; i++) if (L.visto[i] === '0') celle.push(i); if (celle.length) { nebbia = new THREE.InstancedMesh(new THREE.BoxGeometry(1.02, 4, 1.02), new THREE.MeshBasicMaterial({ color: 0x0b0908, fog: false, transparent: d.extra.vedeTutto, opacity: d.extra.vedeTutto ? 0.5 : 1 }), celle.length); const m4 = new THREE.Matrix4(); celle.forEach((i, k) => { m4.makeTranslation(i % W + 0.5, 2, Math.floor(i / W) + 0.5); nebbia.setMatrixAt(k, m4); }); mondo.add(nebbia); } }
     // vista del personaggio: velo scuro dove ora non vede
     velo = null;
-    if (d.vista) { const celle = []; d.vista.forEach((v, i) => { if (v < 2) celle.push([i, v]); }); if (celle.length) { velo = new THREE.InstancedMesh(new THREE.BoxGeometry(1.01, 3.6, 1.01), new THREE.MeshBasicMaterial({ color: 0x05050c, transparent: true, opacity: 0.55, depthWrite: false }), celle.length); const m4 = new THREE.Matrix4(); celle.forEach(([i], k) => { m4.makeTranslation(i % W + 0.5, 1.8, Math.floor(i / W) + 0.5); velo.setMatrixAt(k, m4); }); mondo.add(velo); } }
+    if (d.vista) { const celle = []; d.vista.forEach((v, i) => { if (v < 2) celle.push([i, v]); }); if (celle.length) { velo = new THREE.InstancedMesh(new THREE.BoxGeometry(1.01, 3.6, 1.01), new THREE.MeshBasicMaterial({ color: 0x05050c, fog: false, transparent: true, opacity: 0.55, depthWrite: false }), celle.length); const m4 = new THREE.Matrix4(); celle.forEach(([i], k) => { m4.makeTranslation(i % W + 0.5, 1.8, Math.floor(i / W) + 0.5); velo.setMatrixAt(k, m4); }); mondo.add(velo); } }
     chiaveVeli = firmaVeli(d);
   }
   function luceDelMomento(d) {
@@ -240,7 +241,7 @@ export function crea(contenitore, opz) {
       sole.position.set(cx - v.x * 12, 14, cz - v.y * 12); sole.target.position.set(cx, 0, cz);
       const s = sole.shadow.camera; s.left = -L.w * 0.75; s.right = L.w * 0.75; s.top = L.h * 0.9; s.bottom = -L.h * 0.9; s.near = 1; s.far = 60; s.updateProjectionMatrix();
     } else sole.visible = false;
-    scena.fog = d.meteo === 'nebbia' && d.esterno ? new THREE.FogExp2(0xc8ccd4, 0.06) : null;
+    scena.fog = d.meteo === 'nebbia' && d.esterno ? new THREE.FogExp2(0xc8ccd4, 0.32 / cam.dist) : null;
     bloom.strength = d.notte || !d.esterno ? 0.75 : 0.35;
   }
   function meteo(d) {
