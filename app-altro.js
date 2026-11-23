@@ -110,7 +110,7 @@ function renderAvventura() {
   const a = S.st?.avventura;
   const scelta = `<div class="riga"><select id="smAvvId" aria-label="Avventura pronta">${(S.st.avventure || [{ id: 'miniera', titolo: 'La miniera dei goblin', livelli: '1-3' }]).filter(x => x.id !== a?.id).map(x => `<option value="${esc(x.id)}" ${x.seguito && x.seguito === a?.id ? 'selected' : ''}>${esc(x.titolo)} (livelli ${esc(x.livelli || '?')}${x.tipo === 'one-shot' ? ', una serata' : x.tipo === 'seguito' ? ', seguito' : ''})</option>`).join('')}</select><button type="button" data-avv-nuova="1">${a ? 'Inizia un\'altra avventura' : 'Inizia l\'avventura pronta'}</button></div>`;
   if (!a) { box.innerHTML = scelta; return; }
-  box.innerHTML = `<details ${a.iniziata ? '' : 'open'}><summary><strong>Avventura: ${esc(a.titolo)}</strong>${a.iniziata ? ` · scena ${a.scena + 1} di ${a.scene.length}` : ''}</summary>
+  box.innerHTML = `<details ${a.iniziata ? '' : 'open'}><summary><span><strong>Avventura: ${esc(a.titolo)}</strong>${a.iniziata ? ` · scena ${a.scena + 1} di ${a.scene.length}` : ''}</span></summary>
     <p class="piccolo">${esc(a.sinossi)}</p>
     ${a.iniziata ? '' : '<button type="button" data-avv-inizia="1">Inizia adesso</button>'}
     <ol>${a.scene.map((sc, i) => `<li ${i === a.scena && a.iniziata ? 'style="color:#e8c86a"' : ''}><strong>${esc(sc.luogo)}</strong>: ${esc(sc.obiettivo)}<br><span class="piccolo">PNG: ${esc(sc.png)}. Indizi: ${esc(sc.indizi)}${sc.incontro ? `. Nemici: ${esc(sc.incontro.map(n => n.numero + ' ' + n.nome).join(', '))}` : ''}${sc.tesoro ? `. Tesoro: ${esc(sc.tesoro)}` : ''}</span>
@@ -125,7 +125,7 @@ document.addEventListener('click', e => {
 });
 function mostraStatistiche(m) {
   const VOCI = [['tiri', 'Dadi tirati'], ['critici', 'Critici'], ['fallimenti', 'Fallimenti critici'], ['danniSubiti', 'Danni subiti'], ['cadute', 'Volte a terra'], ['cure', 'PF recuperati'], ['speso', 'Monete spese']];
-  const tabella = (dati) => { const ids = Object.keys(dati || {}).filter(id => id !== 'gruppo'); if (!ids.length) return '<p class="piccolo">Ancora niente da contare.</p>'; return `<div style="overflow-x:auto"><table class="stat-tab"><tr><th></th>${ids.map(id => `<th>${esc(m.nomi[id] || id)}</th>`).join('')}</tr>${VOCI.map(([k, n]) => `<tr><td>${n}</td>${ids.map(id => `<td>${dati[id][k] || 0}</td>`).join('')}</tr>`).join('')}</table></div>${dati.gruppo ? `<p class="piccolo">Il gruppo: ${dati.gruppo.nemici || 0} nemici sconfitti, ${dati.gruppo.combattimenti || 0} combattimenti.</p>` : ''}`; };
+  const tabella = (dati) => { const ids = Object.keys(dati || {}).filter(id => id !== 'gruppo'); if (!ids.length) return '<p class="piccolo">Ancora niente da contare.</p>'; return `<div style="overflow-x:auto"><table class="stat-tab"><tr><th></th>${ids.map(id => `<th>${esc(m.nomi[id] || id)}</th>`).join('')}</tr>${VOCI.map(([k, n]) => `<tr><td>${n}</td>${ids.map(id => `<td>${dati[id][k] || 0}</td>`).join('')}</tr>`).join('')}</table></div>${dati.gruppo ? `<p class="piccolo">Il gruppo: ${dati.gruppo.nemici === 1 ? '1 nemico sconfitto' : `${dati.gruppo.nemici || 0} nemici sconfitti`}, ${dati.gruppo.combattimenti === 1 ? '1 combattimento' : `${dati.gruppo.combattimenti || 0} combattimenti`}.</p>` : ''}`; };
   chiedi(`<h2>Statistiche</h2>${(m.premi || []).length ? `<h3>Premi della campagna</h3><ul>${m.premi.map(x => `<li>🎖️ <strong>${esc(x.titolo)}</strong>: ${esc(x.chi)} <span class="piccolo">(${esc(x.motivo)})</span></li>`).join('')}</ul>` : ''}${m.trofei.length ? `<h3>Trofei della serata</h3><ul>${m.trofei.map(x => `<li>🏆 <strong>${esc(x.titolo)}</strong>: ${esc(x.chi)} <span class="piccolo">(${esc(x.motivo)})</span></li>`).join('')}</ul>` : ''}<h3>Questa sessione (${m.sessione || 1})</h3>${tabella(m.s)}<h3>Tutta la campagna</h3>${tabella(m.tot)}`, [{ testo: 'Chiudi' }]);
 }
 $('#btnLibro').addEventListener('click', () => { invia({ t: 'libro' }); toast('Preparo il libro…'); });
@@ -237,8 +237,8 @@ function renderCosti() {
   if (!capo()) return;
   if (!c) { $('#costi').textContent = 'Nessuna chiamata all\'AI finora.'; return; }
   const n = x => x.toLocaleString('it-IT');
-  $('#costi').innerHTML = `<p><strong>Sessione ${c.sessione.n}</strong>: ${n(c.sessione.chiamate)} chiamate, ${n(c.sessione.in)} token letti, ${n(c.sessione.out)} token scritti.</p>
-    <p><strong>Totale campagna</strong>: ${n(c.totale.chiamate)} chiamate, ${n(c.totale.in + c.totale.out)} token.</p>
+  $('#costi').innerHTML = `<p><strong>Sessione ${c.sessione.n}</strong>: ${n(c.sessione.chiamate)} ${c.sessione.chiamate === 1 ? 'chiamata' : 'chiamate'}, ${n(c.sessione.in)} token letti, ${n(c.sessione.out)} token scritti.</p>
+    <p><strong>Totale campagna</strong>: ${n(c.totale.chiamate)} ${c.totale.chiamate === 1 ? 'chiamata' : 'chiamate'}, ${n(c.totale.in + c.totale.out)} token.</p>
     <p>Modelli: ${Object.entries(c.modelli).map(([k, v]) => `${esc(k)} ×${v}`).join(', ')}. Compiti: ${Object.entries(c.compiti).map(([k, v]) => `${esc(k)} ×${v}`).join(', ')}.</p>
     <p>Costo: 0 € finché si resta nel piano gratuito di Gemini.</p>`;
 }

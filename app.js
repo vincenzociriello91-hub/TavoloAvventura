@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.7.1';
+const VERSION = '3.7.2';
 const CHANGELOG = [
+  { v: '3.7.2', data: '23/11/2026', voci: [
+    'Nelle avventure pronte, entrando per la prima volta in un luogo il diario non dice più "Il gruppo torna a" e arriva anche l\'illustrazione dell\'arrivo.',
+    'Le caselle da spuntare con la scritta lunga (meteo vero) hanno la stessa misura delle altre.',
+    'Master e spettatori nella Scheda vedono il personaggio di un giocatore, non più "non ha ancora creato il personaggio".',
+    'Sulla mappa della taverna il nome del bancone non finisce più sotto quello dell\'oste.',
+    'Statistiche e uso dell\'AI: "1 dado tirato", "1 chiamata", "1 combattimento" invece del plurale.'
+  ] },
   { v: '3.7.1', data: '22/11/2026', voci: [
     'Chi apre il link per spettatori non vede più la scelta del ruolo: entra direttamente a guardare.'
   ] },

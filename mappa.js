@@ -715,8 +715,9 @@ const Mappa = (() => {
       if (!e.nome) continue;
       const X = e.x * t, Y = e.y * t, Wd = e.w * t, Hd = e.h * t, est = esterno();
       c.font = `600 ${Math.max(10, Math.min(13, t * 0.42))}px Inter, system-ui, sans-serif`;
+      // l'oste sta dietro il bancone verso sinistra (server: banco.x + 4): il nome del bancone va a destra per non finirgli sotto
       const label = e.nome + (e.stato !== 'integro' ? ` (${e.stato})` : ''), tw = c.measureText(label).width;
-      const lx = Math.max(2, Math.min(W - tw - 8, X + Wd / 2 - tw / 2 - 4)), ly = est ? Y + Hd / 2 - 9 : Y + 3;
+      const lx = Math.max(2, Math.min(W - tw - 8, e.id === 'bancone' ? X + Wd - tw - 12 : X + Wd / 2 - tw / 2 - 4)), ly = est ? Y + Hd / 2 - 9 : Y + 3;
       c.fillStyle = 'rgba(20,17,15,.72)'; rr(c, lx, ly, tw + 8, 17, 5); c.fill();
       c.fillStyle = e.stato === 'integro' ? '#f3ead9' : '#ffb199'; c.fillText(label, lx + 4, ly + 12.5);
     }
