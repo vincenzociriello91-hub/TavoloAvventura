@@ -1,6 +1,11 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.2.0';
+const VERSION = '4.2.1';
 const CHANGELOG = [
+  { v: '4.2.1', data: '23/11/2026', voci: [
+    'Gioco a distanza: quando rientri trovi subito l\'ultima risposta del master.',
+    'Primi passi: l\'elenco compare dopo l\'invito alla guida, non insieme, e si spunta appena crei il personaggio.',
+    'Spegnendo i turni a giro o il gioco a distanza, il master risponde subito a chi aveva già scritto.'
+  ] },
   { v: '4.2.0', data: '23/11/2026', voci: [
     'Primi passi: nell\'ingresso «Mai giocato? Prova in un quarto d\'ora» apre una piccola avventura da soli con il master AI, che spiega come si gioca una cosa alla volta.',
     'Elenco dei primi passi per chi è nuovo: cinque cose da fare che si spuntano da sole mentre giochi, e «Mostrami» ti porta nel punto giusto.',

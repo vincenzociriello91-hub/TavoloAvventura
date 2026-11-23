@@ -29,6 +29,12 @@ function quandoScade(t) {
   return `${giorni <= 0 ? 'oggi' : giorni === 1 ? 'domani' : d.toLocaleDateString('it-IT', { weekday: 'long' })} alle ${ora}`;
 }
 $('#btnGiroAvvisi').addEventListener('click', () => invia({ t: 'push_chiave' }));
+// gioco a distanza: chi rientra trova subito l'ultima risposta del master, se è arrivata dopo la sua ultima mossa
+function riprendiDistanza() {
+  if (!S.st?.campagna?.differito || !masterAI()) return;
+  const d = S.st.diario || [], iN = d.map(x => x.tipo === 'narrazione' && x.chi === 'master').lastIndexOf(true), iMio = d.map(x => x.chi === S.io && ['chat', 'parlato'].includes(x.tipo)).lastIndexOf(true);
+  if (iN > iMio && iN >= 0) { mostraNarrazione(d[iN].testo, d[iN].png); Scrittura.tutto(); Report.log('distanza-ripresa', {}); }
+}
 $('#btnGiroOra').addEventListener('click', () => invia({ t: 'master_ora' }));
 // chi non sta guardando il diario lo viene a sapere lo stesso: a chi non ha ancora parlato si dice che tocca a lui
 function avvisaGiro(g) {
@@ -201,7 +207,7 @@ const PASSI = [
   { id: 'scheda', titolo: 'Guarda cosa sai fare', come: 'Nella Scheda trovi abilità, armi e incantesimi: toccali per usarli.', vista: 'vScheda' }
 ];
 const statoPassi = () => leggi('ta_passi', null);
-(() => { if (!statoPassi()) scrivi('ta_passi', leggi('ta_guida_vista', false) || leggi('ta_attiva', '') ? { chiuso: true } : { fatti: {} }); })(); // chi giocava già non ha bisogno dell'elenco
+(() => { if (!statoPassi()) scrivi('ta_passi', leggi('ta_guida_vista', false) || leggi('ta_attiva', '') || leggi('ta_nome', '') ? { chiuso: true } : { fatti: {} }); })(); // chi giocava già non ha bisogno dell'elenco
 function renderPassi() {
   const box = $('#primiPassi'); if (!box || !S.st) return;
   const st = statoPassi() || { fatti: {} }, fatti = st.fatti || {};
