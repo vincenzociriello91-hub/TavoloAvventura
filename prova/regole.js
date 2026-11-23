@@ -88,8 +88,8 @@ const ARMI = {
   'Stocco': { danno: '1d8', look: 'stocco', fin: true }, 'Pugnale': { danno: '1d4', look: 'pugnale', fin: true }, 'Ascia': { danno: '1d6', look: 'ascia' },
   'Ascia bipenne': { danno: '1d12', look: 'bipenne' }, 'Ascia da battaglia': { danno: '1d8', look: 'ascia' }, 'Martello da guerra': { danno: '1d8', look: 'martello' },
   'Mazza': { danno: '1d6', look: 'mazza' }, 'Bastone': { danno: '1d6', look: 'bastone' }, 'Lancia': { danno: '1d6', look: 'lancia' },
-  'Arco lungo': { danno: '1d8', look: 'arco', dist: true }, 'Arco corto': { danno: '1d6', look: 'arco', dist: true },
-  'Balestra leggera': { danno: '1d8', look: 'balestra', dist: true }, 'Balestra': { danno: '1d8', look: 'balestra', dist: true },
+  'Arco lungo': { danno: '1d8', look: 'arco', dist: true, mun: 'Frecce' }, 'Arco corto': { danno: '1d6', look: 'arco', dist: true, mun: 'Frecce' },
+  'Balestra leggera': { danno: '1d8', look: 'balestra', dist: true, mun: 'Quadrelli' }, 'Balestra': { danno: '1d8', look: 'balestra', dist: true, mun: 'Quadrelli' },
   'Giavellotti': { danno: '1d6', look: 'lancia' }, 'Dardi': { danno: '1d4', look: 'nessuna', dist: true }, 'Falcione': { danno: '1d10', look: 'lancia' }
 };
 // Slot degli incantesimi (SRD). 5e: tabella dei lanciatori completi; i mezzi lanciatori usano metà livello (per eccesso, dal 2°).
@@ -209,7 +209,34 @@ const Regole = {
     pg.ca = this.ca(pg);
     pg.pf = Math.min(pg.pf, pg.pfMax);
     pg.slotUsati = pg.slotUsati || [];
+    const max = this.slotMax(pg); pg.slotLiberi = max.map((n, l) => Math.max(0, (n || 0) - (pg.slotUsati[l] || 0))); // il master AI li legge per sapere chi ha ancora magia
     return pg;
+  },
+  // Munizioni: archi e balestre consumano frecce e quadrelli. Un pacco comprato («Frecce (20)») si apre al primo tiro.
+  munizioni(pg, nomeArma) {
+    const tipo = ARMI[nomeArma]?.mun; if (!tipo) return null;
+    const re = new RegExp('^' + tipo + '\\b', 'i'), voci = (pg.equip || []).filter(e => re.test(e.nome));
+    const n = voci.reduce((t, e) => t + (Number(e.nome.match(/\((\d+)\)/)?.[1]) || 1) * (e.qta || 1), 0);
+    return { tipo, n };
+  },
+  consumaMunizione(pg, nomeArma) {
+    const m = this.munizioni(pg, nomeArma); if (!m) return null;
+    if (!m.n) return { ok: false, tipo: m.tipo, resta: 0 };
+    const re = new RegExp('^' + m.tipo + '\\b', 'i');
+    pg.equip = (pg.equip || []).filter(e => !re.test(e.nome)).concat(m.n - 1 > 0 ? [{ nome: m.tipo, qta: m.n - 1, indossato: false }] : []);
+    pg.munSpese = { ...(pg.munSpese || {}), [m.tipo]: (pg.munSpese?.[m.tipo] || 0) + 1 };
+    return { ok: true, tipo: m.tipo, resta: m.n - 1 };
+  },
+  // finito lo scontro si ritrova metà delle frecce tirate (regola del manuale)
+  recuperaMunizioni(pg) {
+    const fatto = [];
+    for (const [tipo, spese] of Object.entries(pg.munSpese || {})) {
+      const r = Math.floor(spese / 2); if (!r) continue;
+      const es = (pg.equip || []).find(e => e.nome === tipo); if (es) es.qta = (es.qta || 1) + r; else pg.equip = [...(pg.equip || []), { nome: tipo, qta: r, indossato: false }];
+      fatto.push(`${r} ${tipo.toLowerCase()}`);
+    }
+    pg.munSpese = {};
+    return fatto;
   },
   // Incantesimi: lanciarne uno consuma uno slot del livello scelto (o superiore)
   lancia(pg, nome, livelloSlot) {
@@ -273,7 +300,7 @@ const Regole = {
     const pg = {
       regole, nome: dati.nome || 'Senza nome', razza, classe, livello: 1, px: 0,
       carBase: { ...dati.carBase }, carExtra: {}, car: {}, competenze: dati.competenze || [], gradi: dati.gradi || {},
-      equip: (set.classi[classe].equip || []).map(n => ({ nome: n, qta: 1, indossato: !!(ARMATURE[n] || SCUDI[n] !== undefined || ARMI[n] || n === 'Mantello' || n === 'Amuleto') })),
+      equip: (set.classi[classe].equip || []).map(n => ({ nome: n, qta: 1, indossato: !!(ARMATURE[n] || SCUDI[n] !== undefined || ARMI[n] || n === 'Mantello' || n === 'Amuleto') })).concat([...new Set((set.classi[classe].equip || []).map(n => ARMI[n]?.mun).filter(Boolean))].map(t => ({ nome: t, qta: 20, indossato: false }))),
       oro: dati.oro ?? 15, condizioni: [], ferite: [], aspetto: dati.aspetto || {}, note: dati.note || '', allineamento: dati.allineamento || 'Neutrale',
       puntiCar: 0, puntiAbilita: regole === '3.5' ? Math.max(1, (set.classi[classe].gradi + mod((dati.carBase?.int || 10) + (set.razze[razza].car.int || 0))) * 4 + (razza === 'Umano' ? 4 : 0)) : 0,
       creato: Date.now()

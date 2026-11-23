@@ -192,6 +192,7 @@ const Pad = (() => {
 
 /* ============ Diario: galleria dei PNG e memoriale dei caduti ============ */
 function renderDiarioExtra() {
+  renderCarte();
   const png = Object.entries(S.st?.png || {}).sort((a, b) => (b[1].t || 0) - (a[1].t || 0));
   const g = $('#galleriaPng'); if (g) { g.hidden = !png.length; $('#galleriaPngLista').innerHTML = png.map(([nome, p]) => { const v = S.st.volti?.[nome];
     return `<div class="carta-png">${v ? `<img src="${urlMedia('img', v)}" alt="" class="volto-png" onerror="this.outerHTML=Ritratto.volto(${esc(JSON.stringify(nome))}, 64)">` : Ritratto.volto(nome, 64)}<div><strong>${esc(nome)}</strong>${p.luogo ? `<div class="piccolo">Incontrato a ${esc(p.luogo)}</div>` : ''}${(p.legami || []).length ? `<div class="piccolo">🔗 ${p.legami.map(l => `${esc(l.tipo)} di ${esc(l.con)}`).join(', ')}</div>` : ''}${p.novita ? `<div class="piccolo">🕯️ Nel frattempo: ${esc(p.novita)}</div>` : ''}${(p.note || []).map(n => `<div class="piccolo">• ${esc(n)}</div>`).join('')}</div></div>`; }).join(''); $('#galleriaPngConta').textContent = png.length; }
@@ -213,15 +214,17 @@ async function cartolina(r) {
   if (r.img) { const im = await carica(urlMedia('img', r.img)); if (im) { const lato = W - 120; k.drawImage(im, 60, 60, lato, lato * 0.62); k.strokeStyle = 'rgba(217,164,65,.7)'; k.lineWidth = 4; k.strokeRect(60, 60, lato, lato * 0.62); } }
   k.fillStyle = '#f0c46a'; k.textAlign = 'center'; k.font = '700 58px Cinzel, Georgia, serif';
   const testoA = (t, y, max, font, col, alt) => { k.font = font; k.fillStyle = col; const parole = String(t).split(' '); let riga = '', yy = y; for (const p of parole) { if (k.measureText(riga + p).width > max) { k.fillText(riga.trim(), W / 2, yy); riga = ''; yy += alt; } riga += p + ' '; } k.fillText(riga.trim(), W / 2, yy); return yy; };
-  let y = testoA(r.titolo, 700, W - 160, '700 56px Cinzel, Georgia, serif', '#f0c46a', 64);
+  const px = stileGioco(); if (px) await document.fonts.load('64px "Jersey 15"').catch(() => {}); // con l'aspetto da videogioco anche la cartolina usa le scritte in pixel
+  let y = testoA(r.titolo, 700, W - 160, px ? '400 76px "Jersey 15", Georgia, serif' : '700 56px Cinzel, Georgia, serif', '#f0c46a', px ? 72 : 64);
   const momento = (r.racconto || '').split(/(?<=[.!?])\s/)[0];
   y = testoA('«' + momento + '»', y + 70, W - 200, 'italic 34px Georgia, serif', '#f3ead9', 44);
+  const trofeo = (r.stats?.trofei || [])[0]; if (trofeo && y < H - 380) testoA(`🏆 ${trofeo.titolo}: ${trofeo.chi}`, y + 40, W - 200, px ? '400 40px "Jersey 15", sans-serif' : '600 28px Inter, sans-serif', '#d9a441', 40);
   const pgs = Object.values(S.st.pg || {}).slice(0, 6), passo = (W - 120) / Math.max(1, pgs.length);
   for (const [i, p] of pgs.entries()) {
-    const svg = Ritratto.svg(p, { dim: 120 }).replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-    const im = await carica('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)); const cx = 60 + passo * i + passo / 2;
-    if (im) k.drawImage(im, cx - 60, H - 300, 120, 120);
-    k.font = '600 26px Inter, sans-serif'; k.fillStyle = '#f3ead9'; k.fillText(p.nome.split(' ')[0], cx, H - 150);
+    const cx = 60 + passo * i + passo / 2, quadro = p.ritratto ? await carica(urlMedia('img', p.ritratto)) : null; // il ritratto illustrato, se c'è; se no la figura in pixel
+    if (quadro) { k.save(); k.beginPath(); k.arc(cx, H - 240, 62, 0, Math.PI * 2); k.clip(); const s2 = Math.max(124 / quadro.width, 124 / quadro.height); k.drawImage(quadro, cx - quadro.width * s2 / 2, H - 302, quadro.width * s2, quadro.height * s2); k.restore(); k.strokeStyle = '#d9a441'; k.lineWidth = 4; k.beginPath(); k.arc(cx, H - 240, 62, 0, Math.PI * 2); k.stroke(); }
+    else { const svg = Ritratto.svg(p, { dim: 120 }).replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"'); const im = await carica('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)); if (im) k.drawImage(im, cx - 60, H - 300, 120, 120); }
+    k.font = px ? '400 36px "Jersey 15", sans-serif' : '600 26px Inter, sans-serif'; k.fillStyle = '#f3ead9'; k.fillText(p.nome.split(' ')[0], cx, H - 150);
   }
   k.font = '500 26px Inter, sans-serif'; k.fillStyle = '#bcae96'; k.fillText(`${S.st.campagna.nome} · ${new Date(r.t || Date.now()).toLocaleDateString('it-IT')}`, W / 2, H - 70);
   const blob = await new Promise(res => c.toBlob(res, 'image/png'));

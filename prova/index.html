@@ -177,6 +177,7 @@
       <div id="mondoVivo" class="mondo-vivo"></div>
       <details class="carta-mini" id="boxMondo"><summary>Il mondo: fazioni, valute, notizie</summary><div id="mondo"></div></details>
       <details class="carta-mini" id="galleriaPng" hidden><summary>Personaggi incontrati (<span id="galleriaPngConta">0</span>)</summary><div id="galleriaPngLista" class="galleria-png"></div></details>
+      <details class="carta-mini" id="boxCarte" hidden><summary>🃏 Carte da collezione (<span id="carteConta">0</span>)</summary><p class="piccolo">Ogni mostro che il gruppo incontra diventa una carta. Più ne sconfiggete, più la cornice diventa preziosa: bronzo, argento, oro.</p><div id="carteLista" class="carte"></div></details>
       <details class="carta-mini" id="memoriale" hidden><summary>Memoriale dei caduti</summary><div id="memorialeLista"></div></details>
       <input id="cercaDiario" type="search" maxlength="60" placeholder="Cerca nel diario (es. fabbro, chiave, Bruno)" aria-label="Cerca nel diario">
       <ul class="diario" id="diario"></ul>
@@ -221,7 +222,7 @@
           <form id="formMondo" class="riga" autocomplete="off"><input id="mondoEntra" maxlength="24" autocapitalize="characters" placeholder="Codice, es. ABCD2345-EFGH6789" aria-label="Codice del mondo da portare qui"><button type="submit">Porta qui</button></form>
           <p id="mondoDa" class="piccolo" hidden></p>
         </details>
-        <details id="boxAppunti"><summary>Il vostro mondo: appunti per il master</summary><p class="piccolo">Storia, luoghi, personaggi e segreti del vostro mondo. Il master AI li usa come verità e tiene nascosti i segreti finché non li scoprite giocando. Li legge solo chi guida la campagna.</p><textarea id="aAppunti" rows="7" maxlength="8000" placeholder="Es. Il regno di Argentea è governato da una regina bambina. Sotto il tempio c'è una cripta dimenticata. Il fabbro Ulrico è una spia."></textarea><div class="riga"><button id="btnSalvaAppunti" type="button" class="pieno">Salva gli appunti</button><label class="bottone" for="fileAppunti">Carica da un file di testo</label><input id="fileAppunti" type="file" accept=".txt,.md,text/plain" hidden></div></details>
+        <details id="boxAppunti"><summary>Il vostro mondo: appunti per il master</summary><p class="piccolo">Storia, luoghi, personaggi e segreti del vostro mondo. Il master AI li usa come verità e tiene nascosti i segreti finché non li scoprite giocando. Li legge solo chi guida la campagna.</p><textarea id="aAppunti" rows="7" maxlength="8000" placeholder="Es. Il regno di Argentea è governato da una regina bambina. Sotto il tempio c'è una cripta dimenticata. Il fabbro Ulrico è una spia."></textarea><div class="riga"><button id="btnSalvaAppunti" type="button" class="pieno">Salva gli appunti</button><label class="bottone" for="fileAppunti">Carica da un file (testo o PDF)</label><input id="fileAppunti" type="file" accept=".txt,.md,.pdf,text/plain,application/pdf" hidden></div></details>
         <div class="riga" id="copiaBox"><button id="btnEsporta" type="button">💾 Scarica una copia</button><label class="bottone" for="fileImporta">Ripristina da una copia</label><input id="fileImporta" type="file" accept="application/json,.json" hidden></div>
         <div id="ruoliBox"></div>
       </div>
@@ -300,6 +301,7 @@
         <p class="piccolo">Musica: JP Soundworks, PGS Fantasy RPG Music Pack (CC BY 4.0). Effetti sonori: Ninja Adventure (CC0).</p>
         <p class="piccolo">Grafica delle mappe: The Fan-tasy Tileset di Ventilatore, Time Fantasy di finalbossblues e Fantasy World di pixelbean (pacchetti acquistati, usati con licenza; non si possono copiare).</p>
         <p class="piccolo">Scritte in pixel: Jersey 15 di Sarah Cadigan-Fried (SIL Open Font License 1.1).</p>
+        <p class="piccolo">Lettura dei PDF: pdf.js di Mozilla (licenza Apache 2.0).</p>
         <p class="piccolo">Personaggi animati: Universal LPC Spritesheet Character Generator (OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0), autori in <a href="lpc/crediti.json" target="_blank" rel="noopener">crediti LPC</a>.</p>
       </div>
     </div>

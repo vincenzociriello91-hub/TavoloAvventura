@@ -43,7 +43,9 @@ const Suoni = (() => {
     combattimento: u => { drone(73.4, 0.04, u, 'sawtooth'); let k = 0; ogni(420, 440, () => { nota(k % 4 === 0 ? 55 : 70, 0.25, 'sine', k % 4 === 0 ? 0.22 : 0.12, u, 0, 40); k++; }); }
   };
   // musica vera (JP Soundworks, CC BY 4.0): un brano per scena, con dissolvenza; i suoni generati restano sotto, più bassi
-  const BRANI = { taverna: 'taverna', dungeon: 'dungeon', grotta: 'dungeon', combattimento: 'fantasy_combattimento', boss: 'fantasy_boss', interno: 'taverna' };
+  const BRANI = { taverna: 'taverna', dungeon: 'dungeon', grotta: 'dungeon', combattimento: 'fantasy_combattimento', boss: 'fantasy_boss', interno: 'taverna',
+    // umori della scena scelti dal master AI (evento musica): stessi brani, usati secondo il momento
+    tensione: 'dungeon', mistero: 'notte', festa: 'taverna', tristezza: 'notte', calma: 'fantasy', epica: 'fantasy_boss' };
   let brano = null, nomeBrano = '', notte = false;
   function suonaBrano(nome) {
     const file = BRANI[nome] || (notte ? 'notte' : 'fantasy');
@@ -57,6 +59,7 @@ const Suoni = (() => {
   const CAMPIONI = ['colpo', 'critico', 'ferito', 'livello', 'magia', 'monete', 'porta', 'pozione', 'raro', 'sconfitta', 'successo', 'tocco', 'vittoria'];
   function campione(nome, g = 0.8) { if (!CAMPIONI.includes(nome)) return false; const a = new Audio('audio/effetti/' + nome + '.ogg'); a.volume = Math.min(1, volume * g * ve); a.play().catch(() => {}); return true; }
   SCENE.boss = SCENE.combattimento;
+  Object.assign(SCENE, { tensione: SCENE.dungeon, mistero: SCENE.aperto, festa: SCENE.taverna, tristezza: SCENE.interno, calma: SCENE.villaggio, epica: SCENE.castello });
   function cambiaScena(nome) {
     if (attivo) suonaBrano(nome);
     if (!attivo || !ctx || nome === scena) return;

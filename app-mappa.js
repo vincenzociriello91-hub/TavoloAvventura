@@ -51,7 +51,8 @@ function renderMappa() {
   if (l) { Mappa.imposta(l, S.st.segnalini, S.st.membri); aggiornaExtraMappa(); }
   if (OPZ.vista3d && l && (!S.m3 || $('#mappa3dBox').hidden)) vista3D(true);
 }
-function aggiornaScenaSonora() { const c = S.st?.combattimento, boss = c?.attivo && c.ordine?.some(o => o.nemico !== false && /boss|capo|re |regina|drago|grumsh|lich|demone|gigante|ogre|troll/i.test(o.nome || '')); Suoni.scena(c?.attivo ? (boss ? 'boss' : 'combattimento') : S.st?.luogo?.tipo || 'aperto'); }
+// la musica segue il luogo e il combattimento; il master AI può darle un umore (tensione, festa…) che vale finché si resta nel luogo, al massimo 10 minuti
+function aggiornaScenaSonora() { const c = S.st?.combattimento, boss = c?.attivo && c.ordine?.some(o => o.nemico !== false && /boss|capo|re |regina|drago|grumsh|lich|demone|gigante|ogre|troll/i.test(o.nome || '')), u = S.umore && S.umore.luogo === S.st?.luogo?.id && Date.now() < S.umore.fino ? S.umore.nome : null; Suoni.scena(c?.attivo ? (boss ? 'boss' : 'combattimento') : u || S.st?.luogo?.tipo || 'aperto'); }
 function aggiornaExtraMappa() {
   aggiornaScenaSonora();
   const c = S.st?.combattimento, ora = c?.attivo && c.ordine[c.turno];

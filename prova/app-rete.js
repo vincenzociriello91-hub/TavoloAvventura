@@ -83,6 +83,8 @@ function gestisci(m) {
       renderTiri(); renderRapidi(); return;
     }
     case 'suono': Suoni.effetto(m.nome); return;
+    case 'bestiario': { const prima = Object.keys(S.st.bestiario || {}).length; S.st.bestiario = m.bestiario; renderCarte(); if (Object.keys(m.bestiario).length > prima) toast('🃏 Nuova carta nella collezione: guardala nel Diario'); return; }
+    case 'musica': S.umore = { nome: m.umore, luogo: S.st.luogo?.id, fino: Date.now() + 600000 }; aggiornaScenaSonora(); Report.log('musica', { umore: m.umore }); return;
     case 'png': S.st.png = m.png; renderDiarioExtra(); return;
     case 'mondo_vivo': { const { t, ...r } = m; Object.assign(S.st, r); renderMondoVivo(); renderTesoro(); renderMondo(); renderSchedaSeServe(); return; }
     case 'sogno': chiedi(`<h2>🌙 Un sogno</h2><p class="piccolo">Lo vedi solo tu: decidi tu se raccontarlo agli altri.</p><p class="storia-pg">${esc(m.testo)}</p>`, [{ testo: 'Mi sveglio', pieno: true }]); if (OPZ.narratore) Narratore.parla(m.testo); Report.log('sogno', {}); return;
@@ -187,6 +189,7 @@ function gestisci(m) {
       const prima = S.st.combattimento;
       { const c2 = m.combattimento, cambiato = !prima?.attivo || !c2?.attivo || prima.turno !== c2.turno || prima.round !== c2.round; if (cambiato) { S.mosso = 0; S.arrivoTurno = Date.now(); S.tempoAvvisato = false; } } // turno nuovo: movimento e clessidra ripartono
       S.st.combattimento = m.combattimento; renderCombat(); renderHud(); striscioneCombattimento(prima, m.combattimento);
+      if (prima?.attivo && !m.combattimento?.attivo) recuperaMunizioni();
       const c = m.combattimento, ora = c?.attivo && c.ordine[c.turno];
       if (ora && ora.id === S.io && !(prima?.attivo && prima.ordine[prima.turno]?.id === S.io && prima.round === c.round)) { if (OPZ.avvisi) Narratore.avviso('Tocca a te'); toast('È il tuo turno!'); Suoni.effetto('turno'); }
       Report.log('combattimento', { attivo: c?.attivo, round: c?.round, turno: ora?.nome });
@@ -195,7 +198,7 @@ function gestisci(m) {
     case 'aree': { const nuove = (m.aree || []).filter(a => !(S.st.aree || []).some(b => b.x === a.x && b.y === a.y && b.nome === a.nome)); S.st.aree = m.aree; aggiornaExtraMappa(); nuove.forEach(a => Mappa.effettoArea(a)); return; }
     case 'nebbia': if (S.st.luogo?.id === m.id) { S.st.luogo.visto = m.visto; Mappa.setVisto(m.id, m.visto); } return;
     case 'gruppo': S.st.gruppo = m.gruppo; renderTesoro(); return;
-    case 'mondo': S.st.mondo = m.mondo; renderMondo(); Mappa.setAmbiente(m.mondo?.calendario); if (!$('#mondoBox').hidden) renderMappaMondo(); return;
+    case 'mondo': S.st.mondo = m.mondo; renderMondo(); aggiornaTesta(); Mappa.setAmbiente(m.mondo?.calendario); if (!$('#mondoBox').hidden) renderMappaMondo(); return;
     case 'relazioni': S.st.relazioni = m.relazioni; renderSchedaSeServe(); return;
     case 'pong': S.latenza = Math.round(performance.now() - (S.ping || performance.now())); S.pong = Date.now(); return;
   }
@@ -263,12 +266,17 @@ $('#btnEntra').addEventListener('click', () => {
 });
 
 /* ============ RENDER GENERALE ============ */
+// sotto il nome della campagna: regole, master, sessione e data del calendario di gioco
+function aggiornaTesta() {
+  const c = S.st.campagna;
+  const cal = S.st.mondo?.calendario;
+  $('#tSotto').textContent = `${Regole.set(c.regole).nome} · master ${c.masterTipo === 'ai' ? 'AI' : 'in carne e ossa'} · sessione ${c.sessione || 1}${cal ? ` · ${testoData(cal)}` : ''}`;
+}
 function renderTutto() {
   if (!S.st) return;
   const c = S.st.campagna;
   $('#tCampagna').textContent = c.nome;
-  const cal = S.st.mondo?.calendario;
-  $('#tSotto').textContent = `${Regole.set(c.regole).nome} · master ${c.masterTipo === 'ai' ? 'AI' : 'in carne e ossa'} · sessione ${c.sessione || 1}${cal ? ` · giorno ${cal.giorno}, ${cal.stagione}` : ''}`;
+  aggiornaTesta();
   $('#aiutoCapo').hidden = me()?.ruolo !== 'master';
   $('#dSegretoBox').hidden = !capo();
   $('#boxNarra').hidden = !(capo() && c.masterTipo === 'umano');

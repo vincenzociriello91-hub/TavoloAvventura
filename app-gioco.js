@@ -48,7 +48,7 @@ function renderDiario() {
 }
 $('#formChat').addEventListener('submit', e => {
   e.preventDefault(); const t = $('#chatTesto').value.trim(); if (!t) return;
-  if ($('#chatA').value && !$('#chatABox').hidden) { invia({ t: 'sussurro', a: $('#chatA').value, testo: t }); $('#chatTesto').value = ''; return; }
+  if ($('#chatA').value && !$('#chatABox').hidden) { const aM = $('#chatA').value === 'master'; invia(aM ? { t: 'al_master', testo: t } : { t: 'sussurro', a: $('#chatA').value, testo: t }); if (aM) S.ultimoParlato = Date.now(); $('#chatTesto').value = ''; Report.log('privato', { alMaster: aM }); return; }
   const r = mioPg() ? Comandi.interpreta(t, mioPg(), regole(), S.st.mondo) : null;
   if (r) eseguiComando(r, t, 'scritto');
   else { invia({ t: 'chat', testo: t, alMaster: masterAI() && $('#alMaster').checked }); if (masterAI() && $('#alMaster').checked) S.ultimoParlato = Date.now(); }
@@ -95,7 +95,7 @@ function eseguiComando(r, frase, come) {
   if (r.annulla) { annulla(); return; }
   if (r.turno) { invia({ t: 'combattimento', azione: 'prossimo' }); Report.log('comando-voce', { testo: frase, esito: 'fine turno', come }); return; }
   if (r.gruppo) { invia({ t: 'gruppo', ...r.gruppo }); Report.log('comando-voce', { testo: frase, esito: 'tesoro', come }); if (!r.ops) return; }
-  if (r.dado) { tira(r.dado.formula, r.dado.motivo === 'a voce' ? frase : r.dado.motivo, r.dado.modo); Report.log('comando-voce', { testo: frase, esito: 'dado', come }); return; }
+  if (r.dado) { if (r.dado.arma && mioPg() && !usaMunizione(mioPg(), r.dado.arma)) return; tira(r.dado.formula, r.dado.motivo === 'a voce' ? frase : r.dado.motivo, r.dado.modo); Report.log('comando-voce', { testo: frase, esito: 'dado', come }); return; }
   if (r.ops) { const pv = S.viewPg; S.viewPg = S.io; modifica(r.ops, come === 'voce' ? `a voce: "${frase}"` : null); S.viewPg = pv; invia({ t: 'comando', testo: frase }); Report.log('comando-voce', { testo: frase, esito: 'ok', ops: r.ops, come }); }
 }
 function aggiornaBottoniVoce() {
