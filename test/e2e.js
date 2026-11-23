@@ -339,6 +339,36 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await A.click('#nav button[data-v="vMappa"]').catch(() => {});
   const vign = await A.evaluate(() => { toast("Immagini gratuite finite per oggi: tornano dopo l'una di notte.", true, 5000); const t = $('#toast').getBoundingClientRect(), barra = document.querySelector('.barra').getBoundingClientRect(), titolo = document.querySelector('#vMappa h2, #vMappa .luogo-titolo, #luogoNome')?.getBoundingClientRect(); return { alto: t.height, fondo: t.bottom, barra: barra.bottom, titolo: titolo?.top ?? 999, rosso: $('#toast').classList.contains('errore') }; });
   v(vign.alto <= 60 && vign.fondo <= vign.barra + 6 && vign.rosso, `vignetta avvisi compatta, sopra la barra, rossa se è un errore (${JSON.stringify(vign)})`);
+  // aspetto da videogioco (3.8): cornici in pixel, volti, scritte a macchina, striscioni, opzioni di comodità
+  const stile = await A.evaluate(async () => {
+    const r = { gs: document.body.classList.contains('gs'), carattere: await document.fonts.load('20px "Jersey 15"').then(f => f.length > 0).catch(() => false) };
+    r.cornice = getComputedStyle(document.querySelector('.carta')).borderImageSource.includes('svg');
+    r.hud = document.querySelectorAll('#hudGruppo .hud-pg img').length; r.hudVita = !!document.querySelector('#hudGruppo .vita i');
+    mostraNarrazione('Una porta cigola in fondo al corridoio, e qualcosa respira nel buio.', null);
+    r.scriveAPezzi = !!document.querySelector('#narrTesto .da-scrivere') && document.querySelector('#narrTesto .scritto').textContent.length < 20;
+    r.testoIntero = document.querySelector('#narrTesto').textContent.length;
+    r.voltoMaster = !!document.querySelector('#narrVolto img') && !document.querySelector('#narrVolto').hidden;
+    await new Promise(q => setTimeout(q, 1800));
+    r.finita = document.querySelector('#narrazione').classList.contains('finita') && !document.querySelector('#narrTesto .da-scrivere');
+    mostraNarrazione('Seconda frase lunga abbastanza da non finire subito, per provare il tocco che la completa.', 'Oste Bruno'); document.querySelector('#narrTesto').click();
+    r.toccoCompleta = document.querySelector('#narrazione').classList.contains('finita');
+    renderDiario(); const f = document.querySelector('#diario li .faccia'); r.facceDiario = document.querySelectorAll('#diario li .faccia').length; r.facciaDisegnata = !!f && getComputedStyle(f).backgroundImage.startsWith('url(');
+    striscione('Prova', 'striscione', Volti.master(), '', true); r.striscione = !!document.querySelector('.striscione b');
+    const cv = document.querySelector('#fondoIngresso').getContext('2d'); document.querySelector('#ingresso').hidden = false; FondoVivo.giro(); document.querySelector('#ingresso').hidden = true;
+    const d = cv.getImageData(0, 0, 200, 120).data; const colori = new Set(); for (let i = 0; i < d.length; i += 400) colori.add(d[i] + ',' + d[i + 1] + ',' + d[i + 2]); r.paesaggio = colori.size;
+    document.querySelector('#optMenoMoto').click(); mostraNarrazione('Con meno movimento il testo compare tutto insieme.', null);
+    r.menoMoto = document.body.classList.contains('meno-moto') && !document.querySelector('#narrTesto .da-scrivere'); document.querySelector('#optMenoMoto').click();
+    document.querySelector('#optContrasto').click(); r.contrasto = document.body.classList.contains('contrasto'); document.querySelector('#optContrasto').click();
+    document.querySelector('#optStileGioco').click(); r.classico = !document.body.classList.contains('gs') && getComputedStyle(document.querySelector('#hudGruppo')).display === 'none' && getComputedStyle(document.querySelector('.carta')).borderImageSource === 'none';
+    document.querySelector('#optStileGioco').click(); r.tornato = document.body.classList.contains('gs');
+    return r;
+  });
+  v(stile.gs && stile.cornice && stile.carattere, `aspetto da videogioco attivo: cornici in pixel e carattere caricato (${JSON.stringify({ gs: stile.gs, cornice: stile.cornice, carattere: stile.carattere })})`);
+  v(stile.hud >= 1 && stile.hudVita, `gruppo a vista sopra la mappa: ${stile.hud} volti con barra della vita`);
+  v(stile.scriveAPezzi && stile.testoIntero > 40 && stile.voltoMaster && stile.finita && stile.toccoCompleta, `narrazione da gioco di ruolo: volto, testo lettera per lettera, il tocco la completa (${JSON.stringify({ pezzi: stile.scriveAPezzi, volto: stile.voltoMaster, finita: stile.finita, tocco: stile.toccoCompleta })})`);
+  v(stile.facceDiario > 3 && stile.facciaDisegnata, `diario con un volto per ogni voce (${stile.facceDiario})`);
+  v(stile.striscione && stile.paesaggio > 8, `striscione sulla mappa e paesaggio animato all'ingresso (${stile.paesaggio} colori)`);
+  v(stile.menoMoto && stile.contrasto && stile.classico && stile.tornato, `opzioni di comodità: meno movimento, alto contrasto, aspetto classico e ritorno (${JSON.stringify({ moto: stile.menoMoto, contrasto: stile.contrasto, classico: stile.classico, tornato: stile.tornato })})`);
   v(errori.length === 0, 'nessun errore JavaScript' + (errori.length ? ': ' + errori.slice(0, 5).join(' | ') : ''));
   await browser.close();
   console.log(`\n${ok} ok, ${ko} falliti`);

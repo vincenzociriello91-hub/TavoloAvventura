@@ -36,12 +36,12 @@ function renderDiario() {
   const l = [...(S.st?.diario || [])].reverse().slice(0, 150);
   const ora = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
   $('#diario').innerHTML = l.map(d => {
-    if (d.tipo === 'narrazione') return `<li class="narrazione-ev"><span class="chi">${ora(d.t)} · ${esc(d.png || (d.chi === 'master' ? 'Master AI' : S.st.membri[d.chi]?.nome || 'Master'))}</span><p>${esc(d.testo)}</p>${tradotto(d.testo)}</li>`;
-    if (d.tipo === 'riepilogo') return `<li class="illustrazione-ev"><span class="chi">${ora(d.t)} · Riepilogo della serata</span><p><button type="button" data-riepilogo="${d.riepilogo}">${esc(d.testo)}</button></p></li>`;
-    if (d.tipo === 'illustrazione' && d.img) return `<li class="illustrazione-ev"><span class="chi">${ora(d.t)} · Illustrazione</span><img src="${urlMedia('img', d.img)}" alt="${esc(d.testo)}" loading="lazy" data-img="${esc(d.img)}" onerror="this.remove()"><p>${esc(d.testo)}</p></li>`;
+    if (d.tipo === 'narrazione') return `<li class="narrazione-ev">${Volti.faccia(d)}<span class="chi">${ora(d.t)} · ${esc(d.png || (d.chi === 'master' ? 'Master AI' : S.st.membri[d.chi]?.nome || 'Master'))}</span><p>${esc(d.testo)}</p>${tradotto(d.testo)}</li>`;
+    if (d.tipo === 'riepilogo') return `<li class="illustrazione-ev">${Volti.faccia(d)}<span class="chi">${ora(d.t)} · Riepilogo della serata</span><p><button type="button" data-riepilogo="${d.riepilogo}">${esc(d.testo)}</button></p></li>`;
+    if (d.tipo === 'illustrazione' && d.img) return `<li class="illustrazione-ev">${Volti.faccia(d)}<span class="chi">${ora(d.t)} · Illustrazione</span><img src="${urlMedia('img', d.img)}" alt="${esc(d.testo)}" loading="lazy" data-img="${esc(d.img)}" onerror="this.remove()"><p>${esc(d.testo)}</p></li>`;
     const cls = { scheda: 'scheda-ev', comando: 'comando' }[d.tipo] || d.tipo;
     const chi = d.tipo === 'chat' ? `<strong>${esc(S.st.membri[d.chi]?.nome || '?')}:</strong> ` : '';
-    return `<li class="${esc(cls)}"><span class="chi">${ora(d.t)}</span> ${chi}${esc(d.testo)}${d.tipo === 'chat' ? tradotto(d.testo) : ''}</li>`;
+    return `<li class="${esc(cls)}">${Volti.faccia(d)}<span class="chi">${ora(d.t)}</span> <span class="corpo-ev">${chi}${esc(d.testo)}${d.tipo === 'chat' ? tradotto(d.testo) : ''}</span></li>`;
   }).join('') || '<li class="piccolo">Il diario della campagna è vuoto: iniziate a giocare!</li>';
 }
 $('#formChat').addEventListener('submit', e => {

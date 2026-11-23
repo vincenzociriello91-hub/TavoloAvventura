@@ -29,7 +29,7 @@ D&D online con gli amici, dal browser di qualsiasi telefono, PC, Odin o TV. Nien
 - Web app in JavaScript puro, pubblicata con GitHub Pages.
 - Server: Durable Object `Tavolo` dentro il Worker Cloudflare `rapporti-vincenzo` (`GET /tavolo/<codice>/ws`).
 - Master AI con Gemini (chiave solo sul server).
-- File: `regole.js` (5e/3.5), `comandi.js` (comandi vocali), `ritratto.js`, `lpc.js` (figure animate), `mappa.js` (mappa 2D, luci, vista), `mappa3d.js` (vista 3D, three.js in `vendor/`, licenza MIT), `voce.js` (WebRTC, riconoscimento vocale, narratore), `suoni.js`, `app.js` (versione, novità, attrezzi, rapporti) e, caricati dopo in quest'ordine, `app-rete.js`, `app-mappa.js`, `app-scheda.js`, `app-gioco.js`, `app-altro.js`, `app-avvio.js`, `app-extra.js`. Condividono le stesse variabili: l'ordine in `index.html` conta.
+- File: `regole.js` (5e/3.5), `comandi.js` (comandi vocali), `ritratto.js`, `lpc.js` (figure animate), `mappa.js` (mappa 2D, luci, vista), `mappa3d.js` (vista 3D, three.js in `vendor/`, licenza MIT), `voce.js` (WebRTC, riconoscimento vocale, narratore), `suoni.js`, `app.js` (versione, novità, attrezzi, rapporti) e, caricati dopo in quest'ordine, `app-rete.js`, `app-mappa.js`, `app-scheda.js`, `app-gioco.js`, `app-altro.js`, `app-avvio.js`, `app-extra.js`, `app-stile.js` (aspetto da videogioco: volti, scritte a macchina, striscioni, paesaggio in pixel, opzioni di comodità; carattere Jersey 15 in `vendor/`, licenza OFL). Condividono le stesse variabili: l'ordine in `index.html` conta.
 - Server diviso in `src/tavolo.js` (stanza e messaggi), `tavolo-mappe.js` (luoghi, percorsi), `tavolo-dati.js` (tabelle, avventure), `tavolo-ai.js` (Gemini, immagini, voce), `tavolo-util.js`.
 
 ## Licenze

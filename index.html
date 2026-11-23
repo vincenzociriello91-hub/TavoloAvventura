@@ -39,6 +39,7 @@
   <!-- INGRESSO -->
   <section id="ingresso" class="ingresso">
     <div class="eroe">
+      <canvas class="fondo-vivo" id="fondoIngresso" width="200" height="120" aria-hidden="true"></canvas>
       <h1>Il vostro tavolo da gioco, ovunque siate</h1>
       <p>Voce tra amici, schede che si aggiornano da sole, mappe che ricordano tutto e un master che può essere una persona o l'intelligenza artificiale.</p>
     </div>
@@ -106,12 +107,13 @@
         <span id="richTesto"></span>
         <button id="richTira" class="pieno" type="button">Tira</button>
       </div>
+      <div class="hud-gruppo" id="hudGruppo" aria-label="Il gruppo"></div>
       <div class="luogo-testa">
         <div><strong id="luogoNome">Nessun luogo</strong> <span id="luogoTipo" class="piccolo"></span> <button id="btnEsciEd" type="button" class="testo-btn" hidden>Esci all'aperto</button></div>
         <form id="formVai" class="riga" autocomplete="off"><input id="vaiNome" placeholder="Vai a… (es. Taverna del Drago)" maxlength="60" aria-label="Nome del luogo"><button class="pieno" type="submit">Vai</button></form>
       </div>
       <div class="mappa-box" id="mappaBox"><canvas id="mappa" aria-label="Mappa del luogo"></canvas><div class="volano" id="volano" aria-hidden="true"></div>
-        <div class="vuoto" id="mappaVuota"><p>Il gruppo non è ancora in nessun luogo.</p><p class="piccolo" id="mappaVuotaSugg">Il master AI vi porterà nel primo luogo appena iniziate a giocare. Potete anche scrivere un luogo qui sopra.</p></div>
+        <div class="vuoto" id="mappaVuota"><canvas class="fondo-vivo" id="fondoVuoto" width="200" height="120" aria-hidden="true"></canvas><p>Il gruppo non è ancora in nessun luogo.</p><p class="piccolo" id="mappaVuotaSugg">Il master AI vi porterà nel primo luogo appena iniziate a giocare. Potete anche scrivere un luogo qui sopra.</p></div>
       </div>
       <div class="reazioni" id="reazioni" hidden aria-label="Reazioni"><button type="button" data-reazione="👏">👏</button><button type="button" data-reazione="😂">😂</button><button type="button" data-reazione="😱">😱</button><button type="button" data-reazione="🔥">🔥</button><button type="button" data-reazione="❤️">❤️</button><button type="button" data-reazione="🎲">🎲</button></div>
       <details class="carta-mini" id="noteMappaBox" hidden><summary>📌 Note sulla mappa (<span id="noteMappaConta">0</span>)</summary><div id="noteMappaLista"></div></details>
@@ -228,7 +230,14 @@
         <label class="spunta"><input type="checkbox" id="optMeteoVero"> Meteo vero nella partita (dalla tua zona, arrotondata a circa 10 km: la posizione non lascia il telefono)</label>
         <div class="riga dadi-stile"><label>I miei dadi<input type="color" id="optDadiColore" value="#b8433a"></label><label>Materiale<select id="optDadiMateriale"><option value="opaco">Opaco</option><option value="lucido" selected>Lucido</option><option value="metallo">Metallo</option><option value="gemma">Gemma</option></select></label><button type="button" id="btnProvaDadi">Prova</button></div>
         <label>Traduci master e chat in<select id="optLingua"><option value="">nessuna lingua (originale)</option><option value="it">italiano</option><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option></select></label>
-        <label>Volume<input type="range" id="optVolume" min="0" max="1" step="0.05" value="0.5"></label>
+        <label>Volume generale<input type="range" id="optVolume" min="0" max="1" step="0.05" value="0.5"></label>
+        <div class="volumi"><label>Musica<input type="range" id="optVolMusica" min="0" max="1" step="0.05" value="1"></label><label>Effetti<input type="range" id="optVolEffetti" min="0" max="1" step="0.05" value="1"></label><label>Voce del master<input type="range" id="optVolVoce" min="0" max="1" step="0.05" value="1"></label></div>
+        <h3>Aspetto e comodità</h3>
+        <label class="spunta"><input type="checkbox" id="optStileGioco" checked> Aspetto da videogioco (cornici e scritte in pixel)</label>
+        <label class="spunta"><input type="checkbox" id="optContrasto"> Alto contrasto</label>
+        <label class="spunta"><input type="checkbox" id="optMenoMoto"> Meno movimento (niente scosse, lampi e scritte che scorrono)</label>
+        <label class="spunta"><input type="checkbox" id="optVibra" checked> Vibrazione sui colpi e sui tiri speciali</label>
+        <label>Velocità di scritte e animazioni<input type="range" id="optVelocita" min="0.5" max="2" step="0.25" value="1"></label>
         <p class="piccolo">Comandi vocali: tieni premuto il tasto del microfono in basso mentre parli. Il tasto verde in alto attiva l'ascolto continuo, che su Android può non funzionare insieme alla chat vocale.</p>
         <label>Il tuo nome<input id="optNome" maxlength="30"></label>
         <a id="linkTv" class="bottone largo" href="#" target="_blank" rel="noopener">Apri il tavolo sulla TV</a>
@@ -265,6 +274,7 @@
         <p class="piccolo">Regole tratte dal System Reference Document di D&amp;D 5.1 (CC-BY-4.0) e 3.5 (OGL). Dungeons &amp; Dragons è un marchio di Wizards of the Coast: app non ufficiale, fatta da fan.</p>
         <p class="piccolo">Musica: JP Soundworks, PGS Fantasy RPG Music Pack (CC BY 4.0). Effetti sonori: Ninja Adventure (CC0).</p>
         <p class="piccolo">Grafica delle mappe: The Fan-tasy Tileset di Ventilatore, Time Fantasy di finalbossblues e Fantasy World di pixelbean (pacchetti acquistati, usati con licenza; non si possono copiare).</p>
+        <p class="piccolo">Scritte in pixel: Jersey 15 di Sarah Cadigan-Fried (SIL Open Font License 1.1).</p>
         <p class="piccolo">Personaggi animati: Universal LPC Spritesheet Character Generator (OGA-BY 3.0, CC-BY-SA 3.0, GPL 3.0), autori in <a href="lpc/crediti.json" target="_blank" rel="noopener">crediti LPC</a>.</p>
       </div>
     </div>
@@ -302,5 +312,6 @@
 <script src="app-altro.js"></script>
 <script src="app-avvio.js"></script>
 <script src="app-extra.js"></script>
+<script src="app-stile.js"></script>
 </body>
 </html>
