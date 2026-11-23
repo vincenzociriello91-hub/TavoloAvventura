@@ -107,6 +107,7 @@
         <span id="richTesto"></span>
         <button id="richTira" class="pieno" type="button">Tira</button>
       </div>
+      <div class="richiesta passaggio" id="passaggio" hidden><span id="passTesto"></span><span class="riga"><button id="passVai" class="pieno" type="button">Entra</button><button id="passNo" type="button" class="testo-btn" aria-label="Chiudi">✕</button></span></div>
       <div class="hud-gruppo" id="hudGruppo" aria-label="Il gruppo"></div>
       <div class="luogo-testa">
         <div><strong id="luogoNome">Nessun luogo</strong> <span id="luogoTipo" class="piccolo"></span> <button id="btnEsciEd" type="button" class="testo-btn" hidden>Esci all'aperto</button></div>
@@ -119,8 +120,8 @@
       <details class="carta-mini" id="noteMappaBox" hidden><summary>📌 Note sulla mappa (<span id="noteMappaConta">0</span>)</summary><div id="noteMappaLista"></div></details>
       <div class="mappa3d-box" id="mappa3dBox" hidden></div>
       <div class="mondo-box" id="mondoBox" hidden><canvas id="mondoCanvas" role="img" aria-label="Mappa del mondo illustrata: luoghi conosciuti e viaggi del gruppo"></canvas></div>
-      <div class="riga strumenti-mappa"><span class="zoom-mappa" id="zoomMappa"><button id="btnZoomMeno" type="button" aria-label="Allontana">−</button><button id="btnZoomPiu" type="button" aria-label="Avvicina">+</button><button id="btnZoomTutta" type="button" title="Mostra tutto ciò che il gruppo ha già scoperto">Tutta la mappa</button></span><button id="btnMondo" type="button">Mappa del mondo</button><button id="btn3d" type="button">Vista 3D</button><button id="btnArea" type="button">Area incantesimo</button><button id="btnNota" type="button">📌 Nota</button><button id="btnDungeon" type="button">⚔️ Discesa del giorno</button><button id="btnPulisciAree" type="button" hidden>Togli le aree</button><button id="btnCombat" type="button" hidden>Inizia combattimento</button><button id="btnIllustra" type="button" hidden>Illustra la scena</button></div>
-      <details class="piccolo aiuto-mappa"><summary>Come si usa la mappa</summary><p>Tocca una casella per muovere il tuo segnalino (o trascinalo): gira intorno ai muri da solo. Scorri col dito per spostare la vista, due dita per avvicinare o allontanare. Tieni premuto su un edificio per vederlo<span id="aiutoCapo" hidden> o cambiarne lo stato</span>.</p></details>
+      <div class="riga strumenti-mappa"><span class="zoom-mappa" id="zoomMappa"><button id="btnZoomMeno" type="button" aria-label="Allontana">−</button><button id="btnZoomPiu" type="button" aria-label="Avvicina">+</button><button id="btnZoomTutta" type="button" title="Mostra tutto ciò che il gruppo ha già scoperto">Tutta la mappa</button></span><button id="btnMondo" type="button">Mappa del mondo</button><button id="btn3d" type="button">Vista 3D</button><button id="btnArea" type="button">Area incantesimo</button><button id="btnRighello" type="button" aria-pressed="false">📏 Righello</button><button id="btnNota" type="button">📌 Nota</button><button id="btnDungeon" type="button">⚔️ Discesa del giorno</button><button id="btnPulisciAree" type="button" hidden>Togli le aree</button><button id="btnCombat" type="button" hidden>Inizia combattimento</button><button id="btnIllustra" type="button" hidden>Illustra la scena</button><details class="altri-strumenti" id="altriStrumenti"><summary>Altri strumenti</summary><div class="riga"><button id="btnLavagna" type="button" aria-pressed="false">✏️ Disegna sulla mappa</button><button id="btnLavagnaIndietro" type="button">Togli l'ultimo tratto</button><button id="btnLavagnaPulisci" type="button">Cancella i disegni</button><button id="btnAura" type="button">Aura attorno a me</button><button id="btnSalvaMappa" type="button">Salva la mappa come immagine</button></div></details></div>
+      <details class="piccolo aiuto-mappa"><summary>Come si usa la mappa</summary><p>Tocca una casella per muovere il tuo segnalino (o trascinalo): gira intorno ai muri da solo. Tieni premuto sulla tua figura per darle un'aura. Col righello: trascina per misurare in linea d'aria, tocca una casella per vedere quanti passi servono. Scorri col dito per spostare la vista, due dita per avvicinare o allontanare. Tieni premuto su un edificio per vederlo<span id="aiutoCapo" hidden> o cambiarne lo stato</span>.</p></details>
     </div>
 
     <div class="vista" id="vScheda">
@@ -198,6 +199,7 @@
           <label><input type="radio" name="aMaster" value="ai"><span>AI</span></label>
           <label><input type="radio" name="aMaster" value="umano"><span>Persona</span></label>
         </fieldset>
+        <label>Clessidra del turno in combattimento<select id="aTimer"><option value="0">Nessuna</option><option value="30">30 secondi</option><option value="60">1 minuto</option><option value="90">1 minuto e mezzo</option><option value="120">2 minuti</option></select></label>
         <div class="riga"><button id="btnSalvaCamp" class="pieno" type="button">Salva</button><button id="btnNuovaSessione" type="button">Inizia nuova sessione</button></div>
         <div class="riga" id="copiaBox"><button id="btnEsporta" type="button">💾 Scarica una copia</button><label class="bottone" for="fileImporta">Ripristina da una copia</label><input id="fileImporta" type="file" accept="application/json,.json" hidden></div>
         <div id="ruoliBox"></div>

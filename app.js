@@ -1,6 +1,17 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.9.0';
+const VERSION = '4.0.0';
 const CHANGELOG = [
+  { v: '4.0.0', data: '23/11/2026', voci: [
+    'Righello sulla mappa: trascina per misurare in linea d\'aria, tocca una casella per sapere quanti passi servono girando intorno ai muri.',
+    'In combattimento, nel tuo turno, vedi quanto movimento ti resta: le caselle si scalano a ogni passo.',
+    'Disegna sulla mappa col dito (Altri strumenti): frecce, cerchi, piani d\'attacco. Lo vedono tutti; ognuno toglie i suoi tratti, il master tutti.',
+    'Aure: tieni premuto sulla tua figura per darle un cerchio attorno (luce della torcia, aura magica). La vedono tutti.',
+    'Area incantesimo con tiro salvezza e danni: scegli caratteristica, difficoltà e dadi; il server tira per ogni creatura dentro e applica i danni (metà a chi supera).',
+    'Arrivando alla porta di un edificio l\'app ti propone di entrare; sulla porta di un interno, di uscire.',
+    'Clessidra del turno (Altro → Campagna): 30 secondi, 1 minuto, 1 minuto e mezzo o 2. Avvisa chi è di turno quando scade, senza passargli il turno.',
+    'Il master può nascondere il nome di un nemico finché il gruppo non lo scopre (tieni premuto sulla figura). I giocatori vedono «???».',
+    'Salva la mappa come immagine, da stampare o mandare agli amici (Altri strumenti).'
+  ] },
   { v: '3.9.0', data: '23/11/2026', voci: [
     'La mappa è viva: gli alberi ondeggiano al vento, l\'acqua luccica, dai comignoli sale il fumo, d\'autunno cadono le foglie, di notte ci sono le lucciole e le finestre delle case fanno luce. Nei sotterranei la polvere brilla vicino alle torce e il buio si muove.',
     'Di giorno passano le ombre delle nuvole. Chi cammina dietro un albero resta mezzo coperto dalla chioma.',

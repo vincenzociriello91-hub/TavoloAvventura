@@ -29,6 +29,7 @@ function renderAltro() {
     $('#aNome').value = c.nome; $('#aAmb').value = c.ambientazione;
     $$('input[name="aRegole"]').forEach(r => r.checked = r.value === c.regole);
     $$('input[name="aMaster"]').forEach(r => r.checked = r.value === c.masterTipo);
+    $('#aTimer').value = String(c.timerTurno || 0);
     $('#ruoliBox').innerHTML = me()?.admin ? `<h3>Ruoli</h3>${Object.entries(S.st.membri).map(([id, m]) => `<div class="riga"><label style="flex:1">${esc(m.nome)}${id === S.io ? ' (tu)' : ''}<select data-ruolo="${id}">${['giocatore', 'master', 'spettatore'].map(r => `<option ${r === m.ruolo ? 'selected' : ''}>${r}</option>`).join('')}</select></label>${id !== S.io ? `<button type="button" data-rimuovi="${id}">Togli</button>` : ''}</div>`).join('')}` : '';
   }
   $('#cartaBot').hidden = !me()?.admin;
@@ -45,7 +46,7 @@ $('#btnCopia').addEventListener('click', async () => { try { await navigator.cli
 $('#btnNuovoInvito').addEventListener('click', () => invia({ t: 'nuovo_invito' }));
 $('#btnSalvaCamp').addEventListener('click', () => {
   const ruoli = Object.fromEntries($$('[data-ruolo]').map(s => [s.dataset.ruolo, s.value]));
-  invia({ t: 'impostazioni', nome: $('#aNome').value.trim(), ambientazione: $('#aAmb').value.trim(), regole: $('input[name="aRegole"]:checked')?.value, masterTipo: $('input[name="aMaster"]:checked')?.value, ruoli });
+  invia({ t: 'impostazioni', nome: $('#aNome').value.trim(), ambientazione: $('#aAmb').value.trim(), regole: $('input[name="aRegole"]:checked')?.value, masterTipo: $('input[name="aMaster"]:checked')?.value, timerTurno: Number($('#aTimer').value) || 0, ruoli });
   toast('Impostazioni salvate');
 });
 $('#btnNuovaSessione').addEventListener('click', async () => { const i = await chiedi('<h2>Nuova sessione</h2><p>Si apre una nuova sessione e si crea un nuovo codice invito: i vecchi QR smettono di funzionare. La campagna, le schede e le mappe restano.</p>', [{ testo: 'Inizia', pieno: true }, { testo: 'Annulla' }]); if (i === 0) { invia({ t: 'impostazioni', nuovaSessione: true }); if (masterAI()) setTimeout(() => invia({ t: 'riassunto' }), 800); } });

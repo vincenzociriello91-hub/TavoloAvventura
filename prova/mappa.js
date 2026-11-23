@@ -17,6 +17,8 @@ const Mappa = (() => {
   // mappa viva (3.9): chiome che ondeggiano, lucciole, foglie, fumo, luccichio dell'acqua, polvere nella luce, nuvole, buio che si muove
   let chiome = null, alberiLista = [], vita = [], ultimaVita = 0, fermoFino = 0, acque = [], camini = [], vitaChiave = '';
   const pfVisti = new Map(); let ultimoGesto = performance.now();
+  // strumenti (4.0): righello, lavagna a mano libera
+  let modo = null, riga = null, tratto = null;
   let tileManuale = 0, gCache = null, pizzico = null, pan = null, dopoPizzico = false; const tocchi = new Map();
   // scelte di chi gioca (da Altro → Gioco): meno movimento, velocità delle animazioni, scritte in pixel, simboli oltre ai colori
   let gusti = { menoMoto: false, velocita: 1, pixel: true, simboli: true };
@@ -788,7 +790,8 @@ const Mappa = (() => {
   // scritte sulla mappa: in pixel quando l'aspetto da videogioco è attivo
   const fontPixel = px => gusti.pixel ? `${Math.round(px * 1.32)}px 'Jersey 15', Inter, system-ui, sans-serif` : `600 ${px}px Inter, system-ui, sans-serif`;
   // nome sotto la figura: la prima parola, più il numero se ce n'è uno ("Goblin 2")
-  function etichetta(nome, bx, y, t, nemico) {
+  function etichetta(nome, bx, y, t, nemico, ignoto) {
+    if (ignoto) nome = extra.vedeTutto ? `${String(nome || '').split(/\s+/)[0]}?` : '???'; // nome non ancora svelato: i giocatori vedono ???, il master un punto di domanda
     if (t < 12 || !nome) return;
     ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic'; ctx.font = fontPixel(Math.max(9, t * 0.34));
     const parti = String(nome).split(/\s+/), numero = parti.length > 1 && /^\d+$/.test(parti[parti.length - 1]) ? ' ' + parti[parti.length - 1] : '';
@@ -866,7 +869,7 @@ const Mappa = (() => {
       ctx.save(); if (sp.lampo) ctx.filter = LAMPO; ctx.translate(bx + sp.dx, sp.dy + su); if (vicino && vicino.x < s.x) ctx.scale(-1, 1); ctx.drawImage(im, -W / 2, by - H + ry * 0.4, W, H); ctx.restore();
       barraNemico(id, s, bx, by - H + ry * 0.4 - Math.max(7, t * 0.24), t);
       if (turno) freccia(bx, by - H + ry * 0.4 - Math.max(12, t * 0.5), t);
-      etichetta(s.nome, bx, by + ry + 2, t, true);
+      etichetta(s.nome, bx, by + ry + 2, t, true, s.ignoto);
       return;
     }
     if (nemico && !figura(id, s)) {
@@ -878,7 +881,7 @@ const Mappa = (() => {
       ctx.fillStyle = '#ffe8e0'; ctx.font = fontPixel(Math.max(10, t * 0.42)); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((s.nome || '?').charAt(0).toUpperCase(), X, Y + 1);
       barraNemico(id, s, cx, cy - R - Math.max(8, t * 0.3), t);
       if (turno) freccia(cx, cy - R - Math.max(13, t * 0.52), t);
-      etichetta(s.nome, cx, cy + R + 2, t, true);
+      etichetta(s.nome, cx, cy + R + 2, t, true, s.ignoto);
       return;
     }
     if (figura(id, s)) {
@@ -903,7 +906,7 @@ const Mappa = (() => {
       if (cond.has('avvelenato')) for (let k = 0; k < 3; k++) { const f = ((performance.now() / 900) + k / 3) % 1; ovale(ctx, bx + (k - 1) * t * 0.2, by - F * 0.5 - f * t * 0.6, t * 0.05, t * 0.05, `rgba(120,220,80,${1 - f})`); }
       if (nemico) barraNemico(id, s, bx, by - F * 0.84, t);
       if (turno) freccia(bx, by - F * (nemico && s.pf !== undefined ? 0.98 : 0.8), t);
-      etichetta(s.nome, bx, by + ry + 2, t, nemico);
+      etichetta(s.nome, bx, by + ry + 2, t, nemico, s.ignoto);
       if (cond.size && t >= 16) statoTag([...cond], bx, by + ry + 3 + Math.max(12, t * 0.42), t);
       return;
     }
@@ -928,6 +931,46 @@ const Mappa = (() => {
     if (pg?.pfMax) { const f = Math.max(0, Math.min(1, pg.pf / pg.pfMax)); ctx.strokeStyle = f > 0.5 ? '#5cc85c' : f > 0.25 ? '#e8b04b' : '#e04a3a'; ctx.lineWidth = Math.max(2, t / 12); ctx.beginPath(); ctx.arc(cx, cy, R * 0.92, -Math.PI / 2, -Math.PI / 2 + f * 6.283); ctx.stroke(); }
     ctx.strokeStyle = turno ? '#ffd25a' : id === opz.io() ? '#ffffff' : 'rgba(20,17,15,.9)'; ctx.lineWidth = Math.max(1.5, t / 16); ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
     etichetta(s.nome, cx, cy + R + 2, t, false);
+  }
+
+  /* ---------------- strumenti: righello, lavagna, aure ---------------- */
+  const distanza = (dx, dy) => { dx = Math.abs(dx); dy = Math.abs(dy); const d = Math.min(dx, dy), dritto = Math.abs(dx - dy); return opz.regole?.() === '3.5' ? dritto + d + Math.floor(d / 2) : Math.max(dx, dy); };
+  const metri = n => (n * 1.5).toLocaleString('it-IT');
+  function cartello(testo, x, y, t) {
+    ctx.font = fontPixel(Math.max(11, t * 0.42)); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    const w = ctx.measureText(testo).width + 12, hh = Math.max(16, t * 0.6), W = luogo.w * t; x = Math.max(w / 2 + 2, Math.min(W - w / 2 - 2, x)); y = Math.max(hh + 2, y);
+    ctx.fillStyle = '#0b0810'; ctx.fillRect(x - w / 2 - 2, y - hh - 2, w + 4, hh + 4); ctx.fillStyle = '#f6cf74'; ctx.fillRect(x - w / 2, y - hh, w, hh);
+    ctx.fillStyle = '#1b1206'; ctx.fillText(testo, x, y - hh * 0.26); ctx.textAlign = 'start';
+  }
+  function disegnaRighello(t) {
+    if (!riga) return;
+    const { a, b } = riga, ax = (a.x + 0.5) * t, ay = (a.y + 0.5) * t, bx = (b.x + 0.5) * t, by = (b.y + 0.5) * t;
+    if (riga.via) { // percorso a piedi: le caselle da attraversare, girando intorno ai muri
+      ctx.fillStyle = 'rgba(246,207,116,.32)'; for (const p of riga.via) ctx.fillRect(p.x * t + 2, p.y * t + 2, t - 4, t - 4);
+      ctx.strokeStyle = '#f6cf74'; ctx.lineWidth = 2; ctx.strokeRect(b.x * t + 1.5, b.y * t + 1.5, t - 3, t - 3);
+      cartello(riga.via.length ? `${riga.via.length} ${riga.via.length === 1 ? 'casella' : 'caselle'} a piedi · ${metri(riga.via.length)} m` : 'Non ci si arriva', bx, by - t * 0.7, t);
+      return;
+    }
+    const n = distanza(b.x - a.x, b.y - a.y);
+    ctx.lineCap = 'round'; ctx.strokeStyle = '#0b0810'; ctx.lineWidth = Math.max(5, t * 0.22); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    ctx.strokeStyle = '#f6cf74'; ctx.lineWidth = Math.max(2.5, t * 0.11); ctx.setLineDash([t * 0.3, t * 0.2]); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); ctx.setLineDash([]);
+    for (const [x, y] of [[ax, ay], [bx, by]]) { ctx.fillStyle = '#0b0810'; ctx.fillRect(x - t * 0.16, y - t * 0.16, t * 0.32, t * 0.32); ctx.fillStyle = '#f6cf74'; ctx.fillRect(x - t * 0.1, y - t * 0.1, t * 0.2, t * 0.2); }
+    cartello(`${n} ${n === 1 ? 'casella' : 'caselle'} · ${metri(n)} m`, bx, by - t * 0.7, t);
+  }
+  // tratti della lavagna: quelli salvati (in decimi di casella) e quello che sto tracciando
+  function disegnaLavagna(t) {
+    const linea = (punti, col, k) => { if (punti.length < 2) return; ctx.lineCap = ctx.lineJoin = 'round'; for (const [c2, w] of [['rgba(11,8,16,.75)', Math.max(4, t * 0.2)], [col, Math.max(2, t * 0.11)]]) { ctx.strokeStyle = c2; ctx.lineWidth = w; ctx.beginPath(); punti.forEach(([x, y], i) => i ? ctx.lineTo(x * k * t, y * k * t) : ctx.moveTo(x * k * t, y * k * t)); ctx.stroke(); } };
+    for (const d of extra.disegni || []) linea(d.punti, d.colore || '#f6cf74', 0.1);
+    if (tratto) linea(tratto, opz.colore?.() || '#f6cf74', 1);
+  }
+  // aure attorno alle figure (luce di una torcia, aura di un paladino): cerchio tratteggiato del colore della figura
+  function disegnaAure(t) {
+    for (const [id, s] of Object.entries(segnalini)) {
+      if (!s.aura) continue; if (!extra.vedeTutto && s.tipo === 'nemico' && !vedo(s.x, s.y)) continue;
+      const p = passi.get(id) || s, x = (p.x + 0.5) * t, y = (p.y + 0.5) * t, R = (s.aura + 0.5) * t, col = s.tipo === 'nemico' ? '#e2604a' : s.colore || '#f6cf74';
+      ctx.save(); ctx.globalAlpha = 0.13; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, R, 0, 7); ctx.fill();
+      ctx.globalAlpha = 0.85; ctx.strokeStyle = col; ctx.lineWidth = Math.max(2, t * 0.08); ctx.setLineDash([t * 0.35, t * 0.25]); ctx.lineDashOffset = gusti.menoMoto ? 0 : -performance.now() / 90; ctx.beginPath(); ctx.arc(x, y, R, 0, 7); ctx.stroke(); ctx.restore();
+    }
   }
 
   /* ---------------- mappa viva ---------------- */
@@ -1045,6 +1088,7 @@ const Mappa = (() => {
       for (let y = 0; y < luogo.h; y++) for (let x = 0; x < luogo.w; x++) if (luogo.visto[y * luogo.w + x] === '0') ctx.fillRect(x * t, y * t, t + 0.5, t + 0.5);
     }
     disegnaVista(t);
+    disegnaLavagna(t); disegnaAure(t);
     // note dei giocatori: spilla gialla con il testo (solo sulle caselle già scoperte)
     for (const n of extra.note || []) {
       if (luogo.visto && !extra.vedeTutto && luogo.visto[n.y * luogo.w + n.x] === '0') continue;
@@ -1073,6 +1117,7 @@ const Mappa = (() => {
     });
     if (chiome && !gusti.menoMoto) davanti(t);
     if (!gusti.menoMoto) vitaAria(t);
+    disegnaRighello(t);
     disegnaEffetti(t);
     meteoAnimato(t);
   }
@@ -1177,6 +1222,7 @@ const Mappa = (() => {
   }
 
   /* ---------------- tocchi ---------------- */
+  const posFine = ev => { const b = cv.getBoundingClientRect(); return [Math.max(0, Math.min(luogo.w, (ev.clientX - b.left) / tile)), Math.max(0, Math.min(luogo.h, (ev.clientY - b.top) / tile))]; };
   function posDa(ev) { const b = cv.getBoundingClientRect(); return { x: Math.floor((ev.clientX - b.left) / tile), y: Math.floor((ev.clientY - b.top) / tile) }; }
   const oggettoIn = (x, y) => (luogo.oggetti || []).find(o => o.x === x && o.y === y);
   function giu(ev) {
@@ -1191,8 +1237,10 @@ const Mappa = (() => {
     if (tocchi.size > 2 || dopoPizzico) return;
     const q = posDa(ev);
     if (attesaArea) { const cb = attesaArea; attesaArea = null; cv.style.cursor = ''; cb(q.x, q.y); return; }
+    if (modo === 'misura') { riga = { a: q, b: q, mossa: false, giu: true }; try { cv.setPointerCapture(ev.pointerId); } catch {} ev.preventDefault(); disegna(); return; }
+    if (modo === 'lavagna') { tratto = [posFine(ev)]; try { cv.setPointerCapture(ev.pointerId); } catch {} ev.preventDefault(); return; }
     const id = Object.keys(segnalini).find(k => segnalini[k].x === q.x && segnalini[k].y === q.y && opz.puoMuovere(k));
-    if (id) { trascina = { id, x: q.x, y: q.y }; cv.setPointerCapture(ev.pointerId); ev.preventDefault(); return; }
+    if (id) { const tr = trascina = { id, x: q.x, y: q.y }; tr.timer = setTimeout(() => { if (trascina === tr && tr.x === q.x && tr.y === q.y) { trascina = null; disegna(); opz.onSegnalino?.(id, segnalini[id]); } }, 520); cv.setPointerCapture(ev.pointerId); ev.preventDefault(); return; }
     // il master umano sposta gli oggetti movibili trascinandoli
     const o = oggettoIn(q.x, q.y);
     if (o && o.movibile && opz.puoMuovereOggetti?.()) { trascina = { ogg: o.id, x: q.x, y: q.y }; cacheChiave = ''; cv.setPointerCapture(ev.pointerId); ev.preventDefault(); disegna(); return; }
@@ -1214,27 +1262,41 @@ const Mappa = (() => {
     const aPiedi = (s0.tipo || 'pg') === 'pg' && (id === opz.io() || !opz.capo?.());
     if (aPiedi && (s0.x !== x || s0.y !== y) && !percorso(s0, { x, y })) { opz.onBloccato?.(); return false; }
     if (!aPiedi && bloccoPasso()[y * luogo.w + x]) return false;
-    segnalini[id] = { ...s0, x, y }; disegna(); opz.onMuovi?.(id, x, y); cambiato(); return true;
+    segnalini[id] = { ...s0, x, y }; disegna(); opz.onMuovi?.(id, x, y, s0); if (id === opz.io()) opz.onPorta?.(portaVicina(x, y)); cambiato(); return true;
+  }
+  // la porta a cui sono arrivato: quella di un edificio all'aperto (casella accanto) o l'uscita di un interno (sono sulla porta, sul bordo)
+  function portaVicina(x, y) {
+    if (esterno()) { for (const [dx, dy] of [[0, 0], [0, -1], [0, 1], [1, 0], [-1, 0]]) { const e = cella(x + dx, y + dy) === '+' && luogo.edifici.find(e => dentroEd(e, x + dx, y + dy)); if (e && e.stato !== 'distrutto') return { edificio: e }; } return null; }
+    if (luogo.genitore && cella(x, y) === '+' && (x <= 1 || y <= 1 || x >= luogo.w - 2 || y >= luogo.h - 2)) return { esci: true };
+    return null;
   }
   function annullaPremi() { if (premi) clearTimeout(premi.timer); premi = null; }
   function muovi(ev) {
     if (tocchi.has(ev.pointerId)) tocchi.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     if (pizzico) { if (tocchi.size === 2) { const [a, b] = [...tocchi.values()], voluto = Math.max(6, Math.min(72, pizzico.t0 * Math.hypot(a.x - b.x, a.y - b.y) / pizzico.d0)); pizzico.f = voluto / tile; cv.style.transform = `scale(${pizzico.f})`; } return; }
     if (pan) { const box = cv.parentElement; box.scrollLeft = pan.sl - (ev.clientX - pan.sx); box.scrollTop = pan.st - (ev.clientY - pan.sy); return; }
+    if (riga?.giu) { const q = posDa(ev); q.x = Math.max(0, Math.min(luogo.w - 1, q.x)); q.y = Math.max(0, Math.min(luogo.h - 1, q.y)); if (q.x !== riga.b.x || q.y !== riga.b.y) { riga.b = q; riga.mossa = true; disegna(); } return; }
+    if (tratto) { const q = posFine(ev), u = tratto[tratto.length - 1]; if (Math.hypot(q[0] - u[0], q[1] - u[1]) > 0.18 && tratto.length < 160) { tratto.push(q); disegna(); } return; }
     // un dito che scivola sul vuoto scorre la mappa (non è più un tocco)
     if (premi && Math.hypot(ev.clientX - premi.sx, ev.clientY - premi.sy) > 8) { pan = { sx: premi.sx, sy: premi.sy, sl: premi.sl, st: premi.st }; annullaPremi(); return; }
-    if (!trascina) return; const q = posDa(ev); if (q.x !== trascina.x || q.y !== trascina.y) { trascina.x = Math.max(0, Math.min(luogo.w - 1, q.x)); trascina.y = Math.max(0, Math.min(luogo.h - 1, q.y)); disegna(); } }
+    if (!trascina) return; const q = posDa(ev); if (q.x !== trascina.x || q.y !== trascina.y) { clearTimeout(trascina.timer); trascina.x = Math.max(0, Math.min(luogo.w - 1, q.x)); trascina.y = Math.max(0, Math.min(luogo.h - 1, q.y)); disegna(); } }
   function su(ev) {
     tocchi.delete(ev?.pointerId);
     if (pizzico) { const p = pizzico; pizzico = null; cv.style.transform = ''; if (Math.abs(p.f - 1) > 0.02) zoom(p.f, p.ox, p.oy); }
-    if (dopoPizzico || pan) { if (!tocchi.size) { pan = null; dopoPizzico = false; } annullaPremi(); trascina = null; disegna(); return; }
+    if (dopoPizzico || pan) { if (!tocchi.size) { pan = null; dopoPizzico = false; } annullaPremi(); clearTimeout(trascina?.timer); trascina = null; riga = tratto = null; disegna(); return; }
+    if (riga?.giu) { // righello: trascinando misura in linea d'aria, con un tocco solo mostra il percorso a piedi dal mio personaggio
+      riga.giu = false;
+      if (!riga.mossa) { const io = segnalini[opz.io()]; riga = io && (io.x !== riga.a.x || io.y !== riga.a.y) ? { a: { x: io.x, y: io.y }, b: riga.a, via: percorso(io, riga.a) || [] } : null; }
+      disegna(); return;
+    }
+    if (tratto) { const tr = tratto; tratto = null; if (tr.length > 1) opz.onTratto?.(tr.map(([x, y]) => [Math.round(x * 10), Math.round(y * 10)])); disegna(); return; }
     if (premi) {
       const p = premi; annullaPremi();
       vaiA(opz.io(), p.x, p.y);
       return;
     }
     if (!trascina) return;
-    const t = trascina; trascina = null;
+    const t = trascina; trascina = null; clearTimeout(t.timer);
     if (t.ogg) { const o = luogo.oggetti.find(o => o.id === t.ogg); if (o) { o.x = t.x; o.y = t.y; } cacheChiave = ''; disegna(); opz.onMuoviOggetto?.(t.ogg, t.x, t.y); return; }
     if (!vaiA(t.id, t.x, t.y)) disegna();
   }
@@ -1295,5 +1357,7 @@ const Mappa = (() => {
     if (/foresta|bosco|selva/.test(n) && luogo.tipo !== 'foresta') prob.push(`"${luogo.nome}" disegnato come ${luogo.tipo}`);
     return prob;
   }
-  return { controllo, effettoTesto, effettoArea, sconfitto, attacco, colpo, cura, proiettile, scuoti, init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, terreno3D, spriteOggetto, dati3D, azioneCasella, casa3D, figura: (id, s) => figura(id, s), mostro: s => mostro(s), grande: s => GRANDI.test(nomeMostro(s.nome)), nomeMostro, opzioni, vivo: () => ({ particelle: vita.length, tipi: [...new Set(vita.map(p => p.tipo))], alberi: alberiLista.length, chiome: !!chiome, acque: acque.length, camini: camini.length, effetti: effetti.map(e => e.tipo) }), puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea, percorso, zoom, pacchetti };
+  return { controllo, effettoTesto, effettoArea, sconfitto, attacco, colpo, cura, proiettile, scuoti, init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, terreno3D, spriteOggetto, dati3D, azioneCasella, casa3D, figura: (id, s) => figura(id, s), mostro: s => mostro(s), grande: s => GRANDI.test(nomeMostro(s.nome)), nomeMostro, opzioni,
+    strumento: m => { modo = m === modo ? null : m || null; riga = tratto = null; cv.style.cursor = modo ? 'crosshair' : ''; disegna(); return modo; }, get modo() { return modo; },
+    immagine: () => { disegna(); return cv; }, distanza, portaVicina, vivo: () => ({ modo, riga: riga && { via: !!riga.via, n: riga.via ? riga.via.length : distanza(riga.b.x - riga.a.x, riga.b.y - riga.a.y) }, disegni: (extra.disegni || []).length, aure: Object.values(segnalini).filter(x => x.aura).length, casella: tile, particelle: vita.length, tipi: [...new Set(vita.map(p => p.tipo))], alberi: alberiLista.length, chiome: !!chiome, acque: acque.length, camini: camini.length, effetti: effetti.map(e => e.tipo) }), puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea, percorso, zoom, pacchetti };
 })();

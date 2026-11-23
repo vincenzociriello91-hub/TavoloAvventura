@@ -7,7 +7,16 @@ Mappa.init($('#mappa'), {
   capo: () => capo(),
   vediTutto: () => document.body.classList.contains('tv'), // sulla TV la mappa inquadra sempre tutta la parte scoperta
   onBloccato: () => toast('Non ci si arriva da qui: c\'è un muro o un ostacolo in mezzo', true),
-  onMuovi: (id, x, y) => invia({ t: 'segnalino', id, x, y }),
+  onMuovi: (id, x, y, prima) => {
+    invia({ t: 'segnalino', id, x, y });
+    // in combattimento, nel mio turno, i passi fatti si scalano dal movimento
+    const c = S.st?.combattimento, ora = c?.attivo && c.ordine[c.turno];
+    if (ora && ora.id === S.io && id === S.io && prima) { const via = Mappa.percorso(prima, { x, y }); S.mosso = (S.mosso || 0) + (via ? via.length : Mappa.distanza(x - prima.x, y - prima.y)); aggiornaExtraMappa(); renderCombat(); }
+  },
+  regole: () => regole(), colore: () => me()?.colore || '#f6cf74',
+  onTratto: punti => { if (invia({ t: 'disegno', punti, colore: me()?.colore })) Report.log('lavagna', { punti: punti.length }); },
+  onSegnalino: (id, s) => menuSegnalino(id, s),
+  onPorta: p => mostraPassaggio(p),
   pg: id => S.st?.pg?.[id],
   puoMuovereOggetti: () => me()?.ruolo === 'master',
   onMuoviOggetto: (id, x, y) => invia({ t: 'scena', azione: 'sposta', oggetto: id, x, y }),
@@ -47,7 +56,8 @@ function aggiornaExtraMappa() {
   aggiornaScenaSonora();
   const c = S.st?.combattimento, ora = c?.attivo && c.ordine[c.turno];
   const pg = mioPg();
-  Mappa.setExtra({ aree: S.st?.aree || [], vedeTutto: capo(), turno: ora ? ora.id : null, movimento: ora && ora.id === S.io && pg ? { id: S.io, celle: Math.max(1, Math.floor((pg.vel || 9) / 1.5)) } : null });
+  const passi = pg ? Math.max(1, Math.floor((pg.vel || 9) / 1.5)) : 0, rimasti = Math.max(0, passi - (S.mosso || 0));
+  Mappa.setExtra({ aree: S.st?.aree || [], disegni: S.st?.disegni?.luogo === S.st?.luogo?.id ? S.st.disegni.disegni : [], vedeTutto: capo(), turno: ora ? ora.id : null, movimento: ora && ora.id === S.io && pg && rimasti > 0 ? { id: S.io, celle: rimasti } : null });
 }
 // ogni mappa nuova si controlla da sola: se qualcosa non va finisce nel rapporto (e lo vedo senza che nessuno lo dica)
 function controllaMappa() {
@@ -67,15 +77,80 @@ function renderCombat() {
     <ol>${c.ordine.map((o, i) => `<li class="${i === c.turno ? 'ora' : ''} ${o.tipo === 'nemico' ? 'nemico' : ''}" title="${esc(o.nome)} · iniziativa ${o.iniz}"><img src="${Volti.diTurno(o)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lettera',textContent:this.dataset.l}))" data-l="${esc(String(o.nome || '?').charAt(0).toUpperCase())}">${esc(stileGioco() ? String(o.nome || '?').split(' ')[0] : o.nome)} <span class="piccolo">${o.iniz}</span></li>`).join('')}</ol>`;
   box.querySelector('li.ora')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   $('#btnFineTurno')?.addEventListener('click', () => invia({ t: 'combattimento', azione: 'prossimo' }));
+  const pg = mioPg(), tot = pg ? Math.max(1, Math.floor((pg.vel || 9) / 1.5)) : 0;
+  if (ora && ora.id === S.io && pg) box.insertAdjacentHTML('beforeend', `<p class="piccolo movimento">Movimento: ${Math.max(0, tot - (S.mosso || 0))} di ${tot} caselle${(S.mosso || 0) >= tot ? ' (finito: puoi ancora muoverti se scatti)' : ''}</p>`);
+  const sec = Number(S.st.campagna.timerTurno) || 0;
+  if (sec && ora) { box.insertAdjacentHTML('beforeend', '<div class="clessidra" id="clessidra" role="timer" aria-label="Tempo del turno"><i></i><span></span></div>'); aggiornaClessidra(); }
 }
+// clessidra del turno: una barra che si svuota; allo scadere avvisa chi è di turno (non passa il turno da sola)
+function aggiornaClessidra() {
+  const el = $('#clessidra'), c = S.st?.combattimento, sec = Number(S.st?.campagna?.timerTurno) || 0; if (!el || !c?.attivo || !sec) return;
+  const passati = (Date.now() - (S.arrivoTurno || c.inizioTurno || Date.now())) / 1000, resto = Math.max(0, sec - passati);
+  el.firstChild.style.width = (resto / sec * 100).toFixed(1) + '%'; el.classList.toggle('poco', resto <= 10); el.lastChild.textContent = resto > 0 ? Math.ceil(resto) + ' s' : 'Tempo!';
+  if (resto <= 0 && !S.tempoAvvisato) { S.tempoAvvisato = true; if (c.ordine[c.turno]?.id === S.io) { toast('Tempo scaduto: chiudi il turno', true); Suoni.effetto('turno'); vibra([80, 40, 80]); } }
+}
+setInterval(aggiornaClessidra, 500);
+// bonus al tiro salvezza di un personaggio su una caratteristica (nella 3.5 Destrezza = Riflessi, Costituzione = Tempra, Saggezza = Volontà)
+function bonusSalvezza(p, ts) { try { if (p.regole === '3.5') { const k = { des: 'rif', cos: 'tem', sag: 'vol' }[ts]; return k ? Regole.tiroSalvezza(p, k) : Math.floor(((p.car?.[ts] || 10) - 10) / 2); } const b = Regole.tiroSalvezza(p, ts); return Number.isFinite(b) ? b : 0; } catch { return 0; } }
+// arrivato a una porta: proposta di entrare (o di uscire all'aperto)
+function mostraPassaggio(p) {
+  const box = $('#passaggio');
+  if (!p || !(capo() || masterAI()) || me()?.ruolo === 'spettatore') { box.hidden = true; return; }
+  if (p.edificio && (['dungeon', 'grotta', 'taverna', 'interno'].includes(S.st.luogo?.tipo) || /pozzo|torre|radura|ponte|viadotto|guado/i.test(p.edificio.nome))) { box.hidden = true; return; }
+  $('#passTesto').textContent = p.esci ? 'Sei alla porta: uscite all\'aperto?' : `Sei davanti a: ${p.edificio.nome}`;
+  $('#passVai').textContent = p.esci ? 'Esci' : 'Entra';
+  $('#passVai').onclick = () => { invia(p.esci ? { t: 'esci_edificio' } : { t: 'entra_edificio', edificio: p.edificio.id }); box.hidden = true; Report.log('passaggio', { esci: !!p.esci }); };
+  box.hidden = false;
+}
+$('#passNo').addEventListener('click', () => { $('#passaggio').hidden = true; });
+// menu di una figura (pressione lunga): aura per tutti; il master può nascondere il nome di un nemico o toglierlo
+async function menuSegnalino(id, s) {
+  if (!s) return;
+  const mio = id === S.io || s.padrone === S.io, nemico = s.tipo === 'nemico';
+  const aure = [0, 1, 2, 3, 4, 6];
+  const voci = [...aure.map(a => ({ testo: a ? `Aura ${a} (${(a * 1.5).toLocaleString('it-IT')} m)` : 'Nessuna aura', aura: a })), ...(capo() && nemico ? [{ testo: s.ignoto ? 'Svela il nome' : 'Nascondi il nome', ignoto: !s.ignoto }, { testo: 'Togli dalla mappa', togli: true }] : []), { testo: 'Chiudi' }];
+  if (!mio && !capo()) return;
+  const i = await chiedi(`<h2>${esc(s.nome || 'Figura')}</h2><p class="piccolo">L'aura è un cerchio attorno alla figura: la luce di una torcia, un'aura magica, il raggio di una benedizione. La vedono tutti.</p>`, voci.map(v => ({ testo: v.testo, pieno: v.aura !== undefined && (s.aura || 0) === v.aura })));
+  const v = voci[i]; if (!v || v.testo === 'Chiudi') return;
+  if (v.aura !== undefined) invia({ t: 'segnalino', id, x: s.x, y: s.y, aura: v.aura });
+  else if (v.ignoto !== undefined) invia({ t: 'segnalino', id, x: s.x, y: s.y, ignoto: v.ignoto });
+  else if (v.togli) invia({ t: 'segnalino', id, rimuovi: true });
+  Report.log('menu-figura', { aura: v.aura, ignoto: v.ignoto, togli: !!v.togli });
+}
+$('#btnAura').addEventListener('click', () => { const s = S.st?.segnalini?.[S.io]; if (!s) { toast('Prima serve il tuo personaggio sulla mappa'); return; } menuSegnalino(S.io, s); });
+// righello e lavagna: un tasto li accende e li spegne
+function strumentoMappa(quale) {
+  if (!S.st?.luogo) { toast('Prima serve un luogo con la mappa'); return; }
+  const attivo = Mappa.strumento(quale);
+  $('#btnRighello').setAttribute('aria-pressed', attivo === 'misura'); $('#btnRighello').classList.toggle('pieno', attivo === 'misura');
+  $('#btnLavagna').setAttribute('aria-pressed', attivo === 'lavagna'); $('#btnLavagna').classList.toggle('pieno', attivo === 'lavagna');
+  if (attivo === 'misura') toast('Righello: trascina da un punto all\'altro, oppure tocca una casella per contare i passi. Tocca di nuovo il tasto per finire.', false, 6000);
+  if (attivo === 'lavagna') toast('Disegna col dito sulla mappa: lo vedono tutti. Tocca di nuovo il tasto per finire.', false, 6000);
+  Report.log('strumento-mappa', { quale: attivo });
+}
+$('#btnRighello').addEventListener('click', () => strumentoMappa('misura'));
+$('#btnLavagna').addEventListener('click', () => strumentoMappa('lavagna'));
+$('#btnLavagnaIndietro').addEventListener('click', () => invia({ t: 'disegno', togli: 'ultimo' }));
+$('#btnLavagnaPulisci').addEventListener('click', () => invia({ t: 'disegno', togli: 'tutti' }));
+$('#btnSalvaMappa').addEventListener('click', async () => {
+  if (!S.st?.luogo) { toast('Prima serve un luogo con la mappa'); return; }
+  try {
+    const blob = await new Promise(r => Mappa.immagine().toBlob(r, 'image/png')), nome = `mappa-${(S.st.luogo.nome || 'luogo').replace(/[^\w]+/g, '-').toLowerCase()}.png`, file = new File([blob], nome, { type: 'image/png' });
+    try { if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: S.st.luogo.nome }); Report.log('mappa-immagine', { come: 'condivisa' }); return; } } catch {}
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: nome }); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    toast('Mappa salvata come immagine'); Report.log('mappa-immagine', { come: 'scaricata', kb: Math.round(blob.size / 1024) });
+  } catch (e) { toast('Non sono riuscito a salvare l\'immagine', true); Report.log('mappa-immagine', { errore: String(e?.message || e).slice(0, 120) }); }
+});
 $('#btnCombat').addEventListener('click', () => invia({ t: 'combattimento', azione: S.st?.combattimento?.attivo ? 'fine' : 'inizia' }));
 $('#btnPulisciAree').addEventListener('click', () => invia({ t: 'area', pulisci: true }));
 $('#btnArea').addEventListener('click', async () => {
   if (!S.st?.luogo) { toast('Prima serve un luogo con la mappa'); return; }
   const forme = ['cerchio', 'quadrato', 'cono', 'linea'];
-  const i = await chiedi(`<h2>Area incantesimo</h2><label>Nome (facoltativo)<input id="arNome" maxlength="40" placeholder="Es. Palla di fuoco"></label><label>Misura in quadretti (1 quadretto = 1,5 m)<input id="arDim" type="number" min="1" max="20" value="4"></label><label>Direzione (cono e linea)<select id="arDir"><option value="e">Destra</option><option value="o">Sinistra</option><option value="n">Su</option><option value="s">Giù</option></select></label><p class="piccolo">Scegli la forma, poi tocca il punto sulla mappa.</p>`, [...forme.map(f => ({ testo: f.charAt(0).toUpperCase() + f.slice(1) })), { testo: 'Annulla' }]);
+  const i = await chiedi(`<h2>Area incantesimo</h2><label>Nome (facoltativo)<input id="arNome" maxlength="40" placeholder="Es. Palla di fuoco"></label><label>Misura in quadretti (1 quadretto = 1,5 m)<input id="arDim" type="number" min="1" max="20" value="4"></label><label>Direzione (cono e linea)<select id="arDir"><option value="e">Destra</option><option value="o">Sinistra</option><option value="n">Su</option><option value="s">Giù</option></select></label><details><summary>Tiro salvezza e danni (facoltativo)</summary><label>Chi è dentro tira su<select id="arTs"><option value="">niente: solo l'area</option><option value="des">Destrezza</option><option value="cos">Costituzione</option><option value="sag">Saggezza</option><option value="for">Forza</option><option value="int">Intelligenza</option><option value="car">Carisma</option></select></label><div class="riga"><label style="flex:1">Difficoltà (CD)<input id="arCd" type="number" min="1" max="40" value="13" inputmode="numeric"></label><label style="flex:1">Danni<input id="arDanni" maxlength="10" placeholder="es. 8d6"></label></div><label class="spunta"><input type="checkbox" id="arMezzo" checked> Chi supera prende la metà</label><p class="piccolo">I dadi li tira il server per ogni creatura nell'area e applica i danni da solo.</p></details><p class="piccolo">Scegli la forma, poi tocca il punto sulla mappa.</p>`, [...forme.map(f => ({ testo: f.charAt(0).toUpperCase() + f.slice(1) })), { testo: 'Annulla' }]);
   if (i < 0 || i >= forme.length) return;
   const cfg = { forma: forme[i], dim: Number($('#arDim').value) || 4, dir: $('#arDir').value, nome: $('#arNome').value.trim() };
+  const ts = $('#arTs').value;
+  if (ts) { const danni = $('#arDanni').value.trim().replace(/\s+/g, ''); if (danni && !/^\d{0,2}d(4|6|8|10|12|20|100)([+-]\d{1,3})?$/i.test(danni)) { toast('Danni non capiti: scrivi per esempio 8d6 oppure 3d8+2', true); return; } Object.assign(cfg, { ts, cd: Number($('#arCd').value) || 13, danni, mezzo: $('#arMezzo').checked, bonusPg: Object.fromEntries(Object.entries(S.st.pg || {}).filter(([, p]) => p).map(([id, p]) => [id, bonusSalvezza(p, ts)])) }); Report.log('area-salvezza', { ts, cd: cfg.cd, danni }); }
   toast('Tocca il centro o l\'origine dell\'area sulla mappa');
   Mappa.chiediCasella((x, y) => invia({ t: 'area', ...cfg, x, y, colore: me()?.colore }));
 });

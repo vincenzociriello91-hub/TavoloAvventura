@@ -85,7 +85,7 @@ function gestisci(m) {
     case 'sogno': chiedi(`<h2>🌙 Un sogno</h2><p class="piccolo">Lo vedi solo tu: decidi tu se raccontarlo agli altri.</p><p class="storia-pg">${esc(m.testo)}</p>`, [{ testo: 'Mi sveglio', pieno: true }]); if (OPZ.narratore) Narratore.parla(m.testo); Report.log('sogno', {}); return;
     case 'memoriale': S.st.memoriale = m.memoriale; if (m.caduto) { delete S.st.pg[m.caduto]; renderSchedaSeServe(true); } renderDiarioExtra(); return;
     case 'bentornato': mostraBentornato(m.riepiloghi); return;
-    case 'luogo': { const nuovoLuogo = S.st.luogo?.id !== m.luogo?.id; S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; S.st.aree = []; renderMappa(); if (!$('#mondoBox').hidden) renderMappaMondo(); Report.log('luogo', { nome: m.luogo.nome, tipo: m.luogo.tipo }); controllaMappa(); if (nuovoLuogo) entraLuogo(m.luogo); return; }
+    case 'luogo': { const nuovoLuogo = S.st.luogo?.id !== m.luogo?.id; S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; S.st.aree = []; renderMappa(); if (!$('#mondoBox').hidden) renderMappaMondo(); Report.log('luogo', { nome: m.luogo.nome, tipo: m.luogo.tipo }); controllaMappa(); if (nuovoLuogo) { entraLuogo(m.luogo); $('#passaggio').hidden = true; } return; }
     case 'luogo_mod': S.st.luogo = m.luogo; renderMappa(); return;
     case 'segnalini': {
       const prima = S.st.segnalini || {};
@@ -106,6 +106,7 @@ function gestisci(m) {
     case 'reazione': reazioneVola(m.emoji, m.nome); return;
     case 'traduzione': { const cb = S.attesaTrad?.[m.id]; if (cb) { delete S.attesaTrad[m.id]; cb(m); } return; }
     case 'note_mappa': S.st.noteMappa = { luogo: m.luogo, note: m.note }; renderNoteMappa(); return;
+    case 'disegni': S.st.disegni = { luogo: m.luogo, disegni: m.disegni }; aggiornaExtraMappa(); return;
     case 'gioco_taverna': S.st.giocoTaverna = m.gioco; renderTesoro(); return;
     case 'sfida': S.st.campagna.sfida = m.sfida; sfidaFinita(m.sfida); return;
     case 'narra': {
@@ -171,7 +172,9 @@ function gestisci(m) {
     case 'ok': if (m.cosa === 'suggerimento') toast('Grazie! Suggerimento inviato'); return;
     case 'costi': S.st.costi = m.costi; renderCosti(); return;
     case 'combattimento': {
-      const prima = S.st.combattimento; S.st.combattimento = m.combattimento; renderCombat(); renderHud(); striscioneCombattimento(prima, m.combattimento);
+      const prima = S.st.combattimento;
+      { const c2 = m.combattimento, cambiato = !prima?.attivo || !c2?.attivo || prima.turno !== c2.turno || prima.round !== c2.round; if (cambiato) { S.mosso = 0; S.arrivoTurno = Date.now(); S.tempoAvvisato = false; } } // turno nuovo: movimento e clessidra ripartono
+      S.st.combattimento = m.combattimento; renderCombat(); renderHud(); striscioneCombattimento(prima, m.combattimento);
       const c = m.combattimento, ora = c?.attivo && c.ordine[c.turno];
       if (ora && ora.id === S.io && !(prima?.attivo && prima.ordine[prima.turno]?.id === S.io && prima.round === c.round)) { if (OPZ.avvisi) Narratore.avviso('Tocca a te'); toast('È il tuo turno!'); Suoni.effetto('turno'); }
       Report.log('combattimento', { attivo: c?.attivo, round: c?.round, turno: ora?.nome });
@@ -262,7 +265,7 @@ function renderTutto() {
   $('#optMaster').closest('label').hidden = !masterAI();
   $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); }
   if (capo()) renderAvventura(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
-  renderPresenza(); renderMappa(); renderCombat(); renderHud(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#copiaBox').hidden = !me()?.admin; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro();
+  renderPresenza(); renderMappa(); renderCombat(); renderHud(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#altriStrumenti').hidden = me()?.ruolo === 'spettatore'; $('#btnArea').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#copiaBox').hidden = !me()?.admin; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro();
 }
 function renderPresenza() {
   if (!S.st) return;
