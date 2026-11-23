@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.3.0';
+const VERSION = '4.3.1';
 const CHANGELOG = [
+  { v: '4.3.1', data: '23/11/2026', voci: [
+    'Vista 3D con la nebbia: non diventa più tutta grigia. Le zone non esplorate restano scure e la nebbia si adatta a quanto è lontana la vista.'
+  ] },
   { v: '4.3.0', data: '23/11/2026', voci: [
     'Messaggio segreto al master AI: nei messaggi scegli «solo il master» e gli dici una cosa che gli altri non sanno. Lui ne tiene conto e risponde solo a te.',
     'Frecce e quadrelli si consumano a ogni tiro con l\'arco o la balestra; senza munizioni non si tira, e dopo lo scontro se ne raccoglie metà. Ranger e warlock partono con 20.',
