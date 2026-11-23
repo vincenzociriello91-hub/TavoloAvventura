@@ -2,11 +2,13 @@
 import http from 'node:http';
 const ultimo = { contesto: null };
 http.createServer((req, res) => {
+  if (req.method === 'GET' && req.url === '/ultima-voce') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(ultimo.voci || [])); } // per le prove: che cosa è stato mandato ai modelli di voce
   let b = ''; req.on('data', d => b += d); req.on('end', () => {
     const j = JSON.parse(b || '{}');
     const testoUtente = j.contents?.[0]?.parts?.[0]?.text || '';
     let out;
     if (j.generationConfig?.responseModalities?.includes('AUDIO')) { // voce: mezzo secondo di tono a 24 kHz
+      ultimo.voci = [...(ultimo.voci || []), { modello: (req.url.match(/models\/([^:]+)/) || [])[1], testo: testoUtente.slice(0, 80) }].slice(-10);
       const pcm = new Int16Array(12000).map((_, i) => Math.sin(i / 8) * 6000);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;codec=pcm;rate=24000', data: Buffer.from(pcm.buffer).toString('base64') } }] } }] }));

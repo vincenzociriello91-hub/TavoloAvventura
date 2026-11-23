@@ -19,6 +19,8 @@ v(n.testo.includes('rissa') && n.png === 'Oste Bruno', 'il master AI narra con i
 v(!!n.voce, 'la narrazione annuncia la sua voce naturale');
 const vc = await A.aspetta(m => m.t === 'voce' && m.id === n.voce, 10000).catch(() => null);
 v(vc?.ok, 'voce naturale generata (Gemini TTS)');
+const voci = await (await fetch('http://localhost:8799/ultima-voce')).json(), v38 = voci.filter(x => /^gemini-3\.8/.test(x.modello));
+v(v38.length && v38.every(x => !/^(Leggi|Recita) in italiano/.test(x.testo)), `ai modelli di voce 3.8 arriva solo la battuta, senza la frase di regia (che leggerebbero ad alta voce): «${v38[0]?.testo}»`);
 const audio = vc?.ok ? await fetch(`http://localhost:8787/tavolo/${codice}/media/voce/${n.voce}`) : null;
 const wav = audio?.ok ? Buffer.from(await audio.arrayBuffer()) : null;
 v(audio?.headers.get('content-type') === 'audio/wav' && wav?.slice(0, 4).toString() === 'RIFF' && wav.length > 8000, `voce scaricabile in WAV (${wav?.length || 0} byte)`);
