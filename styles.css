@@ -594,3 +594,18 @@ body.gs .spunta input { flex: 0 0 22px; }
 .prova-esito { text-align: center; font-size: 2rem; letter-spacing: 2px; text-shadow: 0 3px 0 #000; }
 .prova-esito.ok { color: #7be38f; } .prova-esito.ko { color: #ff7a66; }
 body.tv .prova { display: none; }
+/* strumenti della mappa (4.0): righello, lavagna, porte, clessidra */
+.altri-strumenti { flex: 1 1 100%; }
+.altri-strumenti > summary { cursor: pointer; color: var(--oro2); font-size: .95rem; min-height: 40px; }
+.altri-strumenti .riga { gap: 6px; margin-top: 4px; }
+.altri-strumenti button { min-height: 38px; padding: 6px 12px; font-size: .88rem; }
+body.gs .altri-strumenti button { font-size: 1.05rem; }
+.passaggio { border-color: var(--oro); background: #2a2212; }
+body.gs .passaggio { background-color: #2a2212; border-image-source: var(--cornice); }
+.passaggio .riga { flex-wrap: nowrap; }
+.clessidra { position: relative; height: 16px; margin-top: 8px; background: #120e18; border: 2px solid #0b0810; overflow: hidden; }
+.clessidra i { display: block; height: 100%; width: 100%; background: var(--oro); box-shadow: inset 0 3px 0 rgba(255,255,255,.3); transition: width .5s linear; }
+.clessidra.poco i { background: var(--rosso); }
+.clessidra span { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--pixel); font-size: .9rem; color: #fff; text-shadow: 0 1px 0 #000, 0 0 3px #000; line-height: 1; }
+.combat .movimento { margin: 6px 0 0; }
+body.tv .altri-strumenti, body.tv #passaggio { display: none !important; }

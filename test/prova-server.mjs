@@ -279,6 +279,46 @@ E2.invia({ t: 'esci' }); await D.aspetta(m => m.t === 'gioco_taverna' && !m.gioc
 await new Promise(r => setTimeout(r, 500)); D.coda.length = 0; D.invia({ t: 'stato' });
 verifica((await D.aspetta(m => m.t === 'stato')).stato.pg[bD.io].oro === oroPrima, 'chi esce a metà partita non blocca il tavolo: monete restituite');
 
+// 4.0 — strumenti della mappa: barra dei nemici, nome nascosto, aura, lavagna, area con tiro salvezza, clessidra
+A.coda.length = 0; A.invia({ t: 'vai', nome: 'Radura della prova' }); await A.aspetta(m => m.t === 'luogo' && m.luogo.nome === 'Radura della prova', 8000);
+A.coda.length = 0; A.invia({ t: 'piazza_nemici', mostri: [{ nome: 'Goblin', numero: 2, pf: 9 }, { nome: 'Troll', pf: 100 }] });
+const sn = (await A.aspetta(m => m.t === 'segnalini' && Object.values(m.segnalini).filter(s => s.tipo === 'nemico').length >= 3)).segnalini;
+const [nid, nem] = Object.entries(sn).find(([, s]) => /^Goblin/.test(s.nome)), [tid, troll] = Object.entries(sn).find(([, s]) => s.nome === 'Troll');
+verifica(nem.pfMax === 9 && /^Goblin [12]$/.test(nem.nome) && troll.pfMax === 100, 'nemici piazzati con punti ferita massimi e numero nel nome');
+A.invia({ t: 'segnalino', id: nid, x: nem.x, y: nem.y, ignoto: true });
+const s2 = (await A.aspetta(m => m.t === 'segnalini' && m.segnalini[nid]?.ignoto)).segnalini;
+verifica(s2[nid].pfMax === 9 && s2[nid].nome === nem.nome && s2[nid].tipo === 'nemico', 'il master nasconde il nome di un nemico senza perdere gli altri dati');
+const conPedina = [[B2, bB.io], [D, bD.io]].filter(([, id]) => sn[id]?.tipo === 'pg');
+verifica(conPedina.length > 0, 'c\'è almeno un giocatore con la figura sulla mappa');
+if (conPedina.length) {
+  const [G, gid] = conPedina[0];
+  G.invia({ t: 'segnalino', id: gid, x: sn[gid].x, y: sn[gid].y, aura: 3, ignoto: true, pf: 99 });
+  const s3 = (await A.aspetta(m => m.t === 'segnalini' && m.segnalini[gid]?.aura === 3)).segnalini;
+  verifica(!s3[gid].ignoto && s3[gid].pf === undefined && s3[gid].tipo === 'pg', 'un giocatore si dà un\'aura ma non può nascondere nomi né darsi punti ferita');
+  G.invia({ t: 'segnalino', id: nid, x: 1, y: 1, aura: 5 }); await new Promise(r => setTimeout(r, 400));
+  A.coda.length = 0; A.invia({ t: 'stato' }); verifica(!(await A.aspetta(m => m.t === 'stato')).stato.segnalini[nid].aura, 'un giocatore non tocca le figure degli altri');
+  G.invia({ t: 'disegno', punti: [[10, 10], [30, 25], [55, 40], [9999, -5]], colore: '#ff0000' });
+  const dz = await A.aspetta(m => m.t === 'disegni' && m.disegni.length === 1);
+  verifica(dz.disegni[0].punti.length === 4 && dz.disegni[0].colore === '#ff0000' && dz.disegni[0].punti[3][0] <= 640 && dz.disegni[0].punti[3][1] === 0, 'lavagna: il tratto è salvato, tenuto dentro la mappa e mandato a tutti');
+  A.coda.length = 0; A.invia({ t: 'stato' }); verifica((await A.aspetta(m => m.t === 'stato')).stato.disegni?.disegni.length === 1, 'i disegni fanno parte dello stato di chi entra');
+  G.invia({ t: 'disegno', togli: 'ultimo' }); verifica((await A.aspetta(m => m.t === 'disegni' && m.disegni.length === 0)).disegni.length === 0, 'chi ha disegnato toglie il suo ultimo tratto');
+}
+A.coda.length = 0; A.invia({ t: 'area', forma: 'quadrato', dim: 1, x: nem.x, y: nem.y, nome: 'Palla di fuoco', ts: 'des', cd: 30, danni: '1d4+20' });
+const dr = await A.aspetta(m => m.t === 'diario' && /^Palla di fuoco: tiro salvezza su Destrezza, CD 30/.test(m.ev.testo), 6000);
+await A.aspetta(m => m.t === 'segnalini' && !m.segnalini[nid], 6000);
+verifica(/fallisce \(\d+\), 2\d danni/.test(dr.ev.testo) && /danni 1d4\+20 = 2\d/.test(dr.ev.testo), 'area con tiro salvezza: chi fallisce prende i danni pieni ed è sconfitto (' + dr.ev.testo + ')');
+A.coda.length = 0; A.invia({ t: 'area', forma: 'quadrato', dim: 1, x: troll.x, y: troll.y, nome: 'Onda', ts: 'cos', cd: 1, danni: '1d4+20' });
+const s5 = (await A.aspetta(m => m.t === 'segnalini' && m.segnalini[tid]?.pf < 100, 6000)).segnalini[tid];
+verifica(s5.pf >= 88 && s5.pf <= 90 && s5.pfMax === 100, `chi supera il tiro prende la metà dei danni e la barra ricorda il massimo (${s5.pf}/${s5.pfMax})`);
+A.coda.length = 0; A.invia({ t: 'area', forma: 'quadrato', dim: 1, x: troll.x, y: troll.y, nome: 'Paura', ts: 'sag', cd: 12 });
+verifica(/^Paura: tiro salvezza su Saggezza, CD 12\. Troll (supera|fallisce) \(\d+\)\.$/.test((await A.aspetta(m => m.t === 'diario' && /^Paura:/.test(m.ev.testo), 6000)).ev.testo), 'area con solo tiro salvezza, senza danni');
+A.coda.length = 0; A.invia({ t: 'impostazioni', timerTurno: 60 });
+verifica((await A.aspetta(m => m.t === 'stato' && m.stato.campagna.timerTurno === 60)).stato.campagna.timerTurno === 60, 'clessidra del turno salvata nelle impostazioni della campagna');
+A.coda.length = 0; A.invia({ t: 'combattimento', azione: 'inizia' }); const cb1 = (await A.aspetta(m => m.t === 'combattimento' && m.combattimento.attivo)).combattimento;
+await new Promise(r => setTimeout(r, 30)); A.invia({ t: 'combattimento', azione: 'prossimo' }); const cb2 = (await A.aspetta(m => m.t === 'combattimento' && (m.combattimento.turno !== cb1.turno || m.combattimento.round !== cb1.round))).combattimento;
+verifica(cb1.inizioTurno > 0 && cb2.inizioTurno > cb1.inizioTurno, 'ogni turno segna quando è cominciato, per la clessidra');
+A.invia({ t: 'combattimento', azione: 'fine' }); await A.aspetta(m => m.t === 'combattimento' && !m.combattimento.attivo);
+
 // manuale del master: i problemi segnalati finiscono nel manuale condiviso, leggibile dal connettore
 D.invia({ t: 'segnala_problema', testo: 'Prova: mappa con caselle nere' });
 await new Promise(r => setTimeout(r, 800));

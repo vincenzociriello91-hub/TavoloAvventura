@@ -393,6 +393,42 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   });
   v(/Goblin \d/.test(colpi.nemico || '') && ['attacco', 'proiettile', 'scoppio', 'colpo', 'polvere', 'cura'].every(t => colpi.effetti.includes(t)), `colpi che si sentono: mossa, dardo, scoppio, rinculo, polvere, cura su ${colpi.nemico} (${colpi.effetti.join(', ')})`);
   v(/Percezione vantaggio.*CD 12.*14.*6.*\+3.*=.*17.*Riuscita/.test(colpi.prova || '') && colpi.fiasco && colpi.senzaPannello, `tiro di prova da videogioco con difficoltà e verdetto; 1 naturale annunciato (${colpi.prova})`);
+  // strumenti della mappa (4.0): righello, lavagna, aura, porte, clessidra, movimento, area con tiro salvezza, immagine
+  await A.evaluate(() => { document.querySelectorAll('.prova, .epico, .striscione').forEach(e => e.remove()); $('#narrazione').hidden = true; window.scrollTo(0, 0); });
+  // la pagina scorre quando si tocca un tasto: il riquadro della mappa si rilegge prima di ogni gesto
+  let riq; const inquadra = async () => { riq = await A.evaluate(() => { const box = document.querySelector('#mappaBox'); box.scrollTop = 0; box.scrollLeft = 0; box.scrollIntoView({ block: 'center' }); const r2 = document.querySelector('#mappa').getBoundingClientRect(); return { x: r2.left, y: r2.top, t: Mappa.vivo().casella }; }); };
+  const cella = (cx, cy) => [riq.x + (cx + 0.5) * riq.t, riq.y + (cy + 0.5) * riq.t];
+  await A.click('#btnRighello'); await inquadra();
+  await A.mouse.move(...cella(2, 3)); await A.mouse.down(); await A.mouse.move(...cella(4, 4), { steps: 3 }); await A.mouse.move(...cella(7, 5), { steps: 3 }); await A.mouse.up();
+  const righello = await A.evaluate(() => ({ ...Mappa.vivo(), premuto: document.querySelector('#btnRighello').getAttribute('aria-pressed') }));
+  const prima4 = await A.evaluate(() => ({ ...S.st.segnalini[S.io] }));
+  await A.mouse.click(...cella(prima4.x + (prima4.x > 3 ? -2 : 2), prima4.y)); await A.waitForTimeout(200);
+  const passi = await A.evaluate(() => ({ r: Mappa.vivo().riga, io: { ...S.st.segnalini[S.io] } }));
+  await A.click('#btnRighello');
+  v(righello.modo === 'misura' && righello.premuto === 'true' && righello.riga?.n === 5 && !righello.riga.via && passi.r?.via && passi.r.n >= 2 && passi.io.x === prima4.x && passi.io.y === prima4.y && await A.evaluate(() => Mappa.vivo().modo === null), `righello: ${righello.riga?.n} caselle in linea d'aria (attese 5), ${passi.r?.n} passi a piedi, e la figura non si muove mentre misuro (${JSON.stringify({ modo: righello.modo, via: passi.r?.via, io: passi.io, prima: prima4 })})`);
+  await A.evaluate(() => { document.querySelector('#altriStrumenti').open = true; }); await A.click('#btnLavagna'); await inquadra();
+  await A.mouse.move(...cella(3, 6)); await A.mouse.down(); for (const [x, y] of [[4, 6], [5, 7], [6, 7], [7, 6]]) await A.mouse.move(...cella(x, y), { steps: 4 }); await A.mouse.up();
+  await A.waitForFunction(() => S.st.disegni?.disegni.length === 1, null, { timeout: 5000 });
+  const tratto = await A.evaluate(() => ({ n: S.st.disegni.disegni[0].punti.length, mappa: Mappa.vivo().disegni }));
+  await A.click('#btnLavagna'); await A.click('#btnLavagnaIndietro'); await A.waitForFunction(() => S.st.disegni?.disegni.length === 0, null, { timeout: 5000 });
+  v(tratto.n >= 4 && tratto.mappa === 1, `lavagna: il tratto a mano (${tratto.n} punti) arriva a tutti e si può togliere`);
+  await A.evaluate(() => invia({ t: 'segnalino', id: S.io, x: S.st.segnalini[S.io].x, y: S.st.segnalini[S.io].y, aura: 2 })); await A.waitForFunction(() => S.st.segnalini[S.io]?.aura === 2, null, { timeout: 5000 });
+  const attrezzi = await A.evaluate(async () => {
+    const r = { aure: Mappa.vivo().aure };
+    const l = S.st.luogo, ed = l.edifici.find(e => { for (let y = e.y; y < e.y + e.h; y++) for (let x = e.x; x < e.x + e.w; x++) if (l.celle[y][x] === '+') { e._porta = [x, y]; return true; } return false; });
+    if (ed) { const [px, py] = ed._porta, vicino = [[0, 1], [0, -1], [1, 0], [-1, 0]].map(([dx, dy]) => [px + dx, py + dy]).find(([x, y]) => !(x >= ed.x && x < ed.x + ed.w && y >= ed.y && y < ed.y + ed.h)); r.porta = Mappa.portaVicina(vicino[0], vicino[1])?.edificio?.id === ed.id; r.lontano = Mappa.portaVicina(0, 0) === null; mostraPassaggio({ edificio: ed }); r.barra = !document.querySelector('#passaggio').hidden && document.querySelector('#passTesto').textContent.includes(ed.nome); document.querySelector('#passNo').click(); r.chiusa = document.querySelector('#passaggio').hidden; }
+    const blob = await new Promise(q => Mappa.immagine().toBlob(q, 'image/png')); r.immagine = blob.size;
+    S.st.campagna.timerTurno = 30; invia({ t: 'combattimento', azione: 'inizia' });
+    for (let i = 0; i < 40 && !S.st.combattimento?.attivo; i++) await new Promise(q => setTimeout(q, 100));
+    for (let i = 0; i < 12 && S.st.combattimento.ordine[S.st.combattimento.turno].id !== S.io; i++) { invia({ t: 'combattimento', azione: 'prossimo' }); await new Promise(q => setTimeout(q, 250)); }
+    r.mioTurno = S.st.combattimento.ordine[S.st.combattimento.turno].id === S.io; r.clessidra = !!document.querySelector('#clessidra i'); r.movimento = document.querySelector('.combat .movimento')?.textContent;
+    const io = S.st.segnalini[S.io], meta = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: io.x + dx * 2, y: io.y + dy * 2 })).find(q => Mappa.percorso(io, q));
+    if (meta) { Mappa.azioneCasella(meta.x, meta.y, false); await new Promise(q => setTimeout(q, 300)); r.dopo = document.querySelector('.combat .movimento')?.textContent; }
+    invia({ t: 'combattimento', azione: 'fine' });
+    return r;
+  });
+  v(attrezzi.aure === 1 && attrezzi.porta && attrezzi.lontano && attrezzi.barra && attrezzi.chiusa, `aura attorno alla mia figura; arrivando a una porta l'app propone di entrare (${JSON.stringify({ aure: attrezzi.aure, porta: attrezzi.porta, barra: attrezzi.barra })})`);
+  v(attrezzi.immagine > 5000 && attrezzi.clessidra && attrezzi.mioTurno && /Movimento: \d+ di \d+/.test(attrezzi.movimento || '') && attrezzi.dopo && attrezzi.dopo !== attrezzi.movimento, `mappa salvabile come immagine (${Math.round(attrezzi.immagine / 1024)} KB), clessidra del turno, movimento che si scala: «${attrezzi.movimento}» → «${attrezzi.dopo}»`);
   v(errori.length === 0, 'nessun errore JavaScript' + (errori.length ? ': ' + errori.slice(0, 5).join(' | ') : ''));
   await browser.close();
   console.log(`\n${ok} ok, ${ko} falliti`);
