@@ -1,6 +1,15 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.1.0';
+const VERSION = '4.2.0';
 const CHANGELOG = [
+  { v: '4.2.0', data: '23/11/2026', voci: [
+    'Primi passi: nell\'ingresso «Mai giocato? Prova in un quarto d\'ora» apre una piccola avventura da soli con il master AI, che spiega come si gioca una cosa alla volta.',
+    'Elenco dei primi passi per chi è nuovo: cinque cose da fare che si spuntano da sole mentre giochi, e «Mostrami» ti porta nel punto giusto.',
+    'Gioco a distanza: ognuno scrive la sua mossa quando può. Il master risponde quando hanno scritto tutti, o al più tardi dopo 6 ore, 12 ore, 1 giorno o 2 giorni.',
+    'Con il gioco a distanza una notifica ti avvisa quando tocca a te (tasto Avvisami nel Diario).',
+    'Mondi condivisi: chi ha creato la campagna dà un codice e un altro gruppo comincia la sua storia nello stesso mondo, con ambientazione, appunti, luoghi con le loro mappe e fazioni.',
+    'Il codice del mondo si può scrivere anche quando si crea una campagna nuova.',
+    'Le notifiche ora dicono di che cosa parlano: serata in arrivo oppure tocca a te.'
+  ] },
   { v: '4.1.0', data: '23/11/2026', voci: [
     'Il vostro mondo: chi guida la campagna scrive (o carica da un file) appunti su storia, luoghi, personaggi e segreti, e il master AI li usa come verità.',
     'Master più onesto: tiene fermi i fatti che ha deciso (chi è il colpevole, cosa c\'è dietro la porta), fa fallire le azioni impossibili e non cambia la storia per accontentare.',

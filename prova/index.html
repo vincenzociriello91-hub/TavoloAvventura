@@ -42,6 +42,7 @@
       <canvas class="fondo-vivo" id="fondoIngresso" width="200" height="120" aria-hidden="true"></canvas>
       <h1>Il vostro tavolo da gioco, ovunque siate</h1>
       <p>Voce tra amici, schede che si aggiornano da sole, mappe che ricordano tutto e un master che può essere una persona o l'intelligenza artificiale.</p>
+      <button id="btnPrimiPassi" class="pieno" type="button">Mai giocato? Prova in un quarto d'ora</button>
     </div>
     <div class="schede-ingresso">
       <div class="carta" id="cartaEntra">
@@ -72,12 +73,13 @@
           <label><input type="radio" name="cMaster" value="ai" checked><span>Intelligenza artificiale</span></label>
           <label><input type="radio" name="cMaster" value="umano"><span>Una persona</span></label>
         </fieldset>
-        <label>Avventura<select id="cAvventura"><option value="">Libera: la inventa il master</option><option value="miniera">Pronta: La miniera dei goblin (livelli 1-3, una serata)</option><option value="lanterna">Una serata: La notte della lanterna (livelli 1-2)</option><option value="ponte">Una serata: Il pedaggio dell'ogre (livelli 2-3)</option><option value="torre">Seguito: L'ombra della Torre di Corvonero (livelli 2-4)</option><option value="montagna">Terzo capitolo: Il Re sotto la Montagna (livelli 3-5)</option></select></label>
+        <label>Avventura<select id="cAvventura"><option value="">Libera: la inventa il master</option><option value="primi">Primi passi: topi in cantina (un quarto d'ora, per chi non ha mai giocato)</option><option value="miniera">Pronta: La miniera dei goblin (livelli 1-3, una serata)</option><option value="lanterna">Una serata: La notte della lanterna (livelli 1-2)</option><option value="ponte">Una serata: Il pedaggio dell'ogre (livelli 2-3)</option><option value="torre">Seguito: L'ombra della Torre di Corvonero (livelli 2-4)</option><option value="montagna">Terzo capitolo: Il Re sotto la Montagna (livelli 3-5)</option></select></label>
         <label class="spunta"><input type="checkbox" id="cSolitaria"> Gioco da solo: il master AI gioca anche due compagni</label>
         <fieldset class="segmentato" id="cMioRuoloBox" hidden><legend>Tu sei</legend>
           <label><input type="radio" name="cMioRuolo" value="giocatore" checked><span>Giocatore</span></label>
           <label><input type="radio" name="cMioRuolo" value="master"><span>Il master</span></label>
         </fieldset>
+        <label>Codice di un mondo condiviso (se te ne hanno dato uno)<input id="cMondo" maxlength="24" autocomplete="off" autocapitalize="characters" placeholder="Facoltativo, es. ABCD2345-EFGH6789"></label>
         <label>Il tuo nome<input id="cMioNome" maxlength="30" autocomplete="nickname" placeholder="Es. Vincenzo"></label>
         <button id="btnCrea" class="pieno grande" type="button">Crea e invita gli amici</button>
       </div>
@@ -98,6 +100,7 @@
   <section id="gioco" class="gioco" hidden>
     <div class="vista vista-mappa attiva" id="vMappa">
       <div class="carta-mini guida-invito" id="invitoGuida" hidden><span>Prima volta a D&amp;D? Ti spiego come si gioca in un minuto.</span><div class="riga"><button type="button" class="pieno" data-guida data-invito-guida>Come si gioca</button><button type="button" class="testo-btn" data-invito-guida>No grazie</button></div></div>
+      <div class="carta-mini primi-passi" id="primiPassi" hidden></div>
       <div class="narrazione" id="narrazione" hidden>
         <div class="narr-testa"><span id="narrChi">Il master</span><span class="riga"><button id="btnCondividiNarr" class="testo-btn" type="button" hidden>Condividi</button><button id="btnZitto" class="testo-btn" type="button">Silenzio</button></span></div>
         <div class="narr-corpo"><div class="narr-volto" id="narrVolto" hidden></div><p id="narrTesto"></p></div>
@@ -158,7 +161,7 @@
         <button class="pieno" type="submit">Invia</button>
       </form>
       <div class="chat-riga"><label class="chat-a" id="chatABox" hidden>Lo legge<select id="chatA"><option value="">tutto il tavolo</option></select></label><button id="btnMano" class="testo-btn" type="button" hidden>✋ Alzo la mano</button></div>
-      <div class="carta-mini giro-stato" id="giroStato" hidden><span id="giroTesto"></span><button id="btnGiroOra" type="button" hidden>Risolvi adesso</button></div>
+      <div class="carta-mini giro-stato" id="giroStato" hidden><span id="giroTesto"></span><button id="btnGiroAvvisi" type="button" hidden>🔔 Avvisami</button><button id="btnGiroOra" type="button" hidden>Risolvi adesso</button></div>
       <label class="spunta" id="alMasterBox"><input type="checkbox" id="alMaster" checked> Fallo sentire al master AI</label>
       <div class="carta-mini" id="boxNarra" hidden>
         <strong>Narra come master</strong>
@@ -206,9 +209,18 @@
         </fieldset>
         <label>Difficoltà<select id="aDifficolta"><option value="storia">Storia: conta il racconto, non si muore</option><option value="normale">Normale</option><option value="dura">Dura: nemici letali, la morte è definitiva</option></select></label>
         <label class="spunta"><input type="checkbox" id="aGiro"> Turni a giro: il master AI risponde quando tutti hanno detto cosa fanno</label>
+        <label>Ritmo di gioco<select id="aDifferito"><option value="0">Dal vivo: si gioca tutti insieme</option><option value="6">A distanza: il master aspetta tutti, al massimo 6 ore</option><option value="12">A distanza: al massimo 12 ore</option><option value="24">A distanza: al massimo 1 giorno</option><option value="48">A distanza: al massimo 2 giorni</option></select></label>
         <label>Stile delle illustrazioni<select id="aStile"><option value="realistico">Realistico</option><option value="acquerello">Acquerello</option><option value="fumetto">Fumetto</option><option value="pixel">Pixel art</option><option value="inchiostro">Inchiostro antico</option><option value="olio">Pittura a olio</option></select></label>
         <label>Clessidra del turno in combattimento<select id="aTimer"><option value="0">Nessuna</option><option value="30">30 secondi</option><option value="60">1 minuto</option><option value="90">1 minuto e mezzo</option><option value="120">2 minuti</option></select></label>
         <div class="riga"><button id="btnSalvaCamp" class="pieno" type="button">Salva</button><button id="btnNuovaSessione" type="button">Inizia nuova sessione</button></div>
+        <details id="boxMondoCodice" hidden><summary>Mondo condiviso: un altro gruppo, lo stesso mondo</summary>
+          <p class="piccolo">Con il codice un altro gruppo comincia la sua storia nel vostro mondo: riceve ambientazione, appunti, luoghi con le loro mappe e fazioni. Non riceve i vostri personaggi, il diario e i tesori. Dallo solo a chi può leggere i segreti del mondo.</p>
+          <p id="mondoCodice" class="codice-mondo" hidden></p>
+          <div class="riga"><button id="btnMondoCrea" type="button" class="pieno">Crea il codice del mondo</button><button id="btnMondoCopia" type="button" hidden>Copia</button><button id="btnMondoRitira" type="button" hidden>Ritira il codice</button></div>
+          <h3>Portare qui un mondo</h3>
+          <form id="formMondo" class="riga" autocomplete="off"><input id="mondoEntra" maxlength="24" autocapitalize="characters" placeholder="Codice, es. ABCD2345-EFGH6789" aria-label="Codice del mondo da portare qui"><button type="submit">Porta qui</button></form>
+          <p id="mondoDa" class="piccolo" hidden></p>
+        </details>
         <details id="boxAppunti"><summary>Il vostro mondo: appunti per il master</summary><p class="piccolo">Storia, luoghi, personaggi e segreti del vostro mondo. Il master AI li usa come verità e tiene nascosti i segreti finché non li scoprite giocando. Li legge solo chi guida la campagna.</p><textarea id="aAppunti" rows="7" maxlength="8000" placeholder="Es. Il regno di Argentea è governato da una regina bambina. Sotto il tempio c'è una cripta dimenticata. Il fabbro Ulrico è una spia."></textarea><div class="riga"><button id="btnSalvaAppunti" type="button" class="pieno">Salva gli appunti</button><label class="bottone" for="fileAppunti">Carica da un file di testo</label><input id="fileAppunti" type="file" accept=".txt,.md,text/plain" hidden></div></details>
         <div class="riga" id="copiaBox"><button id="btnEsporta" type="button">💾 Scarica una copia</button><label class="bottone" for="fileImporta">Ripristina da una copia</label><input id="fileImporta" type="file" accept="application/json,.json" hidden></div>
         <div id="ruoliBox"></div>
