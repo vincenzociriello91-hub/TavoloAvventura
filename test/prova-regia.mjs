@@ -93,6 +93,10 @@ v((await A.aspetta(m => m.t === 'carta')).restano === 53, 'il master rimescola i
 B.coda.length = 0; A.invia({ t: 'ricorda', testo: 'Il fabbro Ulrico ci deve un favore' });
 const cr = await B.aspetta(m => m.t === 'cronaca');
 v(/fabbro Ulrico/.test(cr.cronaca) && /fabbro Ulrico/.test((await stato(C)).cronaca) && /Da ricordare/.test((await stato(A)).memoria), 'un fatto da ricordare entra nella cronaca di tutti e nella memoria del master');
+for (let i = 0; i < 14; i++) A.invia({ t: 'ricorda', testo: `Fatto di riempimento numero ${i} `.repeat(9) });
+A.invia({ t: 'ricorda', testo: 'La spada spezzata è nascosta nel pozzo' }); await pausa(800);
+const piena = await stato(A);
+v(/spada spezzata/.test(piena.cronaca) && /spada spezzata/.test(piena.memoria) && piena.cronaca.length <= 3000, 'memoria piena: il fatto appena aggiunto resta, si perde il più vecchio');
 B.invia({ t: 'ricorda', testo: 'barare' }); await pausa(300);
 v(!/barare/.test((await stato(A)).cronaca), 'solo chi guida aggiunge fatti alla memoria');
 

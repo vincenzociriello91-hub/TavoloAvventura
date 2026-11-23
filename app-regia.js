@@ -104,7 +104,7 @@ async function azioneTurno(k) {
     if (i < 0 || i >= amici.length) return;
     invia({ t: 'aiuto', per: amici[i][0] }); dillo(`Uso l'azione Aiuto su ${amici[i][1].nome}.`);
   } else {
-    if (k === 'scatto') { S.mosso = (S.mosso || 0) - Math.max(1, Math.floor((pg.vel || 9) / 1.5)); aggiornaExtraMappa(); renderCombat(); }
+    if (k === 'scatto') { const c = S.st.combattimento, chiave = c ? `${c.round}:${c.turno}` : ''; if (S.scattoIn === chiave) { toast('Lo Scatto si usa una volta per turno'); return; } S.scattoIn = chiave; S.mosso = (S.mosso || 0) - Math.max(1, Math.floor((pg.vel || 9) / 1.5)); aggiornaExtraMappa(); renderCombat(); }
     dillo(a.dico); if (a.prova) tiraProva(a.prova);
   }
   if (masterAI()) S.ultimoParlato = Date.now();
