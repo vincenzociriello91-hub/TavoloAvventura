@@ -149,7 +149,7 @@ function momentoEpico(tiro) {
   const el = document.createElement('div'); el.className = 'epico';
   el.innerHTML = `<div><b>20</b><span>naturale!</span><small>${esc(chi)}${tiro.motivo ? ' · ' + esc(tiro.motivo) : ''}</small></div>`;
   document.body.appendChild(el); setTimeout(() => el.remove(), 2600);
-  Suoni.effetto('raro'); if (navigator.vibrate) navigator.vibrate([60, 40, 120]);
+  Suoni.effetto('raro'); vibra([60, 40, 120]);
 }
 
 /* ============ Tavola dei suoni del master ============ */

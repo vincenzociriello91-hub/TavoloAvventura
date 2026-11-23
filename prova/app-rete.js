@@ -36,7 +36,7 @@ function gestisci(m) {
       S.io = m.io; if (m.chiave) S.chiave = m.chiave; S.st = m.stato; S.viewPg = S.io;
       salvaCampagna({ codice: S.codice, io: S.io, chiave: S.chiave, nome: S.st.campagna.nome, ruolo: me()?.ruolo });
       Report.log('entrato', { ruolo: me()?.ruolo, admin: me()?.admin, regole: regole(), master: S.st.campagna.masterTipo });
-      mostraGioco(); renderTutto(); avviaVoce(); controllaMappa(); meteoVero(); $('#invitoGuida').hidden = !(me()?.ruolo === 'giocatore' && !leggi('ta_guida_vista', false));
+      mostraGioco(); renderTutto(); avviaVoce(); controllaMappa(); meteoVero(); if (S.st.luogo) setTimeout(() => entraLuogo(S.st.luogo), 400); $('#invitoGuida').hidden = !(me()?.ruolo === 'giocatore' && !leggi('ta_guida_vista', false));
       Mappa.pacchetti(`${SERVER_WS.replace(/^ws/, 'http')}/tavolo/${S.codice}/grafica/atlante`, S.io, S.chiave); // grafica comprata, solo per i membri
       // l'invito sparisce dalla barra degli indirizzi; resta il codice, così ricaricando si rientra da soli
       history.replaceState(null, '', `${location.pathname}?c=${S.codice}${document.body.classList.contains('tv') ? '&tv=1' : ''}`);
@@ -61,7 +61,7 @@ function gestisci(m) {
         if (m.nota) toast(`${m.pg.nome}: ${m.nota}`);
       }
       if (S.st.segnalini?.[m.per]) S.st.segnalini[m.per].nome = m.pg.nome;
-      renderSchedaSeServe(); renderPresenza(); return;
+      renderSchedaSeServe(); renderPresenza(); renderHud(); return;
     }
     case 'dado': {
       S.st.dadi = [...(S.st.dadi || []), m.tiro].slice(-60);
@@ -78,7 +78,7 @@ function gestisci(m) {
     case 'sogno': chiedi(`<h2>🌙 Un sogno</h2><p class="piccolo">Lo vedi solo tu: decidi tu se raccontarlo agli altri.</p><p class="storia-pg">${esc(m.testo)}</p>`, [{ testo: 'Mi sveglio', pieno: true }]); if (OPZ.narratore) Narratore.parla(m.testo); Report.log('sogno', {}); return;
     case 'memoriale': S.st.memoriale = m.memoriale; if (m.caduto) { delete S.st.pg[m.caduto]; renderSchedaSeServe(true); } renderDiarioExtra(); return;
     case 'bentornato': mostraBentornato(m.riepiloghi); return;
-    case 'luogo': S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; S.st.aree = []; renderMappa(); if (!$('#mondoBox').hidden) renderMappaMondo(); Report.log('luogo', { nome: m.luogo.nome, tipo: m.luogo.tipo }); controllaMappa(); return;
+    case 'luogo': { const nuovoLuogo = S.st.luogo?.id !== m.luogo?.id; S.st.luogo = m.luogo; S.st.segnalini = m.segnalini; S.st.luoghi = m.luoghi; S.st.aree = []; renderMappa(); if (!$('#mondoBox').hidden) renderMappaMondo(); Report.log('luogo', { nome: m.luogo.nome, tipo: m.luogo.tipo }); controllaMappa(); if (nuovoLuogo) entraLuogo(m.luogo); return; }
     case 'luogo_mod': S.st.luogo = m.luogo; renderMappa(); return;
     case 'segnalini': {
       const prima = S.st.segnalini || {};
@@ -123,7 +123,7 @@ function gestisci(m) {
         .catch(e => { Narratore.parla(a.testo, { png: a.png }); Report.log('voce-master', { esito: 'scaricamento fallito', errore: String(e) }); });
       return;
     }
-    case 'master_pensa': { const n = $('#narrazione'); n.hidden = false; n.classList.add('pensa'); $('#narrChi').textContent = 'Il master'; $('#narrTesto').textContent = 'Il master sta pensando…'; return; }
+    case 'master_pensa': { const n = $('#narrazione'); n.hidden = false; n.classList.add('pensa'); $('#narrChi').textContent = 'Il master'; Scrittura.tutto(); $('#narrTesto').textContent = 'Il master sta pensando…'; n.classList.remove('finita'); if (stileGioco()) { $('#narrVolto').hidden = false; $('#narrVolto').innerHTML = `<img src="${Volti.master()}" alt="" width="64" height="64">`; } return; }
     case 'master_zitto': { const n = $('#narrazione'); if (n.classList.contains('pensa')) n.hidden = true; n.classList.remove('pensa'); return; }
     case 'richiesta_tiro': {
       if (m.pg === S.io) {
@@ -163,7 +163,7 @@ function gestisci(m) {
     case 'ok': if (m.cosa === 'suggerimento') toast('Grazie! Suggerimento inviato'); return;
     case 'costi': S.st.costi = m.costi; renderCosti(); return;
     case 'combattimento': {
-      const prima = S.st.combattimento; S.st.combattimento = m.combattimento; renderCombat();
+      const prima = S.st.combattimento; S.st.combattimento = m.combattimento; renderCombat(); renderHud(); striscioneCombattimento(prima, m.combattimento);
       const c = m.combattimento, ora = c?.attivo && c.ordine[c.turno];
       if (ora && ora.id === S.io && !(prima?.attivo && prima.ordine[prima.turno]?.id === S.io && prima.round === c.round)) { if (OPZ.avvisi) Narratore.avviso('Tocca a te'); toast('È il tuo turno!'); Suoni.effetto('turno'); }
       Report.log('combattimento', { attivo: c?.attivo, round: c?.round, turno: ora?.nome });
@@ -254,7 +254,7 @@ function renderTutto() {
   $('#optMaster').closest('label').hidden = !masterAI();
   $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); }
   if (capo()) renderAvventura(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
-  renderPresenza(); renderMappa(); renderCombat(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#copiaBox').hidden = !me()?.admin; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro();
+  renderPresenza(); renderMappa(); renderCombat(); renderHud(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#copiaBox').hidden = !me()?.admin; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro();
 }
 function renderPresenza() {
   if (!S.st) return;

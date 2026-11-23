@@ -1,6 +1,16 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '3.7.2';
+const VERSION = '3.8.0';
 const CHANGELOG = [
+  { v: '3.8.0', data: '23/11/2026', voci: [
+    'Aspetto da videogioco: cornici e pulsanti in pixel, scritte da gioco, una sola tavolozza di colori. Se preferisci com\'era prima: Altro → Gioco → togli «Aspetto da videogioco».',
+    'Il master parla come nei giochi di ruolo: nella casella c\'è il volto di chi parla (o il master col cappuccio) e il testo compare lettera per lettera. Un tocco lo mostra tutto.',
+    'Il gruppo è sempre a vista sopra la mappa: volti e barre della vita. Tocca un volto per aprire la sua scheda.',
+    'In combattimento l\'ordine di iniziativa ha i volti, e uno striscione annuncia l\'inizio dello scontro e di chi è il turno.',
+    'Quando si entra in un luogo nuovo la mappa esce dal buio e compare il nome.',
+    'Nel diario ogni voce ha il volto di chi parla o un\'icona.',
+    'Schermata iniziale con un paesaggio in pixel che si muove e segue l\'ora vera: alba, giorno, tramonto, notte.',
+    'Nuove opzioni in Altro → Gioco: volumi separati per musica, effetti e voce del master, alto contrasto, meno movimento, vibrazione, velocità di scritte e animazioni.'
+  ] },
   { v: '3.7.2', data: '23/11/2026', voci: [
     'Nelle avventure pronte, entrando per la prima volta in un luogo il diario non dice più "Il gruppo torna a" e arriva anche l\'illustrazione dell\'arrivo.',
     'Le caselle da spuntare con la scritta lunga (meteo vero) hanno la stessa misura delle altre.',

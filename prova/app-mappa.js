@@ -64,7 +64,8 @@ function renderCombat() {
   if (!ora) { Report.log('problema', { cosa: 'combattimento senza nessuno in ordine', round: c.round, ordine: c.ordine.length }); invia({ t: 'segnala_problema', testo: 'Combattimento attivo senza nessuno in ordine di iniziativa' }); }
   const posso = ora && (ora.id === S.io || capo());
   box.innerHTML = `<div class="testa"><span>Round ${c.round} · ${ora ? `tocca a <strong>${esc(ora.nome)}</strong>` : 'nessuno in ordine: chiudi e riapri il combattimento quando ci sono personaggi o nemici'}</span>${posso ? '<button id="btnFineTurno" class="pieno" type="button">Fine turno</button>' : ''}</div>
-    <ol>${c.ordine.map((o, i) => `<li class="${i === c.turno ? 'ora' : ''} ${o.tipo === 'nemico' ? 'nemico' : ''}">${esc(o.nome)} <span class="piccolo">${o.iniz}</span></li>`).join('')}</ol>`;
+    <ol>${c.ordine.map((o, i) => `<li class="${i === c.turno ? 'ora' : ''} ${o.tipo === 'nemico' ? 'nemico' : ''}" title="${esc(o.nome)} · iniziativa ${o.iniz}"><img src="${Volti.diTurno(o)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'lettera',textContent:this.dataset.l}))" data-l="${esc(String(o.nome || '?').charAt(0).toUpperCase())}">${esc(stileGioco() ? String(o.nome || '?').split(' ')[0] : o.nome)} <span class="piccolo">${o.iniz}</span></li>`).join('')}</ol>`;
+  box.querySelector('li.ora')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   $('#btnFineTurno')?.addEventListener('click', () => invia({ t: 'combattimento', azione: 'prossimo' }));
 }
 $('#btnCombat').addEventListener('click', () => invia({ t: 'combattimento', azione: S.st?.combattimento?.attivo ? 'fine' : 'inizia' }));
@@ -119,9 +120,16 @@ $('#formVai').addEventListener('submit', e => { e.preventDefault(); const n = $(
 function mostraVolto(png) {
   const id = S.st?.volti?.[png], box = $('#narrVolto');
   box.innerHTML = id ? `<img src="${urlMedia('img', id)}" alt="${esc(png)}" class="volto-png">` : Ritratto.volto(png, 64);
-  const im = box.querySelector('img'); if (im) im.onerror = () => { box.innerHTML = Ritratto.volto(png, 64); }; // volto non disponibile: quello in pixel art
+  const im = box.querySelector('img'); if (im) { im.onerror = () => { box.innerHTML = Ritratto.volto(png, 64); }; im.onload = () => { if (im.naturalWidth < 8) im.onerror(); }; } // volto non disponibile o vuoto: quello in pixel art
 }
-function mostraNarrazione(testo, png) { const n = $('#narrazione'); n.hidden = false; n.classList.remove('pensa'); $('#narrChi').textContent = png ? `${png} (dal master)` : 'Il master'; $('#narrChi').dataset.png = png || ''; $('#narrTesto').textContent = testo; $('#narrVolto').hidden = !png; if (png) mostraVolto(png); }
+function mostraNarrazione(testo, png) {
+  const n = $('#narrazione'); n.hidden = false; n.classList.remove('pensa');
+  $('#narrChi').textContent = png ? (stileGioco() ? png : `${png} (dal master)`) : 'Il master'; $('#narrChi').dataset.png = png || '';
+  Scrittura.scrivi($('#narrTesto'), testo);
+  // nella casella c'è sempre un volto: quello del personaggio che parla, oppure il master col cappuccio
+  $('#narrVolto').hidden = !png && !stileGioco();
+  if (png) mostraVolto(png); else if (stileGioco()) $('#narrVolto').innerHTML = `<img src="${Volti.master()}" alt="" width="64" height="64">`;
+}
 $('#btnZitto').addEventListener('click', () => { Narratore.zitto(); $('#narrazione').hidden = true; });
 Narratore.onInizio = () => { Ascolto.pausa(true); $('#av-master')?.classList.add('parla'); };
 Narratore.onFine = () => { Ascolto.pausa(false); $('#av-master')?.classList.remove('parla'); };

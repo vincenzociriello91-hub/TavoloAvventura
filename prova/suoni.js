@@ -2,11 +2,13 @@
    La scena cambia da sola col luogo (taverna, dungeon, foresta...) e col combattimento; effetti per dadi e livelli. */
 const Suoni = (() => {
   let ctx = null, bus = null, attivo = false, volume = 0.5, scena = null, nodi = [], timer = [], gainScena = null;
+  // volumi separati: musica e ambiente da una parte, effetti dall'altra (la voce del master è in voce.js)
+  let vm = 1, ve = 1, busAmb = null, fx = null, giu = 1;
   // strati della scena (dai Varchi): meteo e fuoco vicino, separati dalla musica del luogo
   let amb = { meteo: '', esterno: false, fuoco: 0 }, gMeteo = null, gFuoco = null, nodiAmb = [], timerAmb = [], meteoAttivo = '';
   const PENTA = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3];
   function avvia() {
-    if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)(); bus = ctx.createGain(); bus.gain.value = volume * 0.5; bus.connect(ctx.destination); }
+    if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)(); bus = ctx.createGain(); bus.gain.value = volume * 0.5; bus.connect(ctx.destination); busAmb = ctx.createGain(); busAmb.gain.value = vm; busAmb.connect(bus); fx = ctx.createGain(); fx.gain.value = ve; fx.connect(bus); }
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
   }
   function bufRumore() { const b = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = b.getChannelData(0); let ult = 0; for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; ult = (ult + 0.02 * w) / 1.02; d[i] = ult * 3.5; } return b; }
@@ -49,11 +51,11 @@ const Suoni = (() => {
     nomeBrano = file;
     const vecchio = brano, nuovo = new Audio('audio/musica/' + file + '.ogg'); nuovo.loop = true; nuovo.volume = 0;
     nuovo.play().catch(() => {}); brano = nuovo;
-    let k = 0; const giro = setInterval(() => { k++; nuovo.volume = Math.min(1, k / 20) * volume * 0.45; if (vecchio) vecchio.volume = Math.max(0, (1 - k / 20) * volume * 0.45); if (k >= 20) { clearInterval(giro); if (vecchio) { vecchio.pause(); vecchio.src = ''; } } }, 100);
+    let k = 0; const giro = setInterval(() => { k++; nuovo.volume = Math.min(1, k / 20) * volume * 0.45 * vm * giu; if (vecchio) vecchio.volume = Math.max(0, (1 - k / 20) * volume * 0.45 * vm * giu); if (k >= 20) { clearInterval(giro); if (vecchio) { vecchio.pause(); vecchio.src = ''; } } }, 100);
   }
   function fermaBrano() { if (brano) { brano.pause(); brano.src = ''; brano = null; } nomeBrano = ''; }
   const CAMPIONI = ['colpo', 'critico', 'ferito', 'livello', 'magia', 'monete', 'porta', 'pozione', 'raro', 'sconfitta', 'successo', 'tocco', 'vittoria'];
-  function campione(nome, g = 0.8) { if (!CAMPIONI.includes(nome)) return false; const a = new Audio('audio/effetti/' + nome + '.ogg'); a.volume = Math.min(1, volume * g); a.play().catch(() => {}); return true; }
+  function campione(nome, g = 0.8) { if (!CAMPIONI.includes(nome)) return false; const a = new Audio('audio/effetti/' + nome + '.ogg'); a.volume = Math.min(1, volume * g * ve); a.play().catch(() => {}); return true; }
   SCENE.boss = SCENE.combattimento;
   function cambiaScena(nome) {
     if (attivo) suonaBrano(nome);
@@ -62,7 +64,7 @@ const Suoni = (() => {
     if (vecchio) { vecchio.gain.setTargetAtTime(0, ctx.currentTime, 0.4); setTimeout(() => { vecchi.forEach(n => { try { n.stop(); } catch {} }); vecchio.disconnect(); }, 2000); }
     scena = nome;
     if (!SCENE[nome]) return;
-    gainScena = ctx.createGain(); gainScena.gain.value = 0; gainScena.connect(bus); gainScena.gain.setTargetAtTime(0.45, ctx.currentTime, 0.8);
+    gainScena = ctx.createGain(); gainScena.gain.value = 0; gainScena.connect(busAmb); gainScena.gain.setTargetAtTime(0.45, ctx.currentTime, 0.8);
     SCENE[nome](gainScena);
   }
   // colpo di rumore breve (gocce, scoppiettii, tuono)
@@ -79,7 +81,7 @@ const Suoni = (() => {
     const m = amb.esterno ? amb.meteo : '';
     if (m !== meteoAttivo) {
       nodiAmb.forEach(n => { try { n.stop(); } catch {} }); nodiAmb = []; timerAmb.forEach(clearTimeout); timerAmb = [];
-      gMeteo?.disconnect(); gMeteo = ctx.createGain(); gMeteo.gain.value = 0; gMeteo.connect(bus); gMeteo.gain.setTargetAtTime(1, ctx.currentTime, 1);
+      gMeteo?.disconnect(); gMeteo = ctx.createGain(); gMeteo.gain.value = 0; gMeteo.connect(busAmb); gMeteo.gain.setTargetAtTime(1, ctx.currentTime, 1);
       const pr = nodi.length; // rumore() mette i nodi in "nodi": li spostiamo negli strati dell'ambiente
       if (m === 'pioggia' || m === 'temporale') {
         rumore('highpass', 1200, 0.3, m === 'temporale' ? 0.16 : 0.1, gMeteo, true);
@@ -93,7 +95,7 @@ const Suoni = (() => {
       meteoAttivo = m;
     }
     if (!gFuoco) {
-      gFuoco = ctx.createGain(); gFuoco.gain.value = 0; gFuoco.connect(bus);
+      gFuoco = ctx.createGain(); gFuoco.gain.value = 0; gFuoco.connect(busAmb);
       const pr = nodi.length; rumore('lowpass', 900, 0.4, 0.14, gFuoco); nodiAmb.push(...nodi.splice(pr));
       ogniAmb(90, 400, () => { if (amb.fuoco > 0.05) botto(1500 + Math.random() * 2500, 0.03 + Math.random() * 0.05, 0.12 * amb.fuoco, gFuoco); });
     }
@@ -102,22 +104,37 @@ const Suoni = (() => {
   function ambiente(a) { amb = { ...amb, ...a }; if (attivo && a.notte !== undefined && a.notte !== notte) { notte = a.notte; if (!BRANI[scena]) { nomeBrano = ''; suonaBrano(scena); } } aggiornaAmbiente(); }
   function effetto(tipo) {
     if (!attivo || !ctx) return;
-    if (tipo === 'tuono') { const r = 0.4 + Math.random() * 1.6; botto(180, 2.8, 0.5, bus, r); botto(90, 3.5, 0.4, bus, r + 0.15); return; }
+    if (tipo === 'tuono') { const r = 0.4 + Math.random() * 1.6; botto(180, 2.8, 0.5, fx, r); botto(90, 3.5, 0.4, fx, r + 0.15); return; }
+    if (tipo === 'tocco') { campione('tocco', 0.3); return; }
     if (tipo === 'critico' && campione('critico')) return;
     if (tipo === 'livello' && campione('livello')) return;
     if (campione(tipo)) return;
-    if (tipo === 'dado') for (let i = 0; i < 4; i++) nota(300 + Math.random() * 500, 0.05, 'square', 0.04, bus, i * 0.07);
-    if (tipo === 'critico') [523, 659, 784, 1047].forEach((f, i) => nota(f, 0.35, 'triangle', 0.09, bus, i * 0.09));
-    if (tipo === 'fallimento') [392, 330, 262, 196].forEach((f, i) => nota(f, 0.4, 'sawtooth', 0.04, bus, i * 0.12));
-    if (tipo === 'livello') [523, 659, 784].forEach(f => nota(f, 1.4, 'sine', 0.06, bus, 0));
-    if (tipo === 'turno') nota(880, 0.6, 'sine', 0.07, bus);
+    if (tipo === 'dado') for (let i = 0; i < 4; i++) nota(300 + Math.random() * 500, 0.05, 'square', 0.04, fx, i * 0.07);
+    if (tipo === 'critico') [523, 659, 784, 1047].forEach((f, i) => nota(f, 0.35, 'triangle', 0.09, fx, i * 0.09));
+    if (tipo === 'fallimento') [392, 330, 262, 196].forEach((f, i) => nota(f, 0.4, 'sawtooth', 0.04, fx, i * 0.12));
+    if (tipo === 'livello') [523, 659, 784].forEach(f => nota(f, 1.4, 'sine', 0.06, fx, 0));
+    if (tipo === 'turno') nota(880, 0.6, 'sine', 0.07, fx);
+    if (tipo === 'impatto') { botto(240, 0.16, 0.5, fx); nota(110, 0.14, 'sine', 0.22, fx, 0, 50); }
+    if (tipo === 'fruscio') botto(5200, 0.12, 0.08, fx);
+    if (tipo === 'scintilla') [1320, 1760, 2090].forEach((f, i) => nota(f, 0.18, 'sine', 0.05, fx, i * 0.05));
+    if (tipo === 'cura') [523, 659, 784, 1047].forEach((f, i) => nota(f, 0.5, 'sine', 0.05, fx, i * 0.08));
+    if (tipo === 'striscione') { nota(196, 0.5, 'sawtooth', 0.05, fx, 0, 392); botto(800, 0.4, 0.12, fx); }
+  }
+  // musica e ambiente si abbassano per un attimo: il colpo si sente senza alzare il volume
+  function abbassa(ms = 500) {
+    if (!attivo || !ctx) return;
+    giu = 0.5; if (brano) brano.volume = volume * 0.45 * vm * giu;
+    busAmb.gain.setTargetAtTime(vm * 0.5, ctx.currentTime, 0.02);
+    clearTimeout(abbassa._t); abbassa._t = setTimeout(() => { giu = 1; if (brano) brano.volume = volume * 0.45 * vm; if (busAmb) busAmb.gain.setTargetAtTime(vm, ctx.currentTime, 0.12); }, ms);
   }
   return {
-    avvia, effetto, ambiente,
+    avvia, effetto, ambiente, abbassa,
     scena: n => cambiaScena(n),
     set attivo(b) { attivo = b; if (b) { avvia(); const s = scena; scena = null; cambiaScena(s || 'aperto'); meteoAttivo = null; aggiornaAmbiente(); } else { fermaBrano(); timer.forEach(clearTimeout); timer = []; nodi.forEach(n => { try { n.stop(); } catch {} }); nodi = []; gainScena?.disconnect(); gainScena = null; nodiAmb.forEach(n => { try { n.stop(); } catch {} }); nodiAmb = []; timerAmb.forEach(clearTimeout); timerAmb = []; gMeteo?.disconnect(); gMeteo = null; gFuoco?.disconnect(); gFuoco = null; meteoAttivo = ''; } },
     get attivo() { return attivo; },
-    set volume(v) { volume = v; if (bus) bus.gain.value = v * 0.5; if (brano) brano.volume = v * 0.45; },
+    set volume(v) { volume = v; if (bus) bus.gain.value = v * 0.5; if (brano) brano.volume = v * 0.45 * vm * giu; },
+    set volMusica(v) { vm = v; if (busAmb) busAmb.gain.value = v; if (brano) brano.volume = volume * 0.45 * vm * giu; },
+    set volEffetti(v) { ve = v; if (fx) fx.gain.value = v; },
     CAMPIONI,
     get scenaAttuale() { return scena; }
   };

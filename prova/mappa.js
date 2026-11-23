@@ -15,6 +15,9 @@ const Mappa = (() => {
   // effetti di battaglia: numeri dei danni, mosse d'attacco, esplosioni degli incantesimi, nemici sconfitti
   let effetti = [];
   let tileManuale = 0, gCache = null, pizzico = null, pan = null, dopoPizzico = false; const tocchi = new Map();
+  // scelte di chi gioca (da Altro → Gioco): meno movimento, velocità delle animazioni, scritte in pixel, simboli oltre ai colori
+  let gusti = { menoMoto: false, velocita: 1, pixel: true, simboli: true };
+  function opzioni(o) { gusti = { ...gusti, ...o }; cacheChiave = ''; disegna(); }
   const ritratti = new Map();
   const PIATTI = ['tappeto', 'ragnatela', 'ossa', 'funghi', 'macerie'];
   const PASSABILI = ['tappeto', 'ragnatela', 'ossa', 'funghi', 'macerie', 'torcia', 'candelabro']; // come il server (tavolo.js)
@@ -1064,5 +1067,5 @@ const Mappa = (() => {
     if (/foresta|bosco|selva/.test(n) && luogo.tipo !== 'foresta') prob.push(`"${luogo.nome}" disegnato come ${luogo.tipo}`);
     return prob;
   }
-  return { controllo, effettoTesto, effettoArea, sconfitto, attacco, init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, terreno3D, spriteOggetto, dati3D, azioneCasella, casa3D, figura: (id, s) => figura(id, s), mostro: s => mostro(s), grande: s => GRANDI.test(nomeMostro(s.nome)), puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea, percorso, zoom, pacchetti };
+  return { controllo, effettoTesto, effettoArea, sconfitto, attacco, init, imposta, aggiornaSegnalini, adatta, disegna, setExtra, setAmbiente, ambienteSonoro, terreno3D, spriteOggetto, dati3D, azioneCasella, casa3D, figura: (id, s) => figura(id, s), mostro: s => mostro(s), grande: s => GRANDI.test(nomeMostro(s.nome)), nomeMostro, opzioni, puoMuovere: id => opz.puoMuovere?.(id), chiediCasella, setVisto, celleArea, percorso, zoom, pacchetti };
 })();
