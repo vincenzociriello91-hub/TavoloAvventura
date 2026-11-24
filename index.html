@@ -9,11 +9,11 @@
 <meta name="theme-color" content="#14110f">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icone/apple-touch-icon.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<script>try { if (!/[?&]i=/.test(location.search) && (/[?&]c=/.test(location.search) || localStorage.getItem('ta_attiva'))) document.documentElement.classList.add('rientro'); } catch {}</script>
+<script>try { if (!/[?&]i=|azione=sfida/.test(location.search) && (/[?&]c=/.test(location.search) || localStorage.getItem('ta_attiva'))) document.documentElement.classList.add('rientro'); } catch {}</script>
 <header class="barra">
   <div class="logo" aria-hidden="true">
     <svg viewBox="0 0 24 24" width="28" height="28"><path d="M12 2 21 7v10l-9 5-9-5V7z" fill="#d9a441"/><path d="M12 2v20M3 7l9 5 9-5M3 17l9-5 9 5" stroke="#14110f" stroke-width="1.2" fill="none"/></svg>
@@ -35,7 +35,7 @@
 
 <main>
   <!-- INGRESSO -->
-  <div class="rientro-attesa" aria-live="polite">Rientro al tavolo…</div>
+  <div class="rientro-attesa" aria-live="polite"><img src="icon.svg" alt="" width="96" height="96"><span>Rientro al tavolo…</span></div>
   <section id="ingresso" class="ingresso">
     <div class="eroe">
       <canvas class="fondo-vivo" id="fondoIngresso" width="200" height="120" aria-hidden="true"></canvas>
@@ -296,6 +296,7 @@
         <label class="spunta"><input type="checkbox" id="optStileGioco" checked> Aspetto da videogioco (cornici e scritte in pixel)</label>
         <label class="spunta"><input type="checkbox" id="optContrasto"> Alto contrasto</label>
         <label class="spunta"><input type="checkbox" id="optDaltonici"> Colori per daltonici (rosso e verde diventano arancio e blu)</label>
+        <label>Colori<select id="optTema"><option value="scuro">Scuri: la notte d'avventura</option><option value="pergamena">Chiari: la pergamena (per giocare di giorno)</option></select></label>
         <label>Modalità notte (luci basse, voce più calma)<select id="optNotte"><option value="no">Spenta</option><option value="si">Accesa</option><option value="auto">Da sola, dalle 22 alle 7</option></select></label>
         <label class="spunta"><input type="checkbox" id="optLeggiTasti"> Leggi ad alta voce i pulsanti che tocchi (per chi vede poco)</label>
         <label class="spunta"><input type="checkbox" id="optMenoMoto"> Meno movimento (niente scosse, lampi e scritte che scorrono)</label>

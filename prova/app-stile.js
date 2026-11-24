@@ -11,9 +11,12 @@ function applicaStile() {
   document.body.classList.toggle('meno-moto', menoMoto());
   document.body.classList.toggle('contrasto', !!OPZ.contrasto);
   document.body.classList.toggle('daltonici', !!OPZ.daltonici);
+  document.body.classList.toggle('pergamena', OPZ.tema === 'pergamena');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', OPZ.tema === 'pergamena' ? '#e6d6ae' : '#14110f');
   Mappa.opzioni?.({ menoMoto: menoMoto(), velocita: velocita(), pixel: stileGioco(), simboli: true });
   Suoni.volMusica = OPZ.volMusica ?? 1; Suoni.volEffetti = OPZ.volEffetti ?? 1; Narratore.volume = OPZ.volVoce ?? 1;
   FondoVivo.aggiorna();
+  if (typeof IconePixel !== 'undefined') IconePixel.applica();
   if (typeof applicaNotte === 'function') applicaNotte(); // la modalità notte abbassa voce ed effetti sopra i cursori
 }
 
@@ -264,6 +267,81 @@ document.addEventListener('click', e => {
   const ora = performance.now(); if (ora - ultimoTocco < 90) return; ultimoTocco = ora;
   Suoni.effetto('tocco');
 }, true);
+
+/* ============ ICONE IN PIXEL: con l'aspetto da videogioco le faccine di pulsanti e titoli diventano disegni in pixel, uguali su ogni telefono ============ */
+const IconePixel = (() => {
+  const PAL = { k: '#0b0810', o: '#f6cf74', O: '#c08a2e', y: '#fff1c4', w: '#eef3f8', s: '#b6c2d1', S: '#6f7c8f', r: '#e2604a', R: '#a83a2c', b: '#6aa5e8', B: '#3d6aa8', g: '#63c17a', G: '#3b8a52', m: '#a0683a', M: '#5a3418', p: '#efe0b8', P: '#c9b183', v: '#9d82c8', V: '#5a4680', n: '#2e2539' };
+  const GRIGLIE = {
+    'spade': 'w..........w/ws........sw/.ws......sw./..ws....sw../...ws..sw.../....wssw..../....swws..../...sw..ws.../.OSw....wSO./..OO....OO../.mO......Om./Mm........mM',
+    'coppa': '............/kkkkkkkkkkkk/kyoooooooOkk/oyooooooOOko/okyoooooOkko/.kyoooooOk../..kyoooOk.../...kkooOk.../.....oO...../....kOOk..../...kmmmMk.../...kkkkkk...',
+    'mappa': '............/.kkk..kkk.../kpppkkPPPkkk/kpppPkPrPPPk/kprpPkPPPrPk/kpppPkPPrPPk/kppPPkPPPPPk/kpPppkPrrPPk/kppppkPPPrPk/kpppPkPPPPPk/.kkk..kkk.kk/............',
+    'dado': '.....kk...../...kkyOkk.../.kkooyyOOkk./kooooyyOOOOk/koooyyyyOOOk/koooyyyyOOOk/kooyyyyyyOOk/koyyyyyyyyOk/kMMMMMMMMMMk/.kkOOOMMMkk./...kkOMkk.../.....kk.....',
+    'puntina': '....kkkk..../...krrrRk.../...krrrRk.../..krrrrRRk../.kkkkkkkkkk./....kSSk..../.....Sk...../.....Sk...../.....S....../.....S....../............/............',
+    'campana': '.....kk...../....koOk..../...kyooOk.../..kyoooOOk../..kyoooOOk../..kyoooOOk../.kyooooOOOk./.kyooooOOOk./kkkkkkkkkkkk/....kOOk..../.....kk...../............',
+    'calendario': '..k......k../.kkkkkkkkkk./krrrrrrrrrRk/kRRRRRRRRRRk/kwwwwwwwwwsk/kwSwSwSwSwsk/kwwwwwwwwwsk/kwSwSwrwSwsk/kwwwwwwwwwsk/kwSwSwSwwwsk/kssssssssssk/.kkkkkkkkkk.',
+    'lucchetto': '...kkkkkk.../..kSkkkkSk../..kSk..kSk../..kSk..kSk../.kkkkkkkkkk./.kyooooooOk./.kyoookoOOk./.kyookkkOOk./.kyoookoOOk./.kyoookoOOk./.kOOOOOOOOk./.kkkkkkkkkk.',
+    'giornale': '............/.kkkkkkkkkk./kppppppppppk/kpkkkkkkkkpk/kppppppppppk/kpPPPpPPPPpk/kpPPPpppppPk/kpPPPpPPPPpk/kpppppppppPk/kpPPPPPPPPpk/kppppppppPPk/.kkkkkkkkkk.',
+    'urna': '...kkkkkk.../...kwwwwk.../...kwSSwk.../.kkkkkkkkkk./.kbbbkkbbBk./.kbbbbbbbBk./.kbbbbbbbBk./.kbbbwwbbBk./.kbbbbbbbBk./.kBBBBBBBBk./.kkkkkkkkkk./............',
+    'bussola': '...kkkkkk.../..kooooooOk./.koppprppPOk/kopppprrpPOk/koppprrrpPOk/kopppkkppPOk/koppSSSppPOk/kopppSSppPOk/kopppSpppPOk/.kOpppppPOk./..kOOOOOOk../...kkkkkk...',
+    'righello': '........kkk./.......koOk./......kooOk./.....koOok../....kooOk.../...koOok..../..kooOk...../.koOok....../kooOk......./koOk......../kkk........./............',
+    'matita': '.........kk./........krrk/.......kRrk./......kooRk./.....kooOk../....kooOk.../...kooOk..../..kpoOk...../.kppPk....../.kkPk......./kkk........./............',
+    'carta': '..kkkkkkk.../.kvvvvvvvk../.kvVvvvVvk../.kvvVvVvvk../.kvvvVvvvk../.kvvVoVvvk../.kvvvVvvvk../.kvvVvVvvk../.kvVvvvVvk../.kvvvvvvvk../..kkkkkkk.../............',
+    'libri': '............/.kk.kk....../kbkkrkk...../kbkkrkkkk.../kbBkrRkgkk../kbBkrRkgGkk./kbBkrRkgGkGk/kbBkrRkgGkGk/kbBkrRkgGkGk/kbBkrRkgGkGk/kkkkkkkkkkkk/............',
+    'mano': '....k.k...../...kpkpkk.../...kpkpkpk../...kpkpkpk../.k.kpkpkpk../kpkkppppppk./kppkppppppk./.kpppppppPk./..kppppppPk./..kpppppPk../...kPPPPk.../....kkkk....',
+    'dischetto': 'kkkkkkkkkkk./kbBwwwwwbBk./kbBwwwSwbBk./kbBwwwSwbBkk/kbbbbbbbbbbk/kbbbbbbbbbbk/kbwwwwwwwwbk/kbwSSSSSSwbk/kbwwwwwwwwbk/kbwSSSSSSwbk/kbwwwwwwwwbk/kkkkkkkkkkkk',
+    'porta': '...kkkkkk.../..kmmmmmMk../.kmMmmmMmMk./.kmMmmmMmMk./.kmMmmmMmMk./.kmMmmmMmMk./.kmMmmoMmMk./.kmMmmmMmMk./.kmMmmmMmMk./.kmMmmmMmMk./kkkkkkkkkkkk/............',
+    'scintille': '....k......./...kyk....../...kyk...k../.kkyyykk.kyk/kyyyoyyyk.k./.kkyyykk..../...kyk..k.../...kyk.kyk../....k.kyoyk./........kyk./.........k../............',
+    'moneta': '............/...kkkkkk.../..kyooooOk../.kyookkooOk./.kyokOOkoOk./.kyoookkoOk./.kyokOOkoOk./.kyookkooOk./..kOooooOk../...kkkkkk.../............/............',
+    'pozione': '....kkkk..../....kmmk..../....kwsk..../...kwwssk.../..kwwwwssk../.kwgggggGsk./.kggwgggGGk./.kgggggggGk./.kgggggggGk./..kGGGGGGk../...kkkkkk.../............',
+    'temporale': '...kkkk...../..kssssk.k../.kssssssksk./kssssssssssk/kSSSSSSSSSSk/.kkkkokkkkk./....koo...../...koo....../...kooo...../.....oo...../.....o....../............',
+    'teschio': '...kkkkkk.../..kwwwwwsk../.kwwwwwwwsk./.kwkkwwkksk./.kwkkwwkksk./.kwwwkkwwsk./..kwwwwwsk../...kwkwsk.../...kwkwsk.../....kkkk..../............/............',
+    'penna': '..........kk/.........kwk/........kwsk/.......kwsk./......kwsk../.....kwsk.../....kwsk..../...kwSk...../..kSSk....../..kkk......./.kk........./k...........',
+    'ciak': 'kkkkkkkkkkk./kwkkwkkwkkk./kkwkkwkkwk../kkkkkkkkkkkk/kSSSSSSSSSSk/kSwwwwwwwwSk/kSwSSSSSSwSk/kSwwwwwwwwSk/kSwSSSSwwwSk/kSSSSSSSSSSk/kkkkkkkkkkkk/............',
+    'fotocamera': '............/...kkkk...../.kkkSSkkkkk./kSSSSSSSSrSk/kSSSkkkkSSSk/kSSkbbBBkSSk/kSSkbwbBkSSk/kSSkbbBBkSSk/kSSSkkkkSSSk/kSSSSSSSSSSk/.kkkkkkkkkk./............',
+    'libro': '............/.kkkk..kkkk./kppppkkppppk/kpPPpkkpPPpk/kppppkkppppk/kpPPpkkpPPpk/kppppkkppppk/kpPPpkkpPPpk/kppppkkppppk/krrrrkkrrrrk/.kkkkkkkkkk./............',
+    'piccone': '..kkkkkkk.../.kssssssSk../kSk..kmk.kSk/k....kmk..k./.....kmk..../.....kmk..../.....kmk..../.....kmk..../.....kMk..../.....kMk..../......k...../............',
+    'festa': '..r......b../.......g..../...o.......r/..........k./..b.....kko./......kkoo../....kkrook../...krrook.../..krrook..g./.krrook...../kkkkk...o.../............',
+    'osso': '.kk.....kk../kwwk...kwwk./kwwwk.kwwwk./.kwwwkwwsk../..kwwwwsk.../...kwwsk..../...kwwwsk.../..kwwskwsk../.kwwsk.kwsk./kwwsk...kssk/.kk.....kk../............',
+    'patto': '.kkkkkkkk.../kPpppppppk../kPkkkkkkpPk./.kppppppppk./.kpPPPPPppk./.kppppppppk./.kpPPPPkkkk./.kpppkrrrrk./.kpPkrrRrrRk/..kkkrrrrRk./.....kRRRk../......kkk...',
+    'giro': '...kkkkk..../..kgggggk.k./.kgk...kgkgk/kgk.....kggk/kgk....kgggk/kgk....kkkkk/kkkkk....kgk/kgggk....kgk/kggk.....kgk/kgkgk...kgk./.k.kgggggk../....kkkkk...',
+    'microfono': '....kkkk..../...kssSSk.../...ksSSSk.../...ksSSSk.../...ksSSSk.../.k.ksSSSk.k./.k.kSSSSk.k./..k.kkkk.k../...kkSSkk.../.....kk...../...kkkkkk.../............',
+    'luna': '....kkkk..../..kkyyook.../.kyyook...../.kyook....../kyyok......./kyook......./kyook......./kyyok......./.kyook....k./.kyyookkkok./..kkyyoook../....kkkk....',
+    'puzzle': '....kk....../...kggk...../.kkkggkkkk../.kgggggggk../.kggggggGkk./kkggggggGggk/kgggggggGggk/kkggggggGkk./.kggggggGk../.kGGGGGGGk../.kkkkkkkkk../............',
+    'diavolo': '.k........k./krk......krk/krrkkkkkkrrk/.krrrrrrrrk./krrrrrrrrrRk/krkkrrrkkrRk/krrkyrrkyrRk/krrrrrrrrrRk/.krkkkkkkrk./..krrrrrRk../...kkkkkk.../............',
+    'attenzione': '.....kk...../....kook..../....kook..../...koOOok.../...kokkok.../..kookkook../..kookkook../.koookkoook./.kooooooook./koooookoooOk/kOOOOOOOOOOk/.kkkkkkkkkk.',
+    'pergamena': '.kkkkkkkk.../kPpppppppk../kPkkkkkkpPk./.kppppppppk./.kpPPPPPppk./.kppppppppk./.kpPPPPPPpk./.kppppppppk./.kpPPPPppPk./..kkkkkkkPpk/..kPpppppppk/...kkkkkkkk.',
+    'bilancia': '.....kk...../.kkkkookkkk./.k...ko...k./kok..ko..kok/kok..ko..kok/kook.ko.kook/kOOk.ko.kOOk/.kk..ko..kk./.....ko...../...kkooOk.../..kOOOOOOk../..kkkkkkkk..',
+    'tavolozza': '....kkkkk.../..kkpppppkk./.kpprppbppPk/kppppppppPPk/kpgppkkpppPk/kpppk..kppPk/kpoppkkpPPk./.kppppppPk../..kkpppPk.../....kkkk..../............/............',
+    'lente': '..kkkk....../.kbwwbk...../kbwbbbBk..../kwbbbbBk..../kbbbbbBk..../kbbbbBBk..../.kBBBBkk..../..kkkkkMk.../......kMmk../.......kMmk./........kMk./.........k..',
+    'nav-scheda': '....kkkk..../...kppppk.../...kpkpkk.../...kppppk.../....kPPk..../..kkbbbbkk../.kbbbbbbbBk./.kbkbbbbkBk./.kbkbbbbkBk./.kpkBBBBkpk./..k.kkkk.k../............',
+    'nav-altro': '............/............/............/............/.kk..kk..kk./koOkkoOkkoOk/kOOkkOOkkOOk/.kk..kk..kk./............/............/............/............'
+  };
+  const EMOJI = { '⚔': 'spade', '🏆': 'coppa', '🗺': 'mappa', '🎲': 'dado', '📌': 'puntina', '🔔': 'campana', '📅': 'calendario', '🔐': 'lucchetto', '📰': 'giornale', '🗳': 'urna', '🧭': 'bussola', '📏': 'righello', '✏': 'matita', '🂠': 'carta', '🃏': 'carta', '📚': 'libri', '✋': 'mano', '💾': 'dischetto', '🚪': 'porta', '✨': 'scintille', '🪙': 'moneta', '🧪': 'pozione', '⛈': 'temporale', '💀': 'teschio', '✍': 'penna', '✒': 'penna', '🎬': 'ciak', '📷': 'fotocamera', '📖': 'libro', '⛏': 'piccone', '🎉': 'festa', '🦴': 'osso', '🤝': 'patto', '🔁': 'giro', '🎙': 'microfono', '🌙': 'luna', '🧩': 'puzzle', '😈': 'diavolo', '⚠': 'attenzione', '📜': 'pergamena', '⚖': 'bilancia', '🎨': 'tavolozza', '🔍': 'lente' };
+  const NAV = { vMappa: 'mappa', vScheda: 'nav-scheda', vDadi: 'dado', vDiario: 'libro', vAltro: 'nav-altro' };
+  const uri = {};
+  const src = n => uri[n] || (uri[n] = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" shape-rendering="crispEdges">${GRIGLIE[n].split('/').map((r, y) => [...r].map((c, x) => PAL[c] ? `<rect x="${x}" y="${y}" width="1" height="1" fill="${PAL[c]}"/>` : '').join('')).join('')}</svg>`));
+  const RE = new RegExp('^(\\s*)(' + Object.keys(EMOJI).join('|') + ')\\uFE0F?\\s?', 'u');
+  const DOVE = 'button, summary, .chip, h3, h4, .carta-mini > strong, label.bottone';
+  const gs = () => document.body.classList.contains('gs');
+  function converti(radice) {
+    if (!gs() || !radice.querySelectorAll) return;
+    for (const el of [...(radice.matches(DOVE) ? [radice] : []), ...radice.querySelectorAll(DOVE)]) {
+      let t = el.firstChild; while (t && t.nodeType === 3 && !t.textContent.trim()) t = t.nextSibling;
+      const m = t?.nodeType === 3 && t.textContent.match(RE); if (!m) continue;
+      const i = document.createElement('img'); i.className = 'pi'; i.src = src(EMOJI[m[2]]); i.alt = ''; i.setAttribute('aria-hidden', 'true'); i.dataset.emoji = m[2];
+      t.textContent = m[1] + t.textContent.slice(m[0].length); el.insertBefore(i, t);
+    }
+  }
+  function ripristina() { for (const i of document.querySelectorAll('img.pi')) i.replaceWith(document.createTextNode(i.dataset.emoji + ' ')); }
+  let attesa = null; const nuovi = new Set();
+  new MutationObserver(l => {
+    if (!gs()) return;
+    for (const r of l) for (const n of r.addedNodes) nuovi.add(n.nodeType === 1 ? n : n.parentElement);
+    attesa = attesa || requestAnimationFrame(() => { attesa = null; const q = [...nuovi]; nuovi.clear(); for (const n of q) if (n?.isConnected) converti(n.closest?.(DOVE) || n); });
+  }).observe(document.body, { childList: true, subtree: true });
+  for (const b of document.querySelectorAll('.nav button[data-v]')) if (NAV[b.dataset.v]) { const i = document.createElement('img'); i.className = 'pi-nav'; i.src = src(NAV[b.dataset.v]); i.alt = ''; i.setAttribute('aria-hidden', 'true'); b.prepend(i); }
+  return { applica() { if (gs()) converti(document.body); else ripristina(); }, src, emoji: EMOJI };
+})();
 
 /* ============ COMANDI DELLE OPZIONI ============ */
 (() => {

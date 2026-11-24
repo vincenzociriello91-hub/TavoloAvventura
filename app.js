@@ -1,6 +1,16 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.6.4';
+const VERSION = '4.7.0';
 const CHANGELOG = [
+  { v: '4.7.0', data: '24/11/2026', voci: [
+    'Icona nuova in pixel art: un d20 dorato con il 20 ben leggibile. Su Android si adatta al cerchio o alla goccia del telefono e c\'è anche la versione a un colore per le icone a tema.',
+    'L\'icona della scheda del browser cambia con le stagioni: d\'inverno, ad Halloween e a Carnevale.',
+    'Scorciatoie: tenendo premuta l\'icona dell\'app compaiono «Riprendi la campagna», «Tira un d20» e «Sfida della settimana».',
+    'Installando l\'app si vedono anche le foto del gioco; all\'apertura c\'è l\'icona mentre si rientra al tavolo.',
+    'Icone in pixel al posto delle faccine su pulsanti e titoli (uguali su ogni telefono), anche nella barra in basso.',
+    'Animazioni: la carta pescata si gira, le monete cadono quando il tesoro comune cresce, la mappa del tesoro e il giornale si srotolano.',
+    'Cornici nuove: pergamena per la mappa del tesoro, pietra per i rompicapi, stendardo per il torneo, acciaio per il duello.',
+    'Tema chiaro «pergamena» per giocare di giorno (Altro → Gioco → Colori).'
+  ] },
   { v: '4.6.4', data: '24/11/2026', voci: [
     'Apertura più pulita: chi rientra nella sua campagna non vede più passare la schermata d\'ingresso, ma solo «Rientro al tavolo…» e poi il tavolo.',
     'Dopo un aggiornamento l\'app non si ricarica più da sola appena aperta (si vedeva tutto due volte).'

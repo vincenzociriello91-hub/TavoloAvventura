@@ -10,8 +10,117 @@
   "background_color": "#14110f",
   "theme_color": "#14110f",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icone/maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icone/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icone/monocromatica-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "monochrome"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "id": "./",
+  "shortcuts": [
+    {
+      "name": "Riprendi la campagna",
+      "short_name": "Riprendi",
+      "url": "./?azione=riprendi",
+      "icons": [
+        {
+          "src": "icone/scorciatoia-riprendi.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Tira un d20",
+      "short_name": "d20",
+      "url": "./?azione=d20",
+      "icons": [
+        {
+          "src": "icone/scorciatoia-d20.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Sfida della settimana",
+      "short_name": "Sfida",
+      "url": "./?azione=sfida",
+      "icons": [
+        {
+          "src": "icone/scorciatoia-sfida.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "icone/foto-mappa.jpg",
+      "sizes": "824x1830",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "La mappa con il master che racconta"
+    },
+    {
+      "src": "icone/foto-scheda.jpg",
+      "sizes": "824x1830",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "La scheda del personaggio"
+    },
+    {
+      "src": "icone/foto-avventure.jpg",
+      "sizes": "824x1830",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Mappe del tesoro, rompicapi e duelli"
+    },
+    {
+      "src": "icone/foto-dadi.jpg",
+      "sizes": "824x1830",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "I dadi del tavolo"
+    },
+    {
+      "src": "icone/foto-largo.jpg",
+      "sizes": "1280x800",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "Il tavolo sul computer"
+    }
   ]
 }

@@ -529,8 +529,8 @@ function htmlCaccia(gioca) {
   const c = S.st?.caccia, pg = mioPg(), mappa = gioca && pg && (pg.equip || []).some(e => /mappa di un tesoro/i.test(e.nome)) && (!c || c.trovato);
   if (!c) return mappa ? '<div class="carta-mini caccia"><strong>🗺️ Hai una mappa del tesoro</strong><p class="piccolo">Aprila: il master nasconde il tesoro e voi seguite gli indizi.</p><button type="button" class="pieno" data-caccia="nuova">Apri la mappa</button></div>' : '';
   if (c.trovato) return `<details class="carta-mini caccia"><summary>🗺️ ${esc(c.titolo)}: tesoro trovato a ${esc(c.luogo)}</summary><p class="piccolo">${c.oro} monete d'oro${c.oggetto ? ' e ' + esc(c.oggetto) : ''} nel tesoro comune.</p>${mappa ? '<button type="button" data-caccia="nuova">Apri la tua nuova mappa</button>' : ''}</details>`;
-  const visti = c.scoperti || 1, tot = c.totale || c.indizi.length;
-  return `<div class="carta-mini caccia"><strong>🗺️ ${esc(c.titolo)}</strong>
+  const visti = c.scoperti || 1, tot = c.totale || c.indizi.length, nuova = S.cacciaVista !== c.t; S.cacciaVista = c.t; // la mappa si srotola la prima volta che compare
+  return `<div class="carta-mini caccia${nuova ? ' srotola' : ''}"><strong>🗺️ ${esc(c.titolo)}</strong>
     <ol class="indizi">${Array.from({ length: tot }, (_, i) => i < visti ? `<li>${esc(c.indizi[i])}</li>` : `<li class="nascosto">❓ Indizio da decifrare${capo() && c.indizi[i] ? ` <span class="piccolo">(lo vedi solo tu: ${esc(c.indizi[i])})</span>` : ''}</li>`).join('')}</ol>
     ${capo() && c.luogo ? `<p class="piccolo">Il tesoro è a: <strong>${esc(c.luogo)}</strong> (lo vedi solo tu)</p>` : ''}
     ${gioca ? `<div class="riga"><button type="button" data-caccia="decifra" ${visti >= tot ? 'disabled' : ''}>🔍 Decifra un indizio</button><button type="button" class="pieno" data-caccia="scava">⛏️ Scava qui</button></div><p class="piccolo">Decifrare è una prova di Intelligenza (+2 con la biblioteca della casa). Quando avete capito il posto, andateci e scavate.</p>` : ''}${c.scavi ? `<p class="piccolo">Buche scavate a vuoto: ${c.scavi}</p>` : ''}</div>`;
@@ -702,7 +702,8 @@ function renderGiornale() {
   const box = $('#giornale'); if (!box || !S.st) return;
   const l = S.st.giornali || [], g = l.find(x => x.numero === S.giornaleN) || l.at(-1);
   if (!g) { box.innerHTML = capo() ? '<div class="carta-mini"><strong>📰 Il giornale del regno</strong><p class="piccolo">Esce da solo a ogni nuova serata, con le vostre imprese viste dalla gente.</p><button type="button" data-stampa-giornale>Stampa il primo numero</button></div>' : ''; return; }
-  box.innerHTML = `<article class="giornale"><header><h3>${esc(g.testata)}</h3><p class="piccolo">Numero ${g.numero} · serata ${g.sessione}</p></header>${g.articoli.map(a => `<section><h4>${esc(a.titolo)}</h4><p>${esc(a.testo)}</p></section>`).join('')}${g.pettegolezzo ? `<p class="pettegolezzo"><strong>Si mormora:</strong> ${esc(g.pettegolezzo)}</p>` : ''}
+  const nuovo = S.giornaleNuovo; S.giornaleNuovo = false;
+  box.innerHTML = `<article class="giornale${nuovo ? ' srotola' : ''}"><header><h3>${esc(g.testata)}</h3><p class="piccolo">Numero ${g.numero} · serata ${g.sessione}</p></header>${g.articoli.map(a => `<section><h4>${esc(a.titolo)}</h4><p>${esc(a.testo)}</p></section>`).join('')}${g.pettegolezzo ? `<p class="pettegolezzo"><strong>Si mormora:</strong> ${esc(g.pettegolezzo)}</p>` : ''}
     <div class="riga">${l.length > 1 ? `<select data-numero aria-label="Numero del giornale">${[...l].reverse().map(x => `<option value="${x.numero}" ${x.numero === g.numero ? 'selected' : ''}>Numero ${x.numero}</option>`).join('')}</select>` : ''}${capo() ? '<button type="button" data-stampa-giornale>Stampa un numero nuovo</button>' : ''}</div></article>`;
 }
 $('#giornale').addEventListener('click', e => { if (e.target.closest('[data-stampa-giornale]')) { invia({ t: 'giornale_stampa' }); Report.log('giornale', {}); } });
@@ -789,3 +790,17 @@ $('#optNotte').value = OPZ.notte || 'no';
 $('#optNotte').addEventListener('change', e => { OPZ.notte = e.target.value; scrivi('ta_opzioni', OPZ); applicaNotte(); Report.log('notte', { notte: OPZ.notte }); });
 setInterval(() => { if (OPZ.notte === 'auto') applicaNotte(); }, 60000);
 applicaNotte();
+
+// colori: scuri (la notte d'avventura) o chiari (la pergamena)
+$('#optTema').value = OPZ.tema || 'scuro';
+$('#optTema').addEventListener('change', e => { OPZ.tema = e.target.value; scrivi('ta_opzioni', OPZ); applicaStile(); if (S.st) { renderTutto(); Mappa.adatta(); } Report.log('tema-colori', { tema: OPZ.tema }); });
+
+// monete che cadono quando il tesoro comune cresce
+function piovonoMonete(n = 8) {
+  if (menoMoto()) return;
+  for (let i = 0; i < Math.min(14, n); i++) {
+    const m = document.createElement('img'); m.className = 'moneta-cade'; m.src = IconePixel.src('moneta'); m.alt = '';
+    m.style.left = `${10 + Math.random() * 80}vw`; m.style.animationDelay = `${i * 70}ms`;
+    document.body.append(m); setTimeout(() => m.remove(), 1600 + i * 70);
+  }
+}
