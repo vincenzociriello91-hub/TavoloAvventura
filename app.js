@@ -1,6 +1,10 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.8.4';
+const VERSION = '4.8.5';
 const CHANGELOG = [
+  { v: '4.8.5', data: '24/11/2026', voci: [
+    'Master più pronto quando l\'IA gratuita è sovraccarica: i modelli che non rispondono si saltano per un po\' invece di aspettarli a ogni turno',
+    'Partita bot: alla fine dice quante volte il master ha risposto davvero e quante con una frase di riserva'
+  ] },
   { v: '4.8.4', data: '24/11/2026', voci: [
     'Partita bot: se il telefono va in sottofondo o si spegne lo schermo, i bot rientrano da soli e la partita riprende dal punto dove era',
     'Durante la partita bot lo schermo resta acceso; le pause finiscono nel rapporto'
