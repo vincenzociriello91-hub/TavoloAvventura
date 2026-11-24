@@ -29,6 +29,8 @@ const BotProva = (() => {
     c.aspetta = (f, ms = 30000) => new Promise(res => { const a = { f, res }; c.attese.push(a); setTimeout(() => { const i = c.attese.indexOf(a); if (i >= 0) { c.attese.splice(i, 1); res(null); } }, ms); });
     c.chiedi = (o, tipo, ms) => { const p = c.aspetta(m => m.t === tipo, ms); c.manda(o); return p; };
     c.pg = () => c.stato?.pg?.[c.io];
+    // rientra con la chiave se la connessione è caduta o resta appesa in chiusura (succede col telefono in sottofondo)
+    c.riapri = () => { if (c.chiudendo || !c.chiave || !attivo || c.ws?.readyState <= 1) return; try { c.ws.close(); } catch {} c.apri({ t: 'ciao', membro: c.io, chiave: c.chiave }).then(ok => log('partita-rientro', { bot: nome, ok })); };
     c.salva = nota => c.manda({ t: 'scheda', pg: c.pg(), nota });
     c.apri = primo => new Promise(res => {
       c.ws = new WebSocket(url);
@@ -47,6 +49,8 @@ const BotProva = (() => {
         for (const a of [...c.attese]) if (a.f(m)) { c.attese.splice(c.attese.indexOf(a), 1); a.res(m); }
       };
       c.ws.onerror = () => res(false);
+      // telefono in tasca o app in sottofondo: Android chiude le connessioni dei bot; si rientra da soli con la chiave, come fa l'app
+      const mio = c.ws; c.ws.onclose = () => { if (mio === c.ws) setTimeout(c.riapri, 1500); };
     });
     return c;
   }
@@ -56,8 +60,10 @@ const BotProva = (() => {
     attivo = true;
     const { log, onPasso = () => {}, onErr = () => {} } = opz;
     const t0 = Date.now(), esiti = [], bot = [];
+    // prima di ogni passo i quattro bot devono essere collegati (dopo una pausa del telefono rientrano da soli)
+    const collegati = async () => { for (let i = 0; i < 60 && !bot.every(c => !c.io || c.ws?.readyState === 1); i++) { if (i % 10 === 0) bot.forEach(c => c.riapri()); await dorme(500); } };
     const prova = async (nome, fn) => {
-      onPasso(nome);
+      await collegati(); onPasso(nome);
       const impara = det => bot[0]?.manda({ t: 'segnala_problema', testo: `Partita bot, passo non riuscito: ${nome}${det ? ' (' + det + ')' : ''}` }); // va nel manuale del master
       try { const r = await fn(); const ok = r !== false && r != null; esiti.push({ ok, nome }); log('partita-passo', { passo: nome, ok, dettagli: typeof r === 'object' ? r : undefined }); if (!ok) { onErr(nome); impara(); } }
       catch (e) { esiti.push({ ok: false, nome }); log('partita-passo', { passo: nome, ok: false, errore: e.message }); onErr(`${nome}: ${e.message}`); impara(String(e.message).slice(0, 120)); }
@@ -70,6 +76,10 @@ const BotProva = (() => {
     const nomi = mescola(NOMI).slice(0, 4), regole = Math.random() < 0.7 ? '5e' : '3.5';
     const [A, B, C, D] = ['A', 'B', 'C', 'D'].map(n => cliente(url, n, log));
     bot.push(A, B, C, D);
+    // schermo acceso per tutta la partita; se l'app va in sottofondo lo scrive nel rapporto
+    let schermo = null; const tieniAcceso = async () => { try { schermo = await navigator.wakeLock?.request('screen'); } catch {} };
+    const pausa = () => { log('partita-pausa', { sottofondo: document.hidden }); if (!document.hidden) tieniAcceso(); };
+    await tieniAcceso(); document.addEventListener('visibilitychange', pausa);
     try {
       await prova('Campagna nuova con il master AI', async () => {
         if (!await A.apri({ t: 'crea', nome: `Partita bot ${new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`, regole, ambientazione: caso(AMBIENTI), masterTipo: 'ai', ruolo: 'giocatore', mioNome: 'Bot ' + nomi[0], prova: true })) throw new Error('il server non crea la campagna');
@@ -223,8 +233,8 @@ const BotProva = (() => {
       await prova('Domanda fuori dal gioco al master', async () => { const p = narra(D); D.manda({ t: 'parlato', testo: 'Scusa master, quanto manca alla fine della serata?', alMaster: true }); return p; });
       await prova('Un giocatore perde la connessione e rientra', async () => {
         if (!B.chiave) return { nota: 'nessuna chiave per rientrare' };
-        const pfPrima = B.pg()?.pf; try { B.ws.close(); } catch {} await dorme(2500);
-        if (!await B.apri({ t: 'ciao', membro: B.io, chiave: B.chiave })) return false;
+        const pfPrima = B.pg()?.pf, torna = B.aspetta(m => m.t === 'benvenuto', 15000); try { B.ws.close(); } catch {} await collegati();
+        if (!await torna) throw new Error(`non rientra (stato ${B.ws?.readyState}, chiave ${!!B.chiave})`); // rientra da solo, come dopo una pausa del telefono
         return B.pg() && B.pg().pf === pfPrima ? { pf: pfPrima } : false;
       });
 
@@ -232,7 +242,8 @@ const BotProva = (() => {
     } catch (e) { onErr(e.message); log('partita-errore', { msg: e.message }); }
 
     // i bot escono; la campagna di prova resta solo sul server, mai tra le campagne di chi l'ha avviata
-    for (const c of [D, C, B, A]) { c.manda({ t: 'esci' }); await dorme(300); try { c.ws?.close(); } catch {} }
+    document.removeEventListener('visibilitychange', pausa); try { schermo?.release(); } catch {}
+    for (const c of [D, C, B, A]) { c.chiudendo = true; c.manda({ t: 'esci' }); await dorme(300); try { c.ws?.close(); } catch {} }
     attivo = false;
     const r = { codice, durataS: Math.round((Date.now() - t0) / 1000), ok: esiti.filter(e => e.ok).length, falliti: esiti.filter(e => !e.ok).map(e => e.nome) };
     log('partita-fine', r);
