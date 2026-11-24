@@ -4,10 +4,13 @@ const menoMoto = () => OPZ.menoMoto ?? matchMedia('(prefers-reduced-motion: redu
 const velocita = () => Math.max(0.5, Math.min(2, Number(OPZ.velocita) || 1));
 const stileGioco = () => OPZ.stileGioco !== false;
 function vibra(p) { if (OPZ.vibrazione !== false && !menoMoto() && navigator.vibrate) { try { navigator.vibrate(p); } catch {} } }
+// numeri che volano sulla mappa: con i colori per daltonici le cure sono azzurre e i danni arancio
+const coloreBene = () => OPZ.daltonici ? '#7fd4ff' : '#7dff8a', coloreMale = () => OPZ.daltonici ? '#ffab4a' : '#ff6a5a';
 function applicaStile() {
   document.body.classList.toggle('gs', stileGioco());
   document.body.classList.toggle('meno-moto', menoMoto());
   document.body.classList.toggle('contrasto', !!OPZ.contrasto);
+  document.body.classList.toggle('daltonici', !!OPZ.daltonici);
   Mappa.opzioni?.({ menoMoto: menoMoto(), velocita: velocita(), pixel: stileGioco(), simboli: true });
   Suoni.volMusica = OPZ.volMusica ?? 1; Suoni.volEffetti = OPZ.volEffetti ?? 1; Narratore.volume = OPZ.volVoce ?? 1;
   FondoVivo.aggiorna();
@@ -263,7 +266,7 @@ document.addEventListener('click', e => {
 
 /* ============ COMANDI DELLE OPZIONI ============ */
 (() => {
-  const spunte = { optStileGioco: ['stileGioco', true], optContrasto: ['contrasto', false], optMenoMoto: ['menoMoto', menoMoto()], optVibra: ['vibrazione', true] };
+  const spunte = { optStileGioco: ['stileGioco', true], optContrasto: ['contrasto', false], optMenoMoto: ['menoMoto', menoMoto()], optVibra: ['vibrazione', true], optDaltonici: ['daltonici', false], optLeggiTasti: ['leggiTasti', false] };
   for (const [id, [chiave, base]] of Object.entries(spunte)) {
     const el = $('#' + id); if (!el) continue;
     el.checked = OPZ[chiave] ?? base;
@@ -277,3 +280,12 @@ document.addEventListener('click', e => {
   }
 })();
 applicaStile();
+
+/* ============ LETTURA A VOCE DEI PULSANTI ============ */
+// per chi vede poco: ogni pulsante, scheda o campo toccato si sente a voce (il nome del pulsante, o la sua descrizione)
+(() => {
+  const nomeDi = el => (el.getAttribute('aria-label') || el.title || (el.labels?.[0]?.textContent) || el.placeholder || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const dici = t => { if (!t || !('speechSynthesis' in window)) return; try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'it-IT'; u.rate = 1.1; speechSynthesis.speak(u); } catch { /* niente voce su questo telefono */ } };
+  document.addEventListener('click', e => { if (!OPZ.leggiTasti) return; const el = e.target.closest('button, summary, [role="button"], a, label.spunta, select'); if (el) dici(nomeDi(el)); }, true);
+  document.addEventListener('focusin', e => { if (OPZ.leggiTasti && e.target.matches('input:not([type=checkbox]), textarea')) dici(nomeDi(e.target)); });
+})();

@@ -1,6 +1,16 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.3.3';
+const VERSION = '4.4.0';
 const CHANGELOG = [
+  { v: '4.4.0', data: '24/11/2026', voci: [
+    'Salita di livello guidata: dopo «Sali di livello» l\'app spiega cosa cambia e ti guida nelle scelte, una alla volta (caratteristiche consigliate per la classe, incantesimi nuovi adatti, talento nella 3.5).',
+    'Diario del personaggio: nella scheda il master scrive una pagina in prima persona, con la voce del tuo personaggio, su quello che è successo. Si può condividere.',
+    'Viaggi a tappe (🧭 Viaggio, accanto a Vai): per i luoghi lontani passano i giorni, la sera vi accampate e lungo la strada può capitare un agguato. A cavallo si fa prima.',
+    'Scheda stampabile: «Stampa o salva in PDF» apre la scheda impaginata come quella di carta.',
+    'Nelle puntate precedenti, con le immagini: le illustrazioni della campagna scorrono a tutto schermo mentre il master racconta.',
+    'Mostri e oggetti inventati: chi guida crea un mostro (con il suo disegno) o un oggetto magico, lo mette in scena o lo dà a un personaggio, e il master AI lo usa nella storia.',
+    'Accessibilità: colori per daltonici e lettura ad alta voce dei pulsanti che tocchi (in Altro, Aspetto e comodità).',
+    'Il vostro mese: in Altro, il riepilogo mensile della campagna con numeri, trofei, serate e luoghi scoperti, da condividere come immagine.'
+  ] },
   { v: '4.3.3', data: '24/11/2026', voci: [
     'Entrando in un luogo più largo dello schermo, la mappa parte dalla tua figura (per gli spettatori dal primo personaggio) invece che dall\'angolo in alto a sinistra.'
   ] },

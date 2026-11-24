@@ -694,3 +694,44 @@ body.gs .carta-coll strong { font-family: var(--pixel); font-size: 1.1rem; font-
 .ritratto.illustrato { cursor: pointer; }
 .ritratto.illustrato img { width: 120px; height: 150px; object-fit: cover; border-radius: 8px; display: block; }
 body.gs .ritratto.illustrato img { border-radius: 0; }
+
+/* 4.4 — diario del personaggio */
+.diario-pg { margin: 10px 0; }
+.pagina-pg { margin: 10px 0; padding: 10px 12px; background: #f4ead2; color: #2a2016; border-radius: 6px; font-family: Georgia, serif; font-style: italic; line-height: 1.5; }
+.pagina-pg .piccolo { color: #6b5a48; font-style: normal; }
+.pagina-pg p { margin: 6px 0; }
+.pagina-pg .testo-btn { color: #7a4a10; }
+body.gs .pagina-pg { border-radius: 0; }
+
+/* 4.4 — viaggi a tappe */
+.viaggio-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-color: var(--oro); }
+.viaggio-bar span { flex: 1 1 180px; }
+
+/* 4.4 — film delle puntate precedenti */
+.film { position: fixed; inset: 0; z-index: 80; background: #000; overflow: hidden; }
+.film img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1.4s ease; transform: scale(1.04); }
+.film img.su { opacity: 1; animation: kenBurns linear forwards; }
+@keyframes kenBurns { from { transform: scale(1.04) translate(0, 0); } to { transform: scale(1.16) translate(-2%, -2%); } }
+.film-titolo { position: absolute; top: 18px; left: 0; right: 0; text-align: center; color: #f0c46a; font: 700 1.4rem Cinzel, Georgia, serif; text-shadow: 0 2px 8px #000; }
+.film-sotto { position: absolute; left: 6%; right: 6%; bottom: 7%; margin: 0; text-align: center; color: #fff; font-size: 1.15rem; line-height: 1.45; text-shadow: 0 2px 6px #000, 0 0 18px #000; background: rgba(0, 0, 0, .35); padding: 10px 14px; border-radius: 10px; }
+.film-chiudi { position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; background: rgba(0, 0, 0, .5); color: #fff; border: 1px solid #fff4; border-radius: 50%; }
+body.gs .film-titolo { font-family: var(--pixel); font-weight: 400; font-size: 1.9rem; }
+body.meno-moto .film img.su { animation: none; }
+/* 4.4 — mostri e oggetti inventati */
+.hb-voce { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--bordo); }
+.hb-img { width: 64px; height: 64px; object-fit: contain; background: #120f0c; border-radius: 6px; flex: none; }
+.hb-img.pixel { image-rendering: pixelated; }
+#formMostroHb, #formOggettoHb { margin: 8px 0; }
+
+/* 4.4 — colori per daltonici: niente rosso contro verde, e la barra della vita bassa ha anche le righe */
+body.daltonici { --verde: #3d8fe0; --rosso: #f08a24; }
+body.daltonici .barra-pf div.basso { background: repeating-linear-gradient(45deg, var(--rosso) 0 6px, #8a4a00 6px 10px); }
+body.daltonici .barra-pf div.meta { background: #e8c547; }
+
+/* 4.4 — il vostro mese */
+.mese-numeri { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin: 8px 0; }
+.mese-numeri div { background: var(--superficie2); border: 1px solid var(--bordo); border-radius: 8px; padding: 6px; text-align: center; }
+.mese-numeri b { display: block; font-size: 1.1rem; } .mese-numeri span { font-size: .75rem; color: var(--testo2); }
+.mese-img { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+.mese-img img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; }
+body.gs .mese-numeri div, body.gs .mese-img img { border-radius: 0; }

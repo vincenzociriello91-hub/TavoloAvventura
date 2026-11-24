@@ -105,7 +105,13 @@ const T35 = {
 const CLASSI35 = { Mago: 'mago', Chierico: 'mago', Druido: 'mago', Stregone: 'stregone', Bardo: 'bardo', Paladino: 'mezzo', Ranger: 'mezzo' };
 const RARITA = ['comune', 'non comune', 'raro', 'molto raro', 'leggendario', 'artefatto'];
 const COLORI_RARITA = { comune: '#bcae96', 'non comune': '#57b47a', raro: '#5b8fd9', 'molto raro': '#a98be8', leggendario: '#e8b04b', artefatto: '#e2735f' };
-const INCANTESIMI_NOTI = { 'Luce': 0, 'Mano magica': 0, 'Prestidigitazione': 0, 'Fiotto acido': 0, 'Raggio di gelo': 0, 'Dardo incantato': 1, 'Scudo': 1, 'Cura ferite': 1, 'Parola guaritrice': 1, 'Sonno': 1, 'Charme su persone': 1, 'Benedizione': 1, 'Mani brucianti': 1, 'Individuazione del magico': 1, 'Invisibilità': 2, 'Passo velato': 2, 'Ristorare inferiore': 2, 'Ragnatela': 2, 'Palla di fuoco': 3, 'Fulmine': 3, 'Volare': 3, 'Controincantesimo': 3, 'Dissolvi magie': 3, 'Rianimare morti': 3, 'Porta dimensionale': 4, 'Muro di fuoco': 4, 'Cono di freddo': 5, 'Rianimare i morti': 5, 'Disintegrazione': 6, 'Teletrasporto': 7, 'Parola del potere stordire': 8, 'Desiderio': 9 };
+const INCANTESIMI_NOTI = { 'Luce': 0, 'Mano magica': 0, 'Prestidigitazione': 0, 'Fiotto acido': 0, 'Raggio di gelo': 0, 'Dardo incantato': 1, 'Scudo': 1, 'Cura ferite': 1, 'Parola guaritrice': 1, 'Sonno': 1, 'Charme su persone': 1, 'Benedizione': 1, 'Mani brucianti': 1, 'Individuazione del magico': 1, 'Invisibilità': 2, 'Passo velato': 2, 'Ristorare inferiore': 2, 'Ragnatela': 2, 'Palla di fuoco': 3, 'Fulmine': 3, 'Volare': 3, 'Controincantesimo': 3, 'Dissolvi magie': 3, 'Rianimare morti': 3, 'Porta dimensionale': 4, 'Muro di fuoco': 4, 'Cono di freddo': 5, 'Rianimare i morti': 5, 'Disintegrazione': 6, 'Teletrasporto': 7, 'Parola del potere stordire': 8, 'Desiderio': 9,
+  'Fiamma sacra': 0, 'Guida': 0, 'Randello incantato': 0, 'Intralciare': 1, 'Comando': 1, 'Scudo della fede': 1, 'Onda tonante': 1, 'Arma spirituale': 2, 'Blocca persone': 2, 'Luce diurna': 3, 'Chiamare il fulmine': 3, 'Spiriti guardiani': 3, 'Pelle di pietra': 4 };
+// a quale tradizione appartiene ogni incantesimo (a = arcana, d = divina, n = della natura): serve per proporre quelli giusti alla salita di livello
+const LISTE_INC = { 'Luce': 'adb', 'Mano magica': 'ab', 'Prestidigitazione': 'ab', 'Fiotto acido': 'a', 'Raggio di gelo': 'a', 'Dardo incantato': 'a', 'Scudo': 'a', 'Cura ferite': 'dnb', 'Parola guaritrice': 'dnb', 'Sonno': 'ab', 'Charme su persone': 'anb', 'Benedizione': 'd', 'Mani brucianti': 'a', 'Individuazione del magico': 'adnb', 'Invisibilità': 'ab', 'Passo velato': 'a', 'Ristorare inferiore': 'dnb', 'Ragnatela': 'a', 'Palla di fuoco': 'a', 'Fulmine': 'a', 'Volare': 'a', 'Controincantesimo': 'a', 'Dissolvi magie': 'adb', 'Rianimare morti': 'd', 'Porta dimensionale': 'ab', 'Muro di fuoco': 'an', 'Cono di freddo': 'a', 'Disintegrazione': 'a', 'Teletrasporto': 'ab', 'Parola del potere stordire': 'ab', 'Desiderio': 'a', 'Fiamma sacra': 'd', 'Guida': 'dn', 'Randello incantato': 'n', 'Intralciare': 'n', 'Comando': 'd', 'Scudo della fede': 'd', 'Onda tonante': 'anb', 'Arma spirituale': 'd', 'Blocca persone': 'adnb', 'Luce diurna': 'dn', 'Chiamare il fulmine': 'n', 'Spiriti guardiani': 'd', 'Pelle di pietra': 'an' };
+const TRADIZIONE = { Mago: 'a', Stregone: 'a', Warlock: 'a', Bardo: 'b', Chierico: 'd', Paladino: 'd', Druido: 'n', Ranger: 'n' };
+// talenti della 3.5 (OGL) con una riga che spiega a cosa servono
+const TALENTI_35 = [['Robustezza', '+3 punti ferita'], ['Iniziativa migliorata', '+4 all\'iniziativa: agisci prima'], ['Arma focalizzata', '+1 a colpire con la tua arma preferita'], ['Schivare', '+1 alla classe armatura contro un nemico'], ['Riflessi in combattimento', 'più attacchi di opportunità'], ['Tempra possente', '+2 ai tiri salvezza su Tempra'], ['Riflessi fulminei', '+2 ai tiri salvezza su Riflessi'], ['Volontà di ferro', '+2 ai tiri salvezza su Volontà'], ['Tiro ravvicinato', '+1 a colpire e ai danni a distanza entro 9 m'], ['Attacco poderoso', 'scambi precisione con danni'], ['Incantesimi in combattimento', '+4 per lanciare incantesimi in mischia'], ['Abilità focalizzata', '+3 a un\'abilità a scelta']];
 const ELMI = ['Elmo', 'Elmo d\'acciaio', 'Cappuccio', 'Cappello da mago', 'Corona'];
 const CONDIZIONI = ['accecato', 'affascinato', 'afferrato', 'assordato', 'avvelenato', 'incapacitato', 'invisibile', 'paralizzato', 'pietrificato', 'prono', 'spaventato', 'stordito', 'trattenuto', 'privo di sensi', 'esausto'];
 
@@ -281,6 +287,14 @@ const Regole = {
     this.ricalcola(pg);
     return { ok: true, msg: note.join(', ') };
   },
+  // incantesimi da proporre alla salita di livello: della tradizione della classe, del livello più alto che si può lanciare, non ancora conosciuti
+  suggerisciIncantesimi(pg, quanti = 4) {
+    const trad = TRADIZIONE[pg.classe]; if (!trad) return [];
+    const max = this.slotMax(pg), top = max.reduce((m, n, l) => (n ? l : m), 0), noti = new Set((pg.incantesimi || []).map(i => i.nome.toLowerCase()));
+    return Object.entries(INCANTESIMI_NOTI).filter(([n, l]) => (LISTE_INC[n] || '').includes(trad) && l <= top && !noti.has(n.toLowerCase()))
+      .sort((a, b) => b[1] - a[1]).slice(0, quanti).map(([nome, livello]) => ({ nome, livello }));
+  },
+  talentiDaScegliere(pg) { return pg.regole === '3.5' ? TALENTI_35.filter(([n]) => !(pg.talenti || []).includes(n)) : [['Lottatore', 'vantaggio quando afferri un nemico (al posto di +2 alle caratteristiche)']].filter(([n]) => !(pg.talenti || []).includes(n)); },
   // Aumenta una caratteristica: usa prima i punti guadagnati con i livelli
   aumentaCar(pg, k, delta) {
     if (!CAR.includes(k)) return null;
@@ -315,4 +329,4 @@ const Regole = {
   tira4d6() { const d = () => 1 + Math.floor(Math.random() * 6); const v = [d(), d(), d(), d()].sort((a, b) => a - b); return v[1] + v[2] + v[3]; },
   arrayStandard: [15, 14, 13, 12, 10, 8]
 };
-if (typeof module !== 'undefined') module.exports = { Regole, REGOLE, ARMATURE, SCUDI, ARMI, ELMI, CONDIZIONI, CAR, CAR_NOMI, CAR_SIGLE, mod, segno };
+if (typeof module !== 'undefined') module.exports = { TALENTI_35, Regole, REGOLE, ARMATURE, SCUDI, ARMI, ELMI, CONDIZIONI, CAR, CAR_NOMI, CAR_SIGLE, mod, segno };

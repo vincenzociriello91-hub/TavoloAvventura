@@ -82,6 +82,7 @@ function renderScheda() {
   <div class="carta">
     <details><summary>Aspetto del personaggio</summary>${puo ? formAspetto(pg.aspetto || {}, pg.razza) : ''}</details>
     ${cartaStoria(pg, puo)}
+    ${cartaDiarioPg(pg, puo)}
     ${(pg.diario || []).length ? `<details><summary>Il diario di ${esc(pg.nome)} (${pg.diario.length})</summary>${[...pg.diario].reverse().map(d => `<div class="pagina-diario"><span class="piccolo">Sessione ${d.sessione || '?'} · ${esc(d.titolo || '')}</span><p>${esc(d.testo)}</p></div>`).join('')}</details>` : ''}
     <label>Note<textarea id="pgNote" rows="3" maxlength="4000" ${puo ? '' : 'readonly'}>${esc(pg.note || '')}</textarea></label>
     <div class="riga"><button id="btnStampa">Stampa o salva in PDF</button>${puo ? '<button id="btnAnnullaScheda">Annulla ultima modifica</button>' : ''}${puo ? '<button id="btnCaduto" class="pericolo">Il personaggio è caduto</button>' : ''}</div>
@@ -333,9 +334,10 @@ $('#scheda').addEventListener('click', async e => {
     const classe = $('#lvClasse')?.value;
     if (i === 0) modifica([{ op: 'livello', delta: 1, classe }]);
     if (i === 1) { const dv = Regole.set(pg.regole).classi[classe]?.dv || 8; const d = 1 + Math.floor(Math.random() * dv); modifica(p => Regole.saliLivello(p, d, classe).msg + ` (tiro 1d${dv}: ${d})`); }
+    if (i === 0 || i === 1) await livelloGuidato(clona(pg));
     return;
   }
-  if (b.id === 'btnStampa') { window.print(); return; }
+  if (b.id === 'btnStampa') { stampaScheda(pg); return; }
   if (b.id === 'btnAnnullaScheda') { annulla(); return; }
 });
 $('#scheda').addEventListener('submit', e => {
