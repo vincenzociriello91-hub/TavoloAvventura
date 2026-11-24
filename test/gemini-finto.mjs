@@ -26,7 +26,7 @@ http.createServer((req, res) => {
       if (ctx.luogo_attuale?.oggetti_di_scena?.length) eventi.push({ tipo: 'scena', azione: 'rompi', oggetto: ctx.luogo_attuale.oggetti_di_scena[0].id });
       eventi.push({ tipo: 'nemico', nome: 'Goblin', x: 10, y: 8 }, { tipo: 'nemico', nome: 'Lupo crudele', x: 12, y: 8 });
       if ((ctx.ultimi_eventi || []).some(e => e.includes('mondo vivo di prova')) && pg) eventi.push({ tipo: 'enigma', domanda: 'Più ne togli, più diventa grande. Cos\'è?', risposta: 'buca', indizio: 'si scava' }, { tipo: 'missione', titolo: 'Lupi al mulino', descrizione: 'Cacciate i lupi dal mulino', ricompensa: '50 mo' }, { tipo: 'nemesi', nome: 'Vaskar il Grigio', descrizione: 'mago rinnegato' }, { tipo: 'minaccia', nome: 'Il culto della luna', descrizione: 'rapisce i viandanti' }, { tipo: 'scelta', descrizione: 'Hanno risparmiato il goblin', peso: 'buona' }, { tipo: 'sogno', pg: pg.id, testo: 'Una torre nera sotto la luna' }, { tipo: 'reputazione_luogo', luogo: ctx.luogo_attuale?.nome, delta: 100, motivo: 'eroi' }, { tipo: 'compagno', pg: pg.id, nome: 'Zanna', specie: 'lupo' });
-      if (JSON.stringify(j.systemInstruction).includes('SFIDA DELLA SETTIMANA')) eventi.push({ tipo: 'sfida_vinta' });
+      if (/SFIDA DELLA SETTIMANA|ALLENAMENTO DI CINQUE MINUTI/.test(JSON.stringify(j.systemInstruction))) eventi.push({ tipo: 'sfida_vinta' });
       const ue = ctx.ultimi_eventi || [], sys = JSON.stringify(j.systemInstruction);
       if (ue.some(e => e.includes('prova dei fatti'))) eventi.push({ tipo: 'fatto', testo: 'Nel forziere della cripta ci sono 30 monete e una chiave d\'argento' });
       // per le prove della regia (4.1): cosa ha ricevuto il master
@@ -40,11 +40,12 @@ http.createServer((req, res) => {
       if (ue.some(e => e.includes('musica di festa'))) eventi.push({ tipo: 'musica', umore: 'festa' });
       if (ue.some(e => e.includes('una porta con le rune'))) eventi.push({ tipo: 'rompicapo', forma: 'rune', trappola: 'fulmine', titolo: 'La porta delle rune' });
       if (ue.some(e => e.includes('torneo in piazza'))) eventi.push({ tipo: 'torneo' });
+      if (ue.some(e => e.includes('promettete un favore al mugnaio'))) eventi.push({ tipo: 'patto', png: 'Mugnaio Gerardo', cosa: 'ritrovare la sua mula', chi_deve: 'gruppo' });
       if (ue.some(e => e.includes('premiate il cane'))) eventi.push({ tipo: 'esperienza', pg: Object.keys(ctx.personaggi || {}).length ? ctx.personaggi.find(x => (x.compagni || []).length)?.id : undefined, quantita: 400 });
       const distanza = ue.some(e => e.includes('prova della prima partita')) ? ` [prima:${/PRIMA PARTITA/.test(sys)}|distanza:${/gioco a distanza/.test(String(ctx.giro))}]` : '';
       const vg = (ctx.viaggio ? ` [viaggio:${ctx.viaggio.verso}|${ctx.viaggio.giorno}/${ctx.viaggio.giorni}|in_corso:${ctx.viaggio.in_corso}]` : '') + (ctx.creature_e_oggetti_inventati?.mostri?.length ? ` [inventati:${ctx.creature_e_oggetti_inventati.mostri.map(x => x.nome).join(',')}]` : '');
       const gia = (ctx.png_incontrati || []).map(p => p.nome).join(', ');
-      out = JSON.stringify({ narrazione: 'Una rissa scoppia nella locanda. Un boccale vola verso di voi.' + (gia ? ` Di nuovo: ${gia}.` : '') + regia + distanza + vg, png: 'Oste Bruno', eventi });
+      out = JSON.stringify({ narrazione: 'Una rissa scoppia nella locanda. Un boccale vola verso di voi.' + (gia ? ` Di nuovo: ${gia}.` : '') + regia + distanza + vg + ((ctx.patti_e_debiti || []).length ? ` [patti:${ctx.patti_e_debiti.length}]` : ''), png: 'Oste Bruno', scelte: ['Parla con l\'oste', 'Cerca indizi nella sala', 'Esci in strada'], eventi });
     } else if (/comando per modificare/.test(testoUtente)) out = JSON.stringify({ ops: [{ op: 'car', car: 'sag', delta: 1 }] });
     else if (/^Traduci in inglese/.test(testoUtente)) out = 'The tavern falls silent.';
     else if (/Domanda di regole/.test(testoUtente)) out = 'In 5e un attacco di opportunità si fa con la reazione.';
@@ -52,6 +53,7 @@ http.createServer((req, res) => {
     else if (/PROMPT:/.test(testoUtente)) out = 'PROMPT: a tavern brawl, flying mugs\nDIDASCALIA: Rissa nella locanda';
     else if (/===CRONACA===/.test(testoUtente)) out = 'Memoria finta aggiornata.\n===CRONACA===\n• Il gruppo ha fatto a botte nella locanda.';
     else if (/Descrivi l'interno di/.test(testoUtente)) out = JSON.stringify({ descrizione: 'Dentro odora di farina e di polvere antica.', stanze: ['Ingresso', 'Macina', 'Deposito'], png: 'Mugnaio Gerardo' });
+    else if (/redattore del giornale/.test(testoUtente)) out = JSON.stringify({ testata: 'Il Corriere di Argentea', articoli: [{ titolo: 'Rissa alla locanda', testo: 'Boccali volanti e un oste furioso.' }, { titolo: 'Tesoro nella grotta', testo: 'Avventurieri escono carichi d\'oro.' }, { titolo: 'Torneo in piazza', testo: 'Vince chi non te lo aspetti.' }], pettegolezzo: 'Qualcuno cerca la mula del mugnaio.' });
     else if (/caccia al tesoro/.test(testoUtente)) out = JSON.stringify({ titolo: 'Il forziere del pirata', luogo: 'Grotta del Pescatore', indizi: ['Dove il mare canta dentro la roccia.', 'Un pescatore vi teneva la barca.', 'Una grotta che porta il nome di chi pesca.'], oro: 150, oggetto: 'Bussola d\'argento' });
     else if (/pagina del tuo diario personale/.test(testoUtente)) out = 'Oggi ho visto il drago da vicino e mi tremavano le mani.';
     else if (/cantastorie di piazza/.test(testoUtente)) out = 'Riassunto in rima finto.';

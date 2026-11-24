@@ -115,6 +115,83 @@ const TALENTI_35 = [['Robustezza', '+3 punti ferita'], ['Iniziativa migliorata',
 const ELMI = ['Elmo', 'Elmo d\'acciaio', 'Cappuccio', 'Cappello da mago', 'Corona'];
 const CONDIZIONI = ['accecato', 'affascinato', 'afferrato', 'assordato', 'avvelenato', 'incapacitato', 'invisibile', 'paralizzato', 'pietrificato', 'prono', 'spaventato', 'stordito', 'trattenuto', 'privo di sensi', 'esausto'];
 
+// biblioteca delle regole illustrata (SRD 5.1, parole nostre): condizioni, incantesimi conosciuti e regole di base, ognuno con il suo disegno
+const BIBLIOTECA = {
+  condizioni: {
+    accecato: ['🙈', 'Non vedi: fallisci le prove che richiedono la vista. I tuoi attacchi hanno svantaggio, quelli contro di te vantaggio.'],
+    affascinato: ['💘', 'Non puoi attaccare chi ti ha affascinato né colpirlo con magie dannose. Lui ha vantaggio nelle prove per parlarti e convincerti.'],
+    afferrato: ['🤼', 'La tua velocità è 0. Finisce se chi ti tiene viene allontanato o non può più agire.'],
+    assordato: ['🙉', 'Non senti: fallisci le prove che richiedono l\'udito.'],
+    avvelenato: ['🤢', 'Svantaggio ai tiri per colpire e alle prove di caratteristica.'],
+    incapacitato: ['😵', 'Non puoi fare né azioni né reazioni.'],
+    invisibile: ['👻', 'Nessuno ti vede senza magia: i tuoi attacchi hanno vantaggio, quelli contro di te svantaggio. Rumori e tracce però possono tradirti.'],
+    paralizzato: ['🧊', 'Sei incapacitato, non ti muovi e non parli. Fallisci i tiri salvezza su Forza e Destrezza; gli attacchi contro di te hanno vantaggio e, da vicino, sono colpi critici.'],
+    pietrificato: ['🗿', 'Diventi di pietra: incapacitato, immobile, resisti a tutti i danni. Fallisci i tiri salvezza su Forza e Destrezza.'],
+    prono: ['🛌', 'Sei a terra: ti muovi solo strisciando e i tuoi attacchi hanno svantaggio. Chi ti attacca da vicino ha vantaggio, da lontano svantaggio. Rialzarti costa metà del movimento.'],
+    spaventato: ['😱', 'Svantaggio a prove e attacchi finché vedi ciò che ti fa paura, e non puoi avvicinarti di tua volontà.'],
+    stordito: ['💫', 'Sei incapacitato, non ti muovi e parli a fatica. Fallisci i tiri salvezza su Forza e Destrezza; gli attacchi contro di te hanno vantaggio.'],
+    trattenuto: ['⛓️', 'Velocità 0. I tuoi attacchi hanno svantaggio, quelli contro di te vantaggio, e hai svantaggio ai tiri salvezza su Destrezza.'],
+    'privo di sensi': ['💤', 'Sei incapacitato e non ti accorgi di niente: lasci cadere ciò che tieni e cadi a terra. Fallisci i salvezza su Forza e Destrezza; gli attacchi contro di te hanno vantaggio e, da vicino, sono critici.'],
+    esausto: ['🥵', 'Lo sfinimento ha sei livelli: svantaggio alle prove, poi velocità dimezzata, svantaggio ad attacchi e salvezza, punti ferita massimi dimezzati, velocità zero; al sesto si muore. Un riposo lungo toglie un livello.']
+  },
+  incantesimi: {
+    'Luce': ['💡', 'Un oggetto che tocchi brilla come una torcia per un\'ora.'],
+    'Mano magica': ['✋', 'Una mano spettrale sposta oggetti leggeri, apre porte e cassetti fino a 9 metri da te.'],
+    'Prestidigitazione': ['🎩', 'Piccoli trucchi di magia: pulire, scaldare un cibo, accendere una candela, creare una piccola illusione.'],
+    'Fiotto acido': ['🧪', 'Una bolla d\'acido colpisce una creatura (o due vicine tra loro): 1d6 danni da acido se fallisce il salvezza su Destrezza.'],
+    'Raggio di gelo': ['❄️', 'Un raggio gelido: 1d8 danni da freddo e il bersaglio rallenta di 3 metri fino al tuo prossimo turno.'],
+    'Dardo incantato': ['✨', 'Tre dardi di luce che non mancano mai il bersaglio: 1d4+1 danni ciascuno.'],
+    'Scudo': ['🛡️', 'Come reazione quando stai per essere colpito: +5 alla Classe Armatura fino al tuo prossimo turno.'],
+    'Cura ferite': ['💚', 'Toccando una creatura le fai recuperare 1d8 punti ferita più il tuo modificatore da incantatore.'],
+    'Parola guaritrice': ['💬', 'Con un\'azione bonus e da lontano: una creatura che vedi recupera 1d4 punti ferita più il tuo modificatore.'],
+    'Sonno': ['😴', 'Fa addormentare creature per un totale di 5d8 punti ferita, cominciando dalle più deboli.'],
+    'Charme su persone': ['💘', 'Un umanoide ti considera un amico per un\'ora, se fallisce il tiro salvezza su Saggezza.'],
+    'Benedizione': ['🙏', 'Fino a tre creature aggiungono 1d4 ai tiri per colpire e ai tiri salvezza, finché ti concentri.'],
+    'Mani brucianti': ['🔥', 'Un ventaglio di fiamme dalle tue mani: 3d6 danni da fuoco in un cono di 4,5 metri (la metà a chi supera il salvezza).'],
+    'Individuazione del magico': ['🔍', 'Per 10 minuti senti la magia intorno a te e vedi da quali oggetti o creature viene.'],
+    'Invisibilità': ['👻', 'Una creatura diventa invisibile per un\'ora, finché non attacca o lancia un incantesimo.'],
+    'Passo velato': ['🌫️', 'Con un\'azione bonus ti teletrasporti fino a 9 metri, in un punto che vedi.'],
+    'Ristorare inferiore': ['🌿', 'Toglie una malattia o una condizione: accecato, assordato, paralizzato o avvelenato.'],
+    'Ragnatela': ['🕸️', 'Ragnatele appiccicose riempiono un cubo di 6 metri: chi resta dentro può rimanere trattenuto.'],
+    'Palla di fuoco': ['☄️', 'Un\'esplosione di fuoco di 6 metri di raggio: 8d6 danni (la metà con il salvezza su Destrezza).'],
+    'Fulmine': ['⚡', 'Un fulmine in linea retta di 30 metri: 8d6 danni da fulmine (la metà con il salvezza su Destrezza).'],
+    'Volare': ['🕊️', 'Una creatura che tocchi vola per 10 minuti.'],
+    'Controincantesimo': ['🚫', 'Come reazione interrompi un incantesimo mentre viene lanciato (sicuro fino al 3° livello, oltre serve una prova).'],
+    'Dissolvi magie': ['🌀', 'Fa finire gli incantesimi su una creatura, un oggetto o un effetto magico.'],
+    'Rianimare morti': ['💀', 'Da un cadavere nasce uno scheletro o uno zombi che obbedisce ai tuoi ordini per un giorno.'],
+    'Porta dimensionale': ['🚪', 'Ti teletrasporti fino a 150 metri, portando con te una creatura vicina.'],
+    'Muro di fuoco': ['🧱', 'Un muro di fiamme lungo fino a 18 metri: 5d8 danni da fuoco a chi lo attraversa o gli sta accanto.'],
+    'Cono di freddo': ['🥶', 'Un soffio gelido in un cono di 18 metri: 8d8 danni da freddo (la metà con il salvezza su Costituzione).'],
+    'Rianimare i morti': ['🕯️', 'Riporti in vita una creatura morta da non più di dieci giorni, con 1 punto ferita.'],
+    'Disintegrazione': ['💥', 'Un raggio verde: 10d6+40 danni da forza. Chi arriva a zero punti ferita diventa polvere.'],
+    'Teletrasporto': ['🌌', 'Porti te e fino a otto compagni in un luogo qualsiasi, anche lontanissimo, sullo stesso piano.'],
+    'Parola del potere stordire': ['🗣️', 'Una parola stordisce una creatura che ha 150 punti ferita o meno.'],
+    'Desiderio': ['🌠', 'L\'incantesimo più potente: copia qualsiasi altra magia o chiede alla realtà di cambiare. Con un prezzo.'],
+    'Fiamma sacra': ['🌞', 'Una luce divina cala su una creatura: 1d8 danni radiosi se fallisce il salvezza su Destrezza.'],
+    'Guida': ['🧭', 'Una creatura aggiunge 1d4 a una prova di caratteristica a sua scelta.'],
+    'Randello incantato': ['🪵', 'Il tuo bastone o randello diventa magico: usi la Saggezza per colpire e fa 1d8 danni.'],
+    'Intralciare': ['🌱', 'Piante e radici spuntano in un quadrato di 6 metri: chi è dentro può restare trattenuto.'],
+    'Comando': ['☝️', 'Una sola parola di comando (fermo, scappa, a terra...) che la creatura esegue se fallisce il salvezza.'],
+    'Scudo della fede': ['✝️', 'Un campo luminoso dà +2 alla Classe Armatura di una creatura per 10 minuti.'],
+    'Onda tonante': ['🌊', 'Un\'onda di tuono: 2d8 danni e chi fallisce il salvezza viene spinto via di 3 metri.'],
+    'Arma spirituale': ['🗡️', 'Un\'arma magica che fluttua e colpisce con un\'azione bonus: 1d8 più il tuo modificatore.'],
+    'Blocca persone': ['✋', 'Un umanoide resta paralizzato finché ti concentri, se fallisce il salvezza su Saggezza.'],
+    'Luce diurna': ['☀️', 'Una sfera di luce del giorno di 18 metri di raggio, che scaccia anche il buio magico.'],
+    'Chiamare il fulmine': ['🌩️', 'Una nube di tempesta: ogni turno puoi far cadere un fulmine da 3d10 danni.'],
+    'Spiriti guardiani': ['👼', 'Spiriti ti girano intorno: i nemici vicini rallentano e subiscono 3d8 danni ogni turno.'],
+    'Pelle di pietra': ['🪨', 'La pelle diventa dura come la pietra: resistenza ai danni normali da armi.']
+  },
+  regole: {
+    'Vantaggio e svantaggio': ['🎲', 'Con il vantaggio tiri due d20 e tieni il più alto; con lo svantaggio tieni il più basso. Se li hai tutti e due si annullano.'],
+    'Tiro salvezza': ['🛡️', 'Un tiro d20 più la caratteristica giusta per evitare un pericolo: una trappola, un veleno, una magia. Deve arrivare almeno alla CD.'],
+    'Classe Armatura (CA)': ['🪖', 'Quanto è difficile colpirti: chi ti attacca deve fare almeno la tua CA con d20 più i suoi bonus.'],
+    'Azione, azione bonus e reazione': ['⏱️', 'Nel tuo turno hai un movimento, un\'azione (attaccare, lanciare, nasconderti...) e a volte un\'azione bonus. La reazione la usi anche fuori dal tuo turno, una volta per round.'],
+    'Colpo critico': ['💥', 'Con un 20 naturale colpisci sempre e tiri due volte i dadi del danno. Con un 1 naturale manchi sempre.'],
+    'Riposo breve e lungo': ['🏕️', 'Un riposo breve (un\'ora) fa recuperare un po\' di punti ferita con i dadi vita. Un riposo lungo (otto ore) li fa recuperare tutti, insieme agli incantesimi.'],
+    'Tiri contro la morte': ['⚰️', 'A 0 punti ferita, a ogni turno tiri un d20: 10 o più è un successo. Tre successi e ti stabilizzi, tre fallimenti e muori. Un 20 ti rimette in piedi con 1 punto ferita.'],
+    'Concentrazione': ['🧘', 'Alcune magie durano finché ti concentri. Se vieni colpito fai un salvezza su Costituzione per non perderle; una sola alla volta.']
+  }
+};
 const Regole = {
   set(r) { return REGOLE[r === '3.5' ? '3.5' : '5e']; },
   classi(pg) { return pg.classi?.length ? pg.classi : [{ classe: pg.classe, livello: pg.livello }]; },
@@ -329,4 +406,4 @@ const Regole = {
   tira4d6() { const d = () => 1 + Math.floor(Math.random() * 6); const v = [d(), d(), d(), d()].sort((a, b) => a - b); return v[1] + v[2] + v[3]; },
   arrayStandard: [15, 14, 13, 12, 10, 8]
 };
-if (typeof module !== 'undefined') module.exports = { TALENTI_35, Regole, REGOLE, ARMATURE, SCUDI, ARMI, ELMI, CONDIZIONI, CAR, CAR_NOMI, CAR_SIGLE, mod, segno };
+if (typeof module !== 'undefined') module.exports = { TALENTI_35, BIBLIOTECA, INCANTESIMI_NOTI, Regole, REGOLE, ARMATURE, SCUDI, ARMI, ELMI, CONDIZIONI, CAR, CAR_NOMI, CAR_SIGLE, mod, segno };

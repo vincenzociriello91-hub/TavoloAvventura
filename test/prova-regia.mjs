@@ -1,6 +1,7 @@
 // Prova della regia (4.1): appunti del mondo, master onesto, fatti decisi prima, difficoltà, turni a giro, sussurri, aiuto, mazzo, cronaca, riassunti.
 // E del gioco a distanza, dei mondi condivisi e dell'avventura dei primi passi (4.2).
 // E di caccia al tesoro, rompicapi, torneo, animali che crescono, casa che cresce e avventure scritte da voi (4.5).
+// E di mercato, duello, giornale, patti, feste, allenamento, scelte rapide, album e rivincite (4.6).
 import WebSocket from 'ws';
 const codice = 'REGIA' + Math.random().toString(36).slice(2, 6).toUpperCase();
 let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  ' : 'FAIL', n); };
@@ -330,6 +331,75 @@ D.coda.length = 0; D.invia({ t: 'avventura_importa', codice: `${codice}-${chA}` 
 v(/non trovata/.test((await D.aspetta(m => m.t === 'avviso')).msg), 'codice ritirato: l\'avventura non si può più importare');
 A.coda.length = 0; A.invia({ t: 'avventura_elimina', id: idAvv });
 v(!Object.keys((await A.aspetta(m => m.t === 'avventure')).avventureMie).length, 'l\'avventura scritta si può eliminare');
+
+// ---------- 4.6: mercato, duello, giornale, patti, feste, allenamento, scelte rapide, album, rivincite ----------
+const sch = async (cl, id) => (await stato(cl)).pg[id];
+let pLi = await sch(B2, bB.io); B2.invia({ t: 'scheda', pg: { ...pLi, oro: 0, equip: [...(pLi.equip || []), { nome: 'Corda di seta', qta: 1 }] } }); await B2.aspetta(m => m.t === 'scheda' && m.per === bB.io);
+let pBr = await sch(A, bA.io); A.invia({ t: 'scheda', pg: { ...pBr, oro: 50 } }); await A.aspetta(m => m.t === 'scheda' && m.per === bA.io);
+B2.coda.length = 0; B2.invia({ t: 'bancarella_metti', nome: 'Corda di seta', prezzo: 20 });
+const banc = (await vivo(B2, m => m.bancarella?.length))?.bancarella;
+v(banc?.[0]?.nome === 'Corda di seta' && banc[0].prezzo === 20 && !(await sch(B2, bB.io)).equip.some(e => e.nome === 'Corda di seta'), 'mercato: Lira mette la corda sulla bancarella a 20 monete (e la toglie dall\'inventario)');
+A.coda.length = 0; A.invia({ t: 'bancarella_compra', id: banc[0].id }); await vivo(A, m => m.bancarella && !m.bancarella.length);
+const brC = await sch(A, bA.io), liC = await sch(A, bB.io);
+v(brC.oro === 30 && brC.equip.some(e => e.nome === 'Corda di seta') && liC.oro === 20, 'Brann compra la corda: 20 monete passano da una scheda all\'altra');
+const pfLira = (await sch(B2, bB.io)).pf;
+A.coda.length = 0; A.invia({ t: 'duello_sfida', con: bB.io }); let du = (await vivo(B2, m => m.duello?.stato === 'invito'))?.duello;
+v(du?.a === bA.io && du.b === bB.io, 'duello: Brann sfida Lira, che deve accettare');
+B2.invia({ t: 'duello_rispondi', si: true }); du = (await vivo(A, m => m.duello?.stato === 'via'))?.duello;
+for (let i = 0; i < 80 && du && !du.finito; i++) { const cl = du.turno === bA.io ? A : B2; cl.coda.length = 0; cl.invia({ t: 'duello_colpo' }); du = (await vivo(cl, m => m.duello && (m.duello.finito || m.duello.log.length > du.log.length || m.duello.turno !== du.turno)))?.duello || du; }
+v(du?.finito && [bA.io, bB.io].includes(du.vincitore) && (await sch(B2, bB.io)).pf === pfLira, `duello finito: vince ${du?.nomi?.[du?.vincitore]}, e i punti ferita veri non cambiano`);
+A.invia({ t: 'duello_chiudi' }); await pausa(300);
+B2.coda.length = 0; B2.invia({ t: 'duello_sfida', con: 'campione' }); du = (await vivo(B2, m => m.duello?.stato === 'via'))?.duello;
+for (let i = 0; i < 80 && du && !du.finito; i++) { B2.coda.length = 0; B2.invia({ t: 'duello_colpo' }); du = (await vivo(B2, m => m.duello && (m.duello.finito || m.duello.turno === bB.io)))?.duello || du; }
+v(du?.b?.startsWith('npc:') && du.finito, `duello con il campione dell'arena (${du?.nomi?.[du?.b]}): risponde da solo, vince ${du?.nomi?.[du?.vincitore]}`);
+B2.invia({ t: 'duello_chiudi' }); await pausa(300);
+
+A.coda.length = 0; A.invia({ t: 'giornale_stampa' }); const gz = await A.aspetta(m => m.t === 'giornale', 15000).catch(() => null);
+v(gz?.giornale.testata === 'Il Corriere di Argentea' && gz.giornale.articoli.length === 3 && gz.giornale.numero >= 1 && /mula/.test(gz.giornale.pettegolezzo), `giornale del regno: «${gz?.giornale.testata}», numero ${gz?.giornale.numero}, tre articoli e un pettegolezzo`);
+v((await stato(B2)).giornali.length >= 1, 'il giornale arriva anche ai giocatori e resta tra i numeri da sfogliare');
+await dice('promettete un favore al mugnaio');
+const pt = (await stato(A)).patti;
+v(pt.length === 1 && pt[0].png === 'Mugnaio Gerardo' && pt[0].stato === 'aperto', 'patti e debiti: il master segna la promessa fatta al mugnaio');
+const nPatti = await (async () => { A.coda.length = 0; A.invia({ t: 'parlato', testo: 'controllo i patti', alMaster: true }); return (await A.aspetta(m => m.t === 'narra', 12000).catch(() => null))?.testo || ''; })();
+v(/\[patti:1\]/.test(nPatti), 'il master vede i patti aperti a ogni turno, per riscuoterli al momento giusto');
+A.coda.length = 0; A.invia({ t: 'patto_chiudi', id: pt[0].id, esito: 'tradito' }); await vivo(A, m => m.patti?.[0]?.stato === 'tradito');
+v((await stato(A)).png['Mugnaio Gerardo']?.ricordi?.some(r => /non ha mantenuto il patto/.test(r)), 'patto tradito: il mugnaio se lo ricorda');
+const scR = await (async () => { A.coda.length = 0; A.invia({ t: 'parlato', testo: 'non so cosa fare', alMaster: true }); return A.aspetta(m => m.t === 'narra', 12000).catch(() => null); })();
+v(scR?.scelte?.length === 3 && (await stato(B2)).scelteRapide.length === 3, 'scelte rapide: con ogni risposta il master propone tre idee');
+
+A.coda.length = 0; A.invia({ t: 'festa_stagione' }); await pausa(1200);
+const sF = await stato(A), titoli = ['Il fiore che canta', 'Il campione d\'estate', 'Il carro del raccolto', 'Le statue di ghiaccio'];
+v(sF.missioni.some(q => titoli.some(t => q.titolo.startsWith(t)) && q.scadenza), `festa della stagione: missione speciale «${sF.missioni.find(q => titoli.some(t => q.titolo.startsWith(t)))?.titolo}» con scadenza`);
+if (sF.torneo) { A.invia({ t: 'torneo_chiudi' }); await pausa(300); }
+
+A.coda.length = 0; A.invia({ t: 'illustra' }); await A.aspetta(m => m.t === 'diario' && m.ev?.tipo === 'illustrazione', 20000).catch(() => null);
+A.coda.length = 0; A.invia({ t: 'album' }); const alb = await A.aspetta(m => m.t === 'album').catch(() => null);
+v(alb?.immagini.length >= 1 && alb.immagini.every(x => x.sessione >= 1), `album della campagna: ${alb?.immagini.length} illustrazioni, ognuna con la sua serata`);
+
+A.coda.length = 0; A.invia({ t: 'combattimento', azione: 'inizia' }); await A.aspetta(m => m.t === 'combattimento', 8000).catch(() => null);
+A.invia({ t: 'piazza_nemici', mostri: [{ nome: 'Troll', numero: 1, pf: 30, ca: 15 }] }); await A.aspetta(m => m.t === 'segnalini' && Object.values(m.segnalini).some(x => x.nome === 'Troll'), 8000).catch(() => null);
+pLi = await sch(B2, bB.io); B2.coda.length = 0; B2.invia({ t: 'scheda', pg: { ...pLi, pf: 0 } });
+const rv1 = (await vivo(B2, m => m.rivincite?.length, 8000))?.rivincite;
+v(rv1?.[0]?.nome === 'Troll' && rv1[0].volte === 1 && !rv1[0].vinta, 'rivincita: il troll ha messo a terra Lira e se lo ricordano');
+B2.invia({ t: 'scheda', pg: { ...pLi, pf: pLi.pfMax } }); await pausa(300);
+const trollVia = Object.entries((await stato(A)).segnalini).find(([, x]) => x.nome === 'Troll')?.[0]; A.invia({ t: 'segnalino', id: trollVia, rimuovi: true }); await pausa(300);
+v(!(await stato(A)).rivincite[0].vinta, 'battere il troll nello stesso scontro non conta come rivincita');
+A.invia({ t: 'combattimento', azione: 'fine' }); await pausa(400); A.invia({ t: 'combattimento', azione: 'inizia' }); await pausa(400);
+A.coda.length = 0; A.invia({ t: 'piazza_nemici', mostri: [{ nome: 'Troll', numero: 1, pf: 30, ca: 15 }] });
+const trollF = Object.values((await A.aspetta(m => m.t === 'segnalini' && Object.values(m.segnalini).some(x => x.nome === 'Troll'), 8000)).segnalini).find(x => x.nome === 'Troll');
+v(trollF.pf === 45 && trollF.ca === 16 && trollF.rivincita, `il troll torna più forte: ${trollF.pf} PF e CA ${trollF.ca}`);
+A.coda.length = 0; const idT = Object.entries((await stato(A)).segnalini).find(([, x]) => x.nome === 'Troll')[0]; A.invia({ t: 'segnalino', id: idT, rimuovi: true });
+v(!!(await annuncio(A, /Rivincita! Troll è sconfitto/)) && (await stato(A)).rivincite[0].vinta, 'sconfitto in uno scontro successivo: rivincita presa');
+A.coda.length = 0; A.invia({ t: 'statistiche' }); v((await A.aspetta(m => m.t === 'statistiche')).premi.some(x => x.titolo === 'Rivincita!' && /Troll/.test(x.motivo)), 'la rivincita entra tra i trofei della campagna');
+A.invia({ t: 'combattimento', azione: 'fine' }); await pausa(300);
+
+const codice4 = 'ALLEN' + Math.random().toString(36).slice(2, 6).toUpperCase();
+const F = client(codice4); await F.pronto; F.invia({ t: 'crea', nome: 'Allenamento: L\'arena', regole: '5e', masterTipo: 'ai', mioNome: 'Prova', solitaria: true, sfida: { titolo: 'L\'arena', obiettivo: 'Batti due goblin', settimana: 'allenamento', allenamento: true } });
+const bF = await F.aspetta(m => m.t === 'benvenuto'); F.invia({ t: 'scheda', pg: pg('Nuovo') }); await F.aspetta(m => m.t === 'scheda');
+v(bF.stato.campagna.sfida?.allenamento === true, 'allenamento di cinque minuti: campagna da soli con la scena di prova');
+await pausa(1200); F.coda.length = 0; F.invia({ t: 'parlato', testo: 'attacco il goblin', alMaster: true });
+v((await F.aspetta(m => m.t === 'sfida', 15000).catch(() => null))?.sfida?.esito === 'vinta', 'il master chiude l\'allenamento quando la prova è finita');
+F.ws.close();
 
 for (const c of [A, B2, C, D, E]) c.ws.close();
 console.log(`\n${ok} ok, ${ko} falliti`); process.exit(ko ? 1 : 0);
