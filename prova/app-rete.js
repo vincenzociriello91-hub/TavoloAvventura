@@ -192,6 +192,7 @@ function gestisci(m) {
       if (prima?.attivo && !m.combattimento?.attivo) recuperaMunizioni();
       const c = m.combattimento, ora = c?.attivo && c.ordine[c.turno];
       if (ora && ora.id === S.io && !(prima?.attivo && prima.ordine[prima.turno]?.id === S.io && prima.round === c.round)) { if (OPZ.avvisi) Narratore.avviso('Tocca a te'); toast('È il tuo turno!'); Suoni.effetto('turno'); }
+      else togliToast(/^È il tuo turno!$/); // scontro finito o turno passato: l'avviso vecchio sparisce
       Report.log('combattimento', { attivo: c?.attivo, round: c?.round, turno: ora?.nome });
       return;
     }

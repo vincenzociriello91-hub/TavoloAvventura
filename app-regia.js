@@ -142,6 +142,7 @@ $('#btnCondividiNarr').addEventListener('click', condividiRiassunto);
 // il riassunto arriva nella casella del master, che sta sulla mappa: chi è in un'altra scheda lo legge in una finestra
 function riassuntoArrivato(m) {
   S.testoRiassunto = m.riassunto ? m.testo : ''; $('#btnCondividiNarr').hidden = !m.riassunto;
+  if (m.riassunto) togliToast(/^Il master (prepara il riassunto|accorda il liuto)/);
   if (!m.riassunto || S.vista === 'vMappa' || largo()) return;
   if ($('#dlg').open) { toast('Il riassunto è pronto: lo trovi nel Diario'); return; } // un'altra finestra è aperta: non la si copre
   chiedi(`<h2>Nelle puntate precedenti</h2><div class="storia-pg">${m.testo.split(/\n+/).map(r => `<p>${esc(r)}</p>`).join('')}</div>`, [{ testo: 'Condividi', pieno: true }, { testo: 'Chiudi' }]).then(i => { if (i === 0) condividiRiassunto(); });

@@ -1,6 +1,12 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.3.1';
+const VERSION = '4.3.2';
 const CHANGELOG = [
+  { v: '4.3.2', data: '24/11/2026', voci: [
+    'Finito lo scontro, l\'avviso «È il tuo turno!» sparisce subito invece di restare in alto.',
+    'Quando arriva il riassunto, l\'avviso «Il master prepara il riassunto» si chiude da solo.',
+    'Le parti che si aprono (Altri strumenti, Come si usa la mappa, Aspetto del personaggio...) hanno la freccina: prima sembravano semplici titoli.',
+    'Sulla mappa il nome di una figura sul bordo non viene più tagliato.'
+  ] },
   { v: '4.3.1', data: '23/11/2026', voci: [
     'Vista 3D con la nebbia: non diventa più tutta grigia. Le zone non esplorate restano scure e la nebbia si adatta a quanto è lontana la vista.'
   ] },
@@ -368,6 +374,7 @@ const leggi = (k, d) => { try { const v = localStorage.getItem(k); return v === 
 const scrivi = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const clona = o => JSON.parse(JSON.stringify(o));
 function toast(msg, errore = false, ms = 3500) { const t = $('#toast'); t.onclick = () => { t.hidden = true; }; t.textContent = msg; t.classList.toggle('errore', errore); t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, ms); }
+function togliToast(re) { const t = $('#toast'); if (!t.hidden && re.test(t.textContent)) t.hidden = true; } // l'avviso "sto preparando…" o "tocca a te" non resta sopra il risultato arrivato
 function chiedi(html, bottoni) {
   return new Promise(res => {
     const d = $('#dlg'); $('#dlgCorpo').innerHTML = html;
