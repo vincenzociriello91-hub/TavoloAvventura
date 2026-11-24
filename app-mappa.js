@@ -178,7 +178,9 @@ function cartaGioco(gioca) {
 function cartaCasa(gioca) {
   const b = S.st?.base, st = S.st?.catalogo?.stanze || {};
   if (!b) return `<h3>Casa del gruppo</h3><p class="piccolo">Una base tutta vostra dove riposare, creare oggetti e tenere le cavalcature.</p>${gioca ? '<button type="button" data-casa="casa">Comprate una casa (500 mo dal tesoro comune)</button>' : ''}`;
-  return `<h3>${esc(b.nome)}</h3><ul class="tesoro-ogg">${b.stanze.map(k => `<li><span><strong>${esc(st[k]?.nome || k)}</strong> <span class="piccolo">${esc(st[k]?.bonus || '')}</span></span></li>`).join('') || '<li class="piccolo">Per ora solo muri e un camino</li>'}</ul>
+  const liv = S.st?.catalogo?.livelliBase || [], n = b.livello || 1, prossimo = liv[n];
+  return `<h3>${esc(b.nome)} <span class="piccolo">· ${esc(liv[n - 1]?.nome || 'Casa')}</span></h3>${liv[n - 1]?.bonus ? `<p class="piccolo">${esc(liv[n - 1].bonus[0].toUpperCase() + liv[n - 1].bonus.slice(1))}.</p>` : ''}
+    ${gioca ? `<div class="riga">${prossimo ? `<button type="button" data-casa="livello">Diventa una ${esc(prossimo.nome.toLowerCase())} (${prossimo.prezzo} mo)</button>` : ''}<button type="button" data-casa-nome>Cambia nome</button></div>${prossimo ? `<p class="piccolo">${esc(prossimo.nome)}: ${esc(prossimo.bonus)}.</p>` : ''}` : ''}<ul class="tesoro-ogg">${b.stanze.map(k => `<li><span><strong>${esc(st[k]?.nome || k)}</strong> <span class="piccolo">${esc(st[k]?.bonus || '')}</span></span></li>`).join('') || '<li class="piccolo">Per ora solo muri e un camino</li>'}</ul>
     ${gioca ? `<details><summary>Aggiungi una stanza</summary><ul class="tesoro-ogg">${Object.entries(st).filter(([k]) => !b.stanze.includes(k)).map(([k, x]) => `<li><span>${esc(x.nome)} <span class="piccolo">${esc(x.bonus)}</span></span><button type="button" data-casa="${k}">${x.prezzo} mo</button></li>`).join('')}</ul></details>` : ''}`;
 }
 $('#tesoro').addEventListener('click', e => {
@@ -186,6 +188,7 @@ $('#tesoro').addEventListener('click', e => {
   if (b.dataset.prendi) invia({ t: 'gruppo', op: 'prendi', nome: b.dataset.prendi });
   if (b.dataset.gioco) invia({ t: 'gioco_' + b.dataset.gioco });
   if (b.dataset.casa) { invia({ t: 'base', cosa: b.dataset.casa === 'casa' ? '' : b.dataset.casa }); Report.log('casa', { cosa: b.dataset.casa }); }
+  if (b.dataset.casaNome !== undefined) { const n = prompt('Come si chiama la vostra casa?', S.st.base?.nome || ''); if (n?.trim()) invia({ t: 'base', nome: n.trim() }); }
   if (b.dataset.tes === 'dividi') invia({ t: 'gruppo', op: 'dividi' });
   if (b.dataset.tes === 'deposita') { const v = parseInt(prompt('Quante monete metti nel tesoro comune?'), 10); if (v > 0) { if (mioPg()) modifica([{ op: 'oro', delta: -v }]); invia({ t: 'gruppo', op: 'oro', delta: v }); } }
 });

@@ -241,6 +241,21 @@
         <div class="riga"><label>GS<input id="smGs" type="number" min="0" max="20" value="1" inputmode="numeric" style="width:70px"></label><button type="button" data-strumento="tesoro">Tesoro casuale</button></div>
         <div class="riga"><input id="smNegozio" maxlength="60" placeholder="Nome del negozio (es. Fabbro Ulrico)"><select id="smTipoNeg" aria-label="Tipo di negozio"><option value="emporio">emporio</option><option value="fabbro">fabbro</option><option value="alchimista">alchimista</option><option value="magia">magia</option></select><button type="button" id="smApriNeg">Apri negozio</button><button type="button" id="smChiudiNeg">Chiudi</button></div>
         <div id="smAvventura"></div>
+        <details id="boxAvvMie" hidden><summary>✍️ Le vostre avventure: scrivetele e condividetele</summary>
+          <p class="piccolo">Scrivete un'avventura a scene: il master AI la segue scena per scena e la adatta alle vostre scelte. Con il codice la può giocare anche un altro gruppo.</p>
+          <div id="listaAvvMie"></div>
+          <form id="formAvvMia" class="colonna" autocomplete="off">
+            <h3 id="avvMiaTitolo">Nuova avventura</h3>
+            <input name="titolo" maxlength="80" placeholder="Titolo (es. La cripta di sale)" aria-label="Titolo dell'avventura">
+            <textarea name="sinossi" rows="2" maxlength="600" placeholder="Di cosa parla, in breve" aria-label="Di cosa parla"></textarea>
+            <div class="riga"><input name="livelli" maxlength="10" placeholder="Livelli (es. 1-3)" aria-label="Livelli consigliati" style="flex:0 0 140px"><input name="ricompensa" maxlength="200" placeholder="Ricompensa finale" aria-label="Ricompensa finale"></div>
+            <textarea name="segreti" rows="2" maxlength="1600" placeholder="Segreti per il master, uno per riga" aria-label="Segreti per il master"></textarea>
+            <div id="avvScene"></div>
+            <div class="riga"><button type="button" id="btnAvvScena">+ Aggiungi una scena</button><button type="submit" class="pieno">Salva l'avventura</button><button type="button" id="btnAvvAnnulla" class="testo-btn" hidden>Annulla</button></div>
+          </form>
+          <h3>Giocare l'avventura di un altro gruppo</h3>
+          <form id="formAvvImporta" class="riga" autocomplete="off"><input id="avvCodice" maxlength="24" autocapitalize="characters" placeholder="Codice, es. ABCD2345-EFGH6789" aria-label="Codice dell'avventura da importare"><button type="submit">Importa</button></form>
+        </details>
         <details id="boxFatti" hidden><summary>Fatti decisi dal master (<span id="fattiConta">0</span>)</summary><p class="piccolo">Verità nascoste che il master AI ha fissato e non cambierà: le vedi solo tu.</p><ul id="fattiLista" class="piccolo"></ul></details>
         <div id="smRisultato" class="piccolo"></div>
         <label>Note segrete (le vedi solo tu)<textarea id="smNote" rows="4" maxlength="8000" placeholder="Trame, segreti dei PNG, idee per la prossima sessione"></textarea></label>

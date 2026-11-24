@@ -735,3 +735,32 @@ body.daltonici .barra-pf div.meta { background: #e8c547; }
 .mese-img { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
 .mese-img img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; }
 body.gs .mese-numeri div, body.gs .mese-img img { border-radius: 0; }
+
+/* ---- 4.5: caccia al tesoro, rompicapi, torneo, animali che crescono, avventure scritte da voi ---- */
+.caccia { background: linear-gradient(160deg, #3a2e1e, #2a2116); border-color: #6b5434; }
+.caccia > strong, .rompicapo > strong, .torneo > strong { display: block; margin-bottom: 6px; }
+.indizi { margin: 6px 0 10px; padding-left: 22px; }
+.indizi li { margin: 4px 0; line-height: 1.4; }
+.indizi li.nascosto { color: var(--tenue); font-style: italic; }
+.leve, .rune, .cifre { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 10px 0; }
+.leva { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 64px; min-height: 88px; border-radius: 14px; padding: 8px 0; font-weight: 700; }
+.leva .manico { font-size: 1.6rem; line-height: 1; }
+.leva.su { background: var(--oro); color: #14110f; border-color: var(--oro); }
+.runa { display: flex; flex-direction: column; align-items: center; min-width: 64px; border-radius: 14px; padding: 8px 6px; font-size: .8rem; }
+.runa span { font-size: 1.8rem; line-height: 1.1; color: var(--oro2); }
+.sequenza { text-align: center; font-weight: 700; color: var(--oro2); min-height: 1.4em; }
+.cifra { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.cifra span { font-family: ui-monospace, monospace; font-size: 2rem; width: 56px; text-align: center; background: #120f0d; border: 1px solid var(--bordo); border-radius: 10px; padding: 4px 0; }
+.cifra button { width: 56px; padding: 6px 0; border-radius: 10px; }
+.torneo { border-color: var(--oro); }
+.tiri, .classifica { margin: 6px 0; padding-left: 22px; }
+.tiri li, .classifica li { margin: 3px 0; }
+.classifica li:first-child { color: var(--oro2); font-weight: 700; }
+.animale { padding: 8px 0; border-bottom: 1px solid var(--bordo); }
+.barra-px { height: 8px; background: #120f0d; border: 1px solid var(--bordo); border-radius: 999px; overflow: hidden; margin: 6px 0 2px; }
+.barra-px span { display: block; height: 100%; background: var(--verde); }
+.trucchi { margin: 4px 0 8px; padding-left: 4px; list-style: none; }
+.trucchi li { margin: 2px 0; font-size: .92rem; }
+.avv-scena { border: 1px solid var(--bordo); border-radius: 12px; padding: 10px; margin: 8px 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.avv-scena legend { color: var(--oro2); font-weight: 700; padding: 0 6px; }
+body.gs .leva, body.gs .runa, body.gs .cifra span, body.gs .cifra button, body.gs .avv-scena, body.gs .barra-px { border-radius: 0; }

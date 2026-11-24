@@ -522,3 +522,124 @@ async function cartolinaMese(r, tot) {
   try { if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: `Il nostro mese: ${nomeMese(r.mese)}` }); return; } } catch { return; }
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: file.name }); a.click(); Report.log('mese-immagine', { mese: r.mese });
 }
+
+/* ============ 4.5: caccia al tesoro, rompicapi da toccare, torneo, animali che crescono, avventure scritte da voi ============ */
+// caccia al tesoro: indizi da decifrare (prova di Intelligenza) e scavo nel posto giusto
+function htmlCaccia(gioca) {
+  const c = S.st?.caccia, pg = mioPg(), mappa = gioca && pg && (pg.equip || []).some(e => /mappa di un tesoro/i.test(e.nome)) && (!c || c.trovato);
+  if (!c) return mappa ? '<div class="carta-mini caccia"><strong>🗺️ Hai una mappa del tesoro</strong><p class="piccolo">Aprila: il master nasconde il tesoro e voi seguite gli indizi.</p><button type="button" class="pieno" data-caccia="nuova">Apri la mappa</button></div>' : '';
+  if (c.trovato) return `<details class="carta-mini caccia"><summary>🗺️ ${esc(c.titolo)}: tesoro trovato a ${esc(c.luogo)}</summary><p class="piccolo">${c.oro} monete d'oro${c.oggetto ? ' e ' + esc(c.oggetto) : ''} nel tesoro comune.</p>${mappa ? '<button type="button" data-caccia="nuova">Apri la tua nuova mappa</button>' : ''}</details>`;
+  const visti = c.scoperti || 1, tot = c.totale || c.indizi.length;
+  return `<div class="carta-mini caccia"><strong>🗺️ ${esc(c.titolo)}</strong>
+    <ol class="indizi">${Array.from({ length: tot }, (_, i) => i < visti ? `<li>${esc(c.indizi[i])}</li>` : `<li class="nascosto">❓ Indizio da decifrare${capo() && c.indizi[i] ? ` <span class="piccolo">(lo vedi solo tu: ${esc(c.indizi[i])})</span>` : ''}</li>`).join('')}</ol>
+    ${capo() && c.luogo ? `<p class="piccolo">Il tesoro è a: <strong>${esc(c.luogo)}</strong> (lo vedi solo tu)</p>` : ''}
+    ${gioca ? `<div class="riga"><button type="button" data-caccia="decifra" ${visti >= tot ? 'disabled' : ''}>🔍 Decifra un indizio</button><button type="button" class="pieno" data-caccia="scava">⛏️ Scava qui</button></div><p class="piccolo">Decifrare è una prova di Intelligenza (+2 con la biblioteca della casa). Quando avete capito il posto, andateci e scavate.</p>` : ''}${c.scavi ? `<p class="piccolo">Buche scavate a vuoto: ${c.scavi}</p>` : ''}</div>`;
+}
+// rompicapi: leve su e giù, rune nell'ordine giusto, serratura a tre cifre (le mosse restano sul telefono finché si preme Prova)
+function htmlRompicapo(gioca) {
+  const r = S.st?.rompicapo; if (!r) return '';
+  if (S.mosse?.t !== r.t) S.mosse = { t: r.t, leve: [false, false, false, false], rune: [], cifre: [0, 0, 0] };
+  const m = S.mosse, rune = S.st.catalogo?.rune || [], no = gioca ? '' : 'disabled';
+  const corpo = r.tipo === 'leve' ? `<div class="leve">${m.leve.map((su, i) => `<button type="button" class="leva${su ? ' su' : ''}" data-leva="${i}" aria-pressed="${su}" aria-label="Leva ${i + 1}: ${su ? 'alzata' : 'abbassata'}" ${no}><span class="manico" aria-hidden="true">${su ? '⬆' : '⬇'}</span>${i + 1}</button>`).join('')}</div>`
+    : r.tipo === 'rune' ? `<div class="rune">${rune.map(([s, n], i) => `<button type="button" class="runa" data-runa="${i}" aria-label="Runa ${n}" ${gioca && m.rune.length < 3 ? '' : 'disabled'}><span aria-hidden="true">${s}</span>${n}</button>`).join('')}</div><p class="sequenza" aria-live="polite">${m.rune.length ? m.rune.map(i => `${rune[i]?.[0]} ${rune[i]?.[1]}`).join(' → ') : 'Toccate tre rune nell\'ordine giusto'}</p>`
+      : `<div class="cifre">${m.cifre.map((n, i) => `<div class="cifra"><button type="button" data-cifra="${i}" data-delta="1" aria-label="Cifra ${i + 1}: più uno" ${no}>▲</button><span aria-live="polite" aria-label="Cifra ${i + 1}: ${n}">${n}</span><button type="button" data-cifra="${i}" data-delta="-1" aria-label="Cifra ${i + 1}: meno uno" ${no}>▼</button></div>`).join('')}</div>`;
+  const sol = !r.soluzione ? '' : r.tipo === 'leve' ? r.soluzione.map(x => x ? 'su' : 'giù').join(', ') : r.tipo === 'rune' ? r.soluzione.map(i => rune[i]?.[1]).join(', ') : r.soluzione.join('');
+  return `<div class="carta-mini rompicapo"><strong>🔐 ${esc(r.titolo || ({ leve: 'Le quattro leve', rune: 'Le rune incise', serratura: 'La serratura a combinazione' })[r.tipo])}</strong>
+    <ul class="indizi">${r.indizi.map(x => `<li>${esc(x)}</li>`).join('')}</ul>${corpo}
+    ${gioca ? `<div class="riga"><button type="button" class="pieno" data-rompicapo="prova">Prova</button>${r.tipo === 'rune' ? '<button type="button" data-rompicapo="cancella">Ricomincia</button>' : ''}</div>` : ''}
+    <p class="piccolo">⚠️ Chi sbaglia fa scattare la trappola: ${esc(r.trappolaNome || '')}.${r.tentativi ? ` Tentativi sbagliati: ${r.tentativi}.` : ''}${sol ? ` Soluzione (la vedi solo tu): ${esc(sol)}.` : ''}</p></div>`;
+}
+// torneo: prove a punti tra i personaggi e due sfidanti del posto
+function htmlTorneo(gioca) {
+  const tr = S.st?.torneo; if (!tr) return '';
+  const nome = id => tr.nomi?.[id] || S.st.pg?.[id]?.nome || (id.startsWith('npc:') ? id.slice(4) : '?');
+  const classifica = Object.entries(tr.punti || {}).sort((a, b) => b[1] - a[1]);
+  const tab = classifica.length ? `<ol class="classifica">${classifica.map(([id, n]) => `<li>${esc(nome(id))} <strong>${n}</strong></li>`).join('')}</ol>` : '';
+  if (tr.finito) return `<div class="carta-mini torneo"><strong>🏆 Torneo finito: vince ${esc(tr.vincitore || '')}</strong>${tab}${capo() ? '<button type="button" data-torneo="chiudi">Chiudi il torneo</button>' : ''}</div>`;
+  const prova = tr.prove[tr.round], giro = tr.tiri?.[tr.round] || {}, CAR = { for: 'Forza', des: 'Destrezza', cos: 'Costituzione', int: 'Intelligenza', sag: 'Saggezza', car: 'Carisma' };
+  return `<div class="carta-mini torneo"><strong>🏆 Torneo · prova ${tr.round + 1} di ${tr.prove.length}: ${prova.icona} ${esc(prova.nome)}</strong>
+    <p class="piccolo">Si tira d20 + ${CAR[prova.car]}. Punti: 3 al primo, 2 al secondo, 1 al terzo.</p>
+    <ul class="tiri">${Object.values(giro).sort((a, b) => b.tot - a.tot).map(x => `<li>${esc(x.nome)} <span class="piccolo">${x.d20}${x.bonus >= 0 ? '+' : ''}${x.bonus}</span> = <strong>${x.tot}</strong></li>`).join('')}</ul>
+    <div class="riga">${gioca && mioPg() && !giro[S.io] ? '<button type="button" class="pieno" data-torneo="tira">🎲 Tira</button>' : ''}${capo() ? '<button type="button" data-torneo="avanti">Prossima prova</button><button type="button" class="testo-btn" data-torneo="chiudi">Chiudi</button>' : ''}</div>
+    ${tab ? `<p class="piccolo">Classifica</p>${tab}` : ''}</div>`;
+}
+// strumenti di chi guida: nascondere un tesoro, preparare un rompicapo, aprire un torneo
+function htmlGiochiCapo() {
+  if (!capo()) return '';
+  return `<details class="carta-mini"><summary>🎲 Giochi per il gruppo: tesoro, rompicapo, torneo</summary>
+    <div class="riga"><button type="button" data-caccia="nuova" ${S.st.caccia && !S.st.caccia.trovato ? 'disabled' : ''}>🗺️ Nascondi un tesoro</button><button type="button" data-torneo="apri" ${S.st.torneo && !S.st.torneo.finito ? 'disabled' : ''}>🏆 Organizza un torneo</button></div>
+    <form class="riga" data-rompicapo-nuovo autocomplete="off"><select name="forma" aria-label="Tipo di rompicapo"><option value="">Rompicapo a caso</option><option value="leve">Quattro leve</option><option value="rune">Rune in ordine</option><option value="serratura">Serratura a combinazione</option></select><select name="trappola" aria-label="Trappola"><option value="">Trappola a caso</option><option value="dardi">Dardi avvelenati</option><option value="fulmine">Fulmini</option><option value="gas">Gas</option><option value="fossa">Botola</option><option value="lame">Lame</option></select><button>🔐 Prepara</button></form>
+    <p class="piccolo">Indizi e soluzioni li prepara il gioco. Anche il master AI può nascondere tesori, preparare rompicapi e aprire tornei.</p></details>`;
+}
+$('#mondoVivo').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || !S.st) return;
+  const torna = sel => requestAnimationFrame(() => $('#mondoVivo').querySelector(sel)?.focus()); // dopo il ridisegno il dito resta sullo stesso tasto
+  if (b.dataset.caccia) { invia({ t: 'caccia_' + b.dataset.caccia }); Report.log('caccia', { cosa: b.dataset.caccia }); }
+  if (b.dataset.torneo) { invia({ t: 'torneo_' + b.dataset.torneo }); Report.log('torneo', { cosa: b.dataset.torneo }); }
+  const m = S.mosse, r = S.st.rompicapo; if (!m || !r) return;
+  if (b.dataset.leva !== undefined) { const i = +b.dataset.leva; m.leve[i] = !m.leve[i]; renderMondoVivo(); torna(`[data-leva="${i}"]`); }
+  if (b.dataset.runa !== undefined && m.rune.length < 3) { m.rune.push(+b.dataset.runa); renderMondoVivo(); torna(m.rune.length < 3 ? `[data-runa="${b.dataset.runa}"]` : '[data-rompicapo="prova"]'); }
+  if (b.dataset.cifra !== undefined) { const i = +b.dataset.cifra; m.cifre[i] = (m.cifre[i] + Number(b.dataset.delta) + 10) % 10; renderMondoVivo(); torna(`[data-cifra="${i}"][data-delta="${b.dataset.delta}"]`); }
+  if (b.dataset.rompicapo === 'cancella') { m.rune = []; renderMondoVivo(); torna('[data-runa="0"]'); }
+  if (b.dataset.rompicapo === 'prova') { invia({ t: 'rompicapo_prova', mosse: r.tipo === 'leve' ? m.leve : r.tipo === 'rune' ? m.rune : m.cifre }); Report.log('rompicapo', { tipo: r.tipo }); if (r.tipo === 'rune') { m.rune = []; renderMondoVivo(); } }
+});
+$('#mondoVivo').addEventListener('submit', e => { const f = e.target; if (f.dataset.rompicapoNuovo !== undefined) { e.preventDefault(); invia({ t: 'rompicapo_nuovo', forma: f.forma.value, trappola: f.trappola.value }); Report.log('rompicapo_nuovo', { forma: f.forma.value }); } });
+
+// animali che crescono: livello, barra dei punti, trucchi imparati e addestramento una volta al giorno di gioco
+function htmlAnimale(a, i, puo) {
+  const soglie = S.st?.catalogo?.pxAnimale || [0, 100, 300, 700, 1500], liv = a.livello || 1, prossimo = soglie[liv], prima = soglie[liv - 1] || 0;
+  const perc = prossimo ? Math.max(0, Math.min(100, Math.round(((a.px || 0) - prima) / (prossimo - prima) * 100))) : 100;
+  return `<div class="animale"><div class="mondo-riga"><strong>${esc(a.nome)}</strong> <span class="piccolo">${esc(a.specie)} · livello ${liv} · PF ${a.pf}${a.pfMax && a.pfMax !== a.pf ? '/' + a.pfMax : ''} · CA ${a.ca}</span></div>
+    <div class="barra-px" role="progressbar" aria-label="Crescita di ${esc(a.nome)}" aria-valuenow="${perc}" aria-valuemin="0" aria-valuemax="100"><span style="width:${perc}%"></span></div>
+    <p class="piccolo">${prossimo ? `${a.px || 0} su ${prossimo} punti per il livello ${liv + 1}` : 'Livello massimo'}${a.abilita ? ' · ' + esc(a.abilita) : ''}</p>
+    ${(a.trucchi || []).length ? `<ul class="trucchi">${a.trucchi.map(t => `<li>✨ ${esc(t)}</li>`).join('')}</ul>` : '<p class="piccolo">Impara il primo trucco al livello 2: cresce con metà dei vostri PX e con l\'addestramento.</p>'}
+    ${puo ? `<button type="button" data-addestra="${i}">🦴 Addestra ${esc(a.nome)}</button>` : ''}</div>`;
+}
+$('#scheda').addEventListener('click', e => { const b = e.target.closest('[data-addestra]'); if (b) { invia({ t: 'addestra', animale: +b.dataset.addestra }); Report.log('addestra', {}); } });
+
+// avventure scritte da voi: editor a scene, codice di condivisione, importazione da un altro gruppo
+const CAMPI_SCENA = [['luogo', 'Luogo (es. Cripta di Sale)', 60], ['leggi', 'Da leggere ad alta voce quando arrivano', 1200], ['obiettivo', 'Cosa devono fare qui', 300], ['png', 'Personaggi che incontrano', 200], ['indizi', 'Indizi da trovare', 300], ['nemici', 'Nemici (es. 3 Scheletro, 1 Zombi)', 120], ['tesoro', 'Tesoro', 200]];
+function campiScena(sc = {}) {
+  const f = document.createElement('fieldset'); f.className = 'avv-scena';
+  const val = k => k === 'nemici' ? (sc.incontro || []).map(n => `${n.numero} ${n.nome}`).join(', ') : sc[k] || '';
+  f.innerHTML = `<legend>Scena</legend>${CAMPI_SCENA.map(([k, ph, max]) => k === 'leggi' ? `<textarea name="${k}" rows="3" maxlength="${max}" placeholder="${ph}" aria-label="${ph}">${esc(val(k))}</textarea>` : `<input name="${k}" maxlength="${max}" placeholder="${ph}" aria-label="${ph}" value="${esc(val(k))}">`).join('')}<button type="button" class="testo-btn" data-togli-scena>Togli questa scena</button>`;
+  $('#avvScene').append(f); numeraScene();
+}
+function numeraScene() { $('#avvScene').querySelectorAll('legend').forEach((l, i) => { l.textContent = `Scena ${i + 1}`; }); }
+function leggiAvventura() {
+  const f = $('#formAvvMia');
+  return { titolo: f.titolo.value, sinossi: f.sinossi.value, livelli: f.livelli.value, ricompensa: f.ricompensa.value, segreti: f.segreti.value, scene: [...$('#avvScene').children].map(fs => Object.fromEntries(CAMPI_SCENA.map(([k]) => [k, fs.querySelector(`[name="${k}"]`).value]))) };
+}
+function apriEditor(id) {
+  const a = id ? S.st?.avventureMie?.[id] : null, f = $('#formAvvMia'); if (!f) return;
+  f.reset(); f.dataset.id = a ? id : ''; $('#avvScene').innerHTML = '';
+  if (a) { f.titolo.value = a.titolo; f.sinossi.value = a.sinossi || ''; f.livelli.value = a.livelli || ''; f.ricompensa.value = a.ricompensa || ''; f.segreti.value = (a.segreti || []).join('\n'); a.scene.forEach(sc => campiScena(sc)); } else campiScena();
+  $('#avvMiaTitolo').textContent = a ? `Modifica: ${a.titolo}` : 'Nuova avventura'; $('#btnAvvAnnulla').hidden = !a;
+}
+function renderAvventureMie() {
+  const box = $('#listaAvvMie'); if (!box || !S.st) return;
+  $('#boxAvvMie').hidden = !capo();
+  const mie = Object.entries(S.st.avventureMie || {});
+  box.innerHTML = mie.length ? mie.map(([id, a]) => `<div class="hb-voce"><div><strong>${esc(a.titolo)}</strong> <span class="piccolo">${a.scene.length} ${a.scene.length === 1 ? 'scena' : 'scene'} · livelli ${esc(a.livelli)}${a.autore ? ' · scritta da ' + esc(a.autore) : ''}${a.da ? ' (' + esc(a.da) + ')' : ''}</span>
+    ${a.chiave ? `<p class="codice-mondo">${esc(S.codice + '-' + a.chiave)}</p>` : ''}
+    <div class="riga"><button type="button" class="pieno" data-avv-gioca="${esc(id)}">Gioca</button><button type="button" data-avv-modifica="${esc(id)}">Modifica</button>${a.chiave ? `<button type="button" data-avv-copia="${esc(id)}">Copia il codice</button><button type="button" data-avv-ritira="${esc(id)}">Non condividere più</button>` : `<button type="button" data-avv-condividi="${esc(id)}">Condividi</button>`}<button type="button" class="testo-btn" data-avv-elimina="${esc(id)}">Elimina</button></div></div></div>`).join('') : '<p class="piccolo">Ancora nessuna avventura scritta da voi.</p>';
+}
+$('#listaAvvMie').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
+  if (d.avvGioca) { invia({ t: 'avventura_inizia', id: d.avvGioca }); toast('L\'avventura comincia…'); Report.log('avventura_mia', { cosa: 'gioca' }); }
+  if (d.avvModifica) { apriEditor(d.avvModifica); $('#formAvvMia').scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+  if (d.avvCondividi) { invia({ t: 'avventura_condividi', id: d.avvCondividi }); Report.log('avventura_mia', { cosa: 'condividi' }); }
+  if (d.avvRitira) invia({ t: 'avventura_condividi', id: d.avvRitira, ritira: true });
+  if (d.avvCopia) { const cod = `${S.codice}-${S.st.avventureMie?.[d.avvCopia]?.chiave}`; try { await navigator.clipboard.writeText(cod); toast('Codice copiato: mandalo all\'altro gruppo'); } catch { toast(cod); } }
+  if (d.avvElimina) { if (!d.sicuro) { d.sicuro = '1'; b.textContent = 'Tocca ancora per eliminare'; return; } invia({ t: 'avventura_elimina', id: d.avvElimina }); }
+});
+$('#formAvvMia').addEventListener('submit', e => {
+  e.preventDefault(); const f = e.target, a = leggiAvventura();
+  if (!a.titolo.trim() || !a.scene.some(s => s.luogo.trim() && (s.leggi.trim() || s.obiettivo.trim()))) { toast('Servono il titolo e almeno una scena con il luogo e cosa succede', true); return; }
+  invia({ t: 'avventura_salva', id: f.dataset.id || undefined, avventura: a }); Report.log('avventura_mia', { cosa: 'salva', scene: a.scene.length }); apriEditor();
+});
+$('#btnAvvScena').addEventListener('click', () => { if ($('#avvScene').children.length >= 12) { toast('Al massimo 12 scene', true); return; } campiScena(); $('#avvScene').lastElementChild.querySelector('input').focus(); });
+$('#avvScene').addEventListener('click', e => { if (e.target.closest('[data-togli-scena]')) { e.target.closest('fieldset').remove(); numeraScene(); } });
+$('#btnAvvAnnulla').addEventListener('click', () => apriEditor());
+$('#formAvvImporta').addEventListener('submit', e => { e.preventDefault(); const c = $('#avvCodice').value.trim(); if (!c) return; invia({ t: 'avventura_importa', codice: c }); $('#avvCodice').value = ''; Report.log('avventura_mia', { cosa: 'importa' }); });
+apriEditor();
