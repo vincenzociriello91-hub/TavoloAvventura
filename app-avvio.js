@@ -19,7 +19,7 @@ window.addEventListener('resize', () => { if (largo() && S.vista === 'vMappa') m
   cercaAggiornamenti(false); Report.invia();
   const codice = (q.get('c') || (q.has('i') ? '' : leggi('ta_attiva', '')) || '').toUpperCase(), invito = (q.get('i') || '').toUpperCase();
   const salvata = codice && campagneSalvate().find(x => x.codice === codice);
-  mostraIngresso();
+  if (!salvata) mostraIngresso(); else setTimeout(() => { if ($('#gioco').hidden) mostraIngresso(); }, 8000); // rientro: niente schermata d'ingresso finché il tavolo risponde (al massimo 8 s)
   if (largo()) mostraVista('vScheda');
   if (salvata) { S.io = salvata.io; S.chiave = salvata.chiave; connetti(codice, () => ({ t: 'ciao', membro: salvata.io, chiave: salvata.chiave })); return; }
   if (codice && invito) {

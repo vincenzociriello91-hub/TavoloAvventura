@@ -806,3 +806,8 @@ body .giornale button, body .giornale select, body.gs .giornale button, body.gs 
 /* scritte piccole dentro titoli e pulsanti in pixel: Jersey 15 sotto i 16px non si legge bene */
 body.gs :is(h1, h2, h3, summary, legend, button, .bottone, .narr-testa) .piccolo { font-size: 1rem; }
 body.gs .av { font-size: 1rem; }
+
+/* rientro in una campagna: al posto della schermata d'ingresso, una scritta d'attesa finché il tavolo risponde */
+.rientro-attesa { display: none; }
+html.rientro .rientro-attesa { display: grid; place-items: center; min-height: 60vh; color: var(--tenue); font-size: 1.1rem; }
+html.rientro #ingresso { display: none !important; }

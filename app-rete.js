@@ -217,6 +217,7 @@ function gestisci(m) {
 
 /* ============ INGRESSO ============ */
 function mostraIngresso() {
+  document.documentElement.classList.remove('rientro');
   $('#ingresso').hidden = false; $('#gioco').hidden = true; $('#azioniBarra').hidden = true;
   $('#tCampagna').textContent = "Tavolo d'Avventura"; $('#tSotto').textContent = 'D&D online con gli amici'; $('#presenza').innerHTML = '';
   const l = campagneSalvate();
@@ -224,7 +225,7 @@ function mostraIngresso() {
   $('#listaMie').innerHTML = l.map(c => `<li><button class="apri" data-c="${esc(c.codice)}"><span><strong>${esc(c.nome || c.codice)}</strong><br><span class="piccolo">${esc(c.codice)} · ${esc(c.ruolo || 'giocatore')}</span></span><span aria-hidden="true">›</span></button><button class="testo-btn togli" data-c="${esc(c.codice)}" aria-label="Dimentica ${esc(c.nome || c.codice)}">Dimentica</button></li>`).join('');
   const nome = leggi('ta_nome', ''); if (nome) { $('#eNome').value ||= nome; $('#cMioNome').value ||= nome; }
 }
-function mostraGioco() { $('#ingresso').hidden = true; $('#gioco').hidden = false; $('#azioniBarra').hidden = document.body.classList.contains('tv'); }
+function mostraGioco() { document.documentElement.classList.remove('rientro'); $('#ingresso').hidden = true; $('#gioco').hidden = false; $('#azioniBarra').hidden = document.body.classList.contains('tv'); }
 $('#listaMie').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const c = campagneSalvate().find(x => x.codice === b.dataset.c); if (!c) return;
