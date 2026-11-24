@@ -393,6 +393,9 @@ v(!!(await annuncio(A, /Rivincita! Troll è sconfitto/)) && (await stato(A)).riv
 A.coda.length = 0; A.invia({ t: 'statistiche' }); v((await A.aspetta(m => m.t === 'statistiche')).premi.some(x => x.titolo === 'Rivincita!' && /Troll/.test(x.motivo)), 'la rivincita entra tra i trofei della campagna');
 A.invia({ t: 'combattimento', azione: 'fine' }); await pausa(300);
 
+A.invia({ t: 'narra', testo: 'Una serata senza IA: il master tace.' }); await pausa(400);
+A.coda.length = 0; A.invia({ t: 'riepilogo' }); const rieF = await A.aspetta(m => m.t === 'riepilogo', 20000).catch(() => null);
+v(rieF && /Riassunto semplice/.test(rieF.r.racconto) && /Serata \d+/.test(rieF.r.racconto), 'se l\'IA non risponde il riepilogo della serata arriva lo stesso, con i numeri della serata');
 const codice4 = 'ALLEN' + Math.random().toString(36).slice(2, 6).toUpperCase();
 const F = client(codice4); await F.pronto; F.invia({ t: 'crea', nome: 'Allenamento: L\'arena', regole: '5e', masterTipo: 'ai', mioNome: 'Prova', solitaria: true, sfida: { titolo: 'L\'arena', obiettivo: 'Batti due goblin', settimana: 'allenamento', allenamento: true } });
 const bF = await F.aspetta(m => m.t === 'benvenuto'); F.invia({ t: 'scheda', pg: pg('Nuovo') }); await F.aspetta(m => m.t === 'scheda');
