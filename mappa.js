@@ -810,12 +810,12 @@ const Mappa = (() => {
     const parti = String(nome).split(/\s+/), numero = parti.length > 1 && /^\d+$/.test(parti[parti.length - 1]) ? ' ' + parti[parti.length - 1] : '';
     let n = parti[0]; while (n.length > 3 && ctx.measureText(n + numero).width > Math.max(t * 2.2, 54)) n = n.slice(0, -2) + '…';
     n += numero;
-    const nw = ctx.measureText(n).width, hh = Math.max(12, t * 0.42), x0 = bx - nw / 2 - 4;
+    const nw = ctx.measureText(n).width, hh = Math.max(12, t * 0.42), x0 = Math.max(0, Math.min(bx - nw / 2 - 4, (luogo?.w || 1e4) * t - nw - 8)); // figura sul bordo: il nome resta dentro la mappa, non tagliato
     // due figure vicine: il secondo nome scende sotto il primo invece di coprirlo
     for (let k = 0; k < 3 && targhe.some(r => x0 < r.x + r.w && x0 + nw + 8 > r.x && y < r.y + r.h && y + hh > r.y); k++) y += hh + 1;
     targhe.push({ x: x0, y, w: nw + 8, h: hh });
     ctx.fillStyle = nemico ? 'rgba(70,14,12,.85)' : 'rgba(20,17,15,.78)'; rr(ctx, x0, y, nw + 8, hh, gusti.pixel ? 0 : 4); ctx.fill();
-    ctx.fillStyle = '#f3ead9'; ctx.fillText(n, bx - nw / 2, y + hh * 0.78);
+    ctx.fillStyle = '#f3ead9'; ctx.fillText(n, x0 + 4, y + hh * 0.78);
   }
   // stati del personaggio scritti sotto il nome (avvelenato, prono...): non solo un colore
   function statoTag(stati, bx, y, t) {

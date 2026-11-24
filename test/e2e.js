@@ -265,7 +265,12 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await B.evaluate(() => invia({ t: 'gruppo', op: 'prendi', nome: 'Corda' }));
   await B.waitForFunction(() => mioPg().equip.some(e => e.nome === 'Corda'), null, { timeout: 5000 });
   v(true, 'tesoro comune: monete a voce, oggetto messo e preso');
+  for (const p of [A, B]) await p.evaluate(() => toast('È il tuo turno!'));
   await A.evaluate(() => invia({ t: 'combattimento', azione: 'fine' }));
+  for (const p of [A, B]) await p.waitForFunction(() => !S.st.combattimento?.attivo, null, { timeout: 5000 });
+  v(await A.evaluate(() => $('#toast').hidden) && await B.evaluate(() => $('#toast').hidden), 'scontro finito: l\'avviso "È il tuo turno!" sparisce subito');
+  v(await A.evaluate(() => { toast('Il master prepara il riassunto…'); const vista = S.vista; S.vista = 'vMappa'; riassuntoArrivato({ riassunto: true, testo: 'Nella puntata precedente…' }); S.vista = vista; return $('#toast').hidden; }), 'riassunto arrivato: l\'avviso "il master prepara il riassunto" sparisce');
+  v(await A.evaluate(() => /▸/.test(getComputedStyle(document.querySelector('#altriStrumenti > summary'), '::after').content)), 'le parti che si aprono (es. "Altri strumenti") hanno la freccina');
   await A.evaluate(() => mostraNarrazione('Benvenuti nella mia locanda, forestieri.', 'Oste Bruno'));
   v(await A.locator('#narrVolto svg, #narrVolto img.volto-png').count() === 1, 'volto del PNG nella vignetta (illustrato o in pixel art)');
   await B.click('#nav button[data-v="vMappa"]').catch(() => {});

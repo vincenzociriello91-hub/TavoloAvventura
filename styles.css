@@ -142,6 +142,8 @@ main { padding: 16px; padding-bottom: calc(var(--navh) + 24px + env(safe-area-in
 .equip button { min-height: 36px; padding: 4px 12px; font-size: .85rem; }
 .cond { display: flex; flex-wrap: wrap; gap: 6px; }
 details summary { cursor: pointer; color: var(--oro2); min-height: 44px; display: flex; align-items: center; }
+details > summary::after { content: '▸'; margin-left: 8px; font-size: .8em; flex: 0 0 auto; } /* col display flex il triangolino del browser sparisce: senza questo sembrano titoli e non si capisce che si aprono */
+details[open] > summary::after { content: '▾'; }
 .crea-car { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .crea-car label { margin: 0; }
 
