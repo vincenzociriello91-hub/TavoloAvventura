@@ -192,6 +192,8 @@ const BIBLIOTECA = {
     'Concentrazione': ['🧘', 'Alcune magie durano finché ti concentri. Se vieni colpito fai un salvezza su Costituzione per non perderle; una sola alla volta.']
   }
 };
+// altezza (cm) e peso (kg) medi di ogni razza, per capire chi è alto, basso, pesante o leggero
+const MISURE = { Umano: [170, 72], Nano: [135, 70], Elfo: [172, 60], Halfling: [92, 18], Dragonide: [190, 110], Gnomo: [102, 20], Mezzelfo: [170, 68], Mezzorco: [185, 95], Tiefling: [172, 70] };
 const Regole = {
   set(r) { return REGOLE[r === '3.5' ? '3.5' : '5e']; },
   classi(pg) { return pg.classi?.length ? pg.classi : [{ classe: pg.classe, livello: pg.livello }]; },
@@ -230,7 +232,7 @@ const Regole = {
   carFinali(pg) {
     const raz = this.set(pg.regole).razze[pg.razza]?.car || {};
     const o = {};
-    for (const k of CAR) o[k] = (pg.carBase?.[k] ?? pg.car?.[k] ?? 10) + (raz[k] || 0) + (pg.carExtra?.[k] || 0);
+    for (const k of CAR) o[k] = (pg.carBase?.[k] ?? pg.car?.[k] ?? 10) + (raz[k] || 0) + (pg.carExtra?.[k] || 0) + (pg.carCorpo?.[k] || 0);
     return o;
   },
   // Livelli in cui si guadagnano punti caratteristica
@@ -288,7 +290,7 @@ const Regole = {
   ricalcola(pg) {
     pg.car = this.carFinali(pg);
     pg.taglia = this.set(pg.regole).razze[pg.razza]?.taglia || 'media';
-    pg.vel = this.set(pg.regole).razze[pg.razza]?.vel || 9;
+    pg.vel = (this.set(pg.regole).razze[pg.razza]?.vel || 9) + (pg.velCorpo || 0);
     pg.ca = this.ca(pg);
     pg.pf = Math.min(pg.pf, pg.pfMax);
     pg.slotUsati = pg.slotUsati || [];
@@ -384,6 +386,21 @@ const Regole = {
     if (k === 'cos') { const d = (mod(pg.car.cos) - mod(primaCos)) * pg.livello; pg.pfMax += d; pg.pf += d; }
     return `${CAR_NOMI[k]} ${delta > 0 ? '+' : ''}${delta} (ora ${pg.car[k]}, modificatore ${segno(mod(pg.car[k]))})`;
   },
+  // Il corpo conta (come in Le Cronache dei Varchi): altezza, peso e corporatura danno piccoli vantaggi pagati con piccoli svantaggi.
+  // Si decide alla creazione e resta: dopo, cambiare l'aspetto non cambia più le caratteristiche.
+  corpo(razza, a = {}) {
+    const [hm, pm] = MISURE[razza] || [170, 72], car = {}, motivi = []; let vel = 0;
+    const da = (testo, piu, meno, v = 0) => { if (piu) car[piu] = (car[piu] || 0) + 1; if (meno) car[meno] = (car[meno] || 0) - 1; vel += v; motivi.push(testo); };
+    if (a.corporatura === 'snella') da('snello: più agile, meno forte', 'des', 'for');
+    if (a.corporatura === 'robusta') da('robusto: più resistente, meno agile', 'cos', 'des');
+    if (a.corporatura === 'muscolosa') da('muscoloso: più forte, si stanca prima', 'for', 'cos');
+    const h = Number(a.altezza) || 0, p = Number(a.peso) || 0;
+    if (h >= hm * 1.08) da('alto: colpisce più forte, ma è più facile da colpire e da vedere', 'for', 'des');
+    if (h && h <= hm * 0.92) da('basso: più sfuggente, meno forza', 'des', 'for');
+    if (p) { const ideale = pm * ((h || hm) / hm) ** 2, r = p / ideale; if (r >= 1.25) da('pesante: più resistente, ma più lento (−1,5 m)', 'cos', null, -1.5); if (r <= 0.8) da('leggero: più veloce (+1,5 m), meno resistente', null, 'cos', 1.5); }
+    for (const k of Object.keys(car)) { car[k] = Math.max(-2, Math.min(2, car[k])); if (!car[k]) delete car[k]; }
+    return { car, vel, motivi };
+  },
   nuovo(regole, dati) {
     const set = this.set(regole);
     const classe = set.classi[dati.classe] ? dati.classe : Object.keys(set.classi)[0];
@@ -399,6 +416,7 @@ const Regole = {
     // una sola arma in mano all'inizio (la prima), lo zaino tiene le altre
     let armaFatta = false;
     pg.equip.forEach(e => { if (ARMI[e.nome]) { if (armaFatta) e.indossato = false; armaFatta = true; } });
+    if (!dati.senzaCorpo) { const c = this.corpo(razza, dati.aspetto); if (Object.keys(c.car).length) pg.carCorpo = c.car; if (c.vel) pg.velCorpo = c.vel; } // una scheda già fatta resta com'è scritta
     pg.car = this.carFinali(pg);
     pg.pfMax = Math.max(1, this.pfAlLivello1(pg)); pg.pf = pg.pfMax;
     return this.ricalcola(pg);

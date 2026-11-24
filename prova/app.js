@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.7.1';
+const VERSION = '4.8.0';
 const CHANGELOG = [
+  { v: '4.8.0', data: '24/11/2026', voci: [
+    'Descrivilo tu: scrivi o detta chi è il tuo personaggio (razza, classe, carattere, passato, altezza, peso, corporatura) e l\'IA compila la scheda',
+    'Hai già una scheda? Carica il PDF o una foto della scheda di carta: l\'IA la legge e la ricopia con livello, punti ferita, oggetti e incantesimi',
+    'Il corpo conta, come in Varchi: robusto, snello, muscoloso, alto, basso, pesante o leggero danno piccoli vantaggi pagati con piccoli svantaggi',
+    'Corporatura «muscolosa» tra quelle dell\'aspetto',
+    'Anche il master della sessione zero propone altezza e peso'
+  ] },
   { v: '4.7.1', data: '24/11/2026', voci: [
     'Pulsante sole/luna in basso a sinistra: un tocco e passi ai colori chiari del giorno o a quelli scuri della notte',
     'Il tavolo riconosce il dispositivo (telefono, tablet, computer, TV): in Altro → Gioco vedi schermo, Hz, memoria e grafica scelta',

@@ -902,3 +902,5 @@ body.oled .barra, body.oled .nav { background: #000; }
 /* grafica bassa: niente vetri sfocati e ombre larghe, che sui telefoni lenti costano di più */
 body.q-bassa .barra { backdrop-filter: none; -webkit-backdrop-filter: none; }
 body.q-bassa .carta { box-shadow: none; }
+/* 4.8: un'etichetta che fa da pulsante (carica un file) tiene icona e scritta sulla stessa riga */
+label.bottone { flex-direction: row; gap: 6px; }

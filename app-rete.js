@@ -174,6 +174,7 @@ function gestisci(m) {
     case 'album': mostraAlbum(m); return;
     case 'avventure': S.st.avventure = m.avventure; if (m.avventureMie) S.st.avventureMie = m.avventureMie; renderAvventura(); renderAvventureMie(); return;
     case 'sessione_zero': szRisposta(m); return;
+    case 'pg_da_testo': pgDaTestoRisposta(m); return;
     case 'mostri': S.st.mostri = m.mostri; Mappa.disegna(); if (S.m3) S.m3.aggiorna(Mappa.dati3D()); return;
     case 'volti': S.st.volti = m.volti; { const png = $('#narrChi').dataset.png; if (png && m.volti[png]) mostraVolto(png); } return;
     case 'riepilogo': Report.log('riepilogo', { titolo: m.r.titolo, immagine: !!m.r.img }); mostraRiepilogo(m.r); return;

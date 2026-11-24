@@ -316,6 +316,45 @@ function renderCarte() {
   }).join('');
 }
 
+// scheda del personaggio già fatta: dal PDF si prende il testo; se è una scansione (o una foto) si manda un'immagine leggera, sotto il limite dei messaggi
+async function leggiSchedaFile(f) {
+  const pdf = /\.pdf$/i.test(f.name) || f.type === 'application/pdf';
+  if (pdf) {
+    if (f.size > 15e6) throw new Error('Il PDF è troppo grande');
+    const t = (await testoDaPdf(f)).trim();
+    if (t.length >= 200) return { testo: t.slice(0, 8000) };
+    return { immagine: jpegLeggero(await primaPaginaPdf(f)) };
+  }
+  if (!/^image\//.test(f.type)) throw new Error('Serve un PDF o una foto');
+  let img; try { img = await createImageBitmap(f); } catch { throw new Error('Non riesco ad aprire questa foto: prova con una JPEG'); }
+  return { immagine: jpegLeggero(img) };
+}
+function jpegLeggero(src) {
+  for (const [lato, q] of [[1600, 0.8], [1400, 0.72], [1200, 0.65], [1000, 0.6]]) {
+    const k = Math.min(1, lato / Math.max(src.width, src.height)), cv = document.createElement('canvas');
+    cv.width = Math.round(src.width * k); cv.height = Math.round(src.height * k);
+    const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height); c.drawImage(src, 0, 0, cv.width, cv.height);
+    const b64 = cv.toDataURL('image/jpeg', q).split(',')[1];
+    if (b64.length < 370000) return b64;
+  }
+  throw new Error('La foto è troppo pesante anche rimpicciolita');
+}
+async function primaPaginaPdf(file) {
+  const pdfjs = await import('./vendor/pdf.min.mjs');
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL('vendor/pdf.worker.min.mjs', location.href).href;
+  const pag = await (await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise).getPage(1);
+  const v = pag.getViewport({ scale: 1 }), vp = pag.getViewport({ scale: 1600 / Math.max(v.width, v.height) }), cv = document.createElement('canvas');
+  cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+  await pag.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+  return cv;
+}
+$('#scheda').addEventListener('change', async e => {
+  if (e.target.id !== 'cpFileScheda') return;
+  const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
+  try { pgDaTestoInvia(await leggiSchedaFile(f), 'scheda'); }
+  catch (err) { toast(err.message || 'Non riesco a leggere il file', true); Report.log('pg-da-scheda-errore', { msg: String(err.message || err).slice(0, 200), tipo: f.type, kb: Math.round(f.size / 1024) }); }
+});
+
 // testo di un PDF letto nel telefono con pdf.js (Apache 2.0, in vendor/): si carica solo quando serve
 async function testoDaPdf(file) {
   const pdfjs = await import('./vendor/pdf.min.mjs');
