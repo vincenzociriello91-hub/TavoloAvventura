@@ -15,7 +15,7 @@ window.addEventListener('resize', () => { if (largo() && S.vista === 'vMappa') m
 (() => {
   const q = new URLSearchParams(location.search);
   if (q.get('tv') === '1') document.body.classList.add('tv');
-  Report.log('avvio', { versione: VERSION, tv: q.get('tv') === '1', schermo: `${innerWidth}x${innerHeight}`, dpr: devicePixelRatio, voce: Ascolto.supportato(), webrtc: !!window.RTCPeerConnection });
+  Report.log('avvio', { versione: VERSION, tv: q.get('tv') === '1', schermo: `${innerWidth}x${innerHeight}`, dpr: devicePixelRatio, dispositivo: Dispositivo.profilo(), voce: Ascolto.supportato(), webrtc: !!window.RTCPeerConnection });
   cercaAggiornamenti(false); Report.invia();
   const azione = q.get('azione'); S.azioneAvvio = azione; // scorciatoie dell'icona: riprendi, d20, sfida
   const codice = (q.get('c') || (q.has('i') || azione === 'sfida' ? '' : leggi('ta_attiva', '')) || '').toUpperCase(), invito = (q.get('i') || '').toUpperCase();

@@ -8,7 +8,7 @@ function prepara() {
   tela = document.createElement('canvas'); tela.className = 'dadi3d';
   document.body.appendChild(tela);
   renderer = new THREE.WebGLRenderer({ canvas: tela, alpha: true, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(window.Dispositivo?.dpr(2) ?? Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true; renderer.toneMapping = THREE.ACESFilmicToneMapping;
   scena = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);

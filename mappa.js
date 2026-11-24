@@ -22,7 +22,7 @@ const Mappa = (() => {
   let modo = null, riga = null, tratto = null;
   let tileManuale = 0, gCache = null, pizzico = null, pan = null, dopoPizzico = false; const tocchi = new Map();
   // scelte di chi gioca (da Altro → Gioco): meno movimento, velocità delle animazioni, scritte in pixel, simboli oltre ai colori
-  let gusti = { menoMoto: false, velocita: 1, pixel: true, simboli: true };
+  let gusti = { menoMoto: false, velocita: 1, pixel: true, simboli: true, dprMax: 9, particelle: 1, lento: false };
   function opzioni(o) { gusti = { ...gusti, ...o }; cacheChiave = ''; disegna(); }
   const ritratti = new Map();
   const PIATTI = ['tappeto', 'ragnatela', 'ossa', 'funghi', 'macerie'];
@@ -93,13 +93,13 @@ const Mappa = (() => {
     const ambiente = visibile && !gusti.menoMoto; // alberi, lucciole, acqua, figure che respirano: pochi fotogrammi al secondo
     if ((vivo || ambiente) && !trascina && performance.now() >= fermoFino) disegna(true);
     // dopo due minuti senza toccare niente la mappa rallenta, per non consumare batteria
-    setTimeout(() => requestAnimationFrame(anima), inMovimento || effetti.length ? 40 : vivo ? 66 : ambiente ? (performance.now() - ultimoGesto > 120000 ? 320 : 110) : 500);
+    setTimeout(() => requestAnimationFrame(anima), (inMovimento || effetti.length ? 40 : vivo ? 66 : ambiente ? (performance.now() - ultimoGesto > 120000 ? 320 : 110) : 500) * (gusti.lento ? 2 : 1)); // grafica bassa: metà dei fotogrammi
   }
   // pioggia, neve, nebbia e lampi sopra la mappa (solo all'aperto)
   function meteoAnimato(t) {
     const m = meteo(); if (!esterno() || !['pioggia', 'temporale', 'neve', 'nebbia'].includes(m)) return;
     const W = luogo.w * t, H = luogo.h * t, adesso = performance.now(), dt = Math.min(0.1, (adesso - (ultimoFotogramma || adesso)) / 1000); ultimoFotogramma = adesso;
-    const quante = m === 'temporale' ? 260 : m === 'pioggia' ? 170 : m === 'neve' ? 140 : 7;
+    const quante = Math.round((m === 'temporale' ? 260 : m === 'pioggia' ? 170 : m === 'neve' ? 140 : 7) * (gusti.particelle ?? 1));
     while (particelle.length < quante) particelle.push({ x: Math.random() * W, y: Math.random() * H, v: 0.6 + Math.random() * 0.6, f: Math.random() * 6.28 });
     if (m === 'nebbia') {
       for (const p of particelle) { p.x += dt * 8 * p.v; if (p.x > W + 200) p.x = -200; const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, t * 6); g.addColorStop(0, 'rgba(225,228,235,.22)'); g.addColorStop(1, 'rgba(225,228,235,0)'); ctx.fillStyle = g; ctx.fillRect(p.x - t * 6, p.y - t * 6, t * 12, t * 12); }
@@ -122,7 +122,7 @@ const Mappa = (() => {
     const maxH = opz.altezzaMax ? opz.altezzaMax() : 9999;
     // sul telefono la mappa non scende sotto i 22 px a casella: si scorre col dito invece di diventare illeggibile
     tile = tileManuale || Math.max(22, Math.floor(Math.min(box.width / luogo.w, maxH / luogo.h)));
-    dpr = window.devicePixelRatio || 1;
+    dpr = Math.min(window.devicePixelRatio || 1, gusti.dprMax || 9);
     cv.width = luogo.w * tile * dpr; cv.height = luogo.h * tile * dpr;
     cv.style.width = luogo.w * tile + 'px'; cv.style.height = luogo.h * tile + 'px';
     cacheChiave = ''; disegna();

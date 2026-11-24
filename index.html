@@ -296,8 +296,11 @@
         <label class="spunta"><input type="checkbox" id="optStileGioco" checked> Aspetto da videogioco (cornici e scritte in pixel)</label>
         <label class="spunta"><input type="checkbox" id="optContrasto"> Alto contrasto</label>
         <label class="spunta"><input type="checkbox" id="optDaltonici"> Colori per daltonici (rosso e verde diventano arancio e blu)</label>
-        <label>Colori<select id="optTema"><option value="scuro">Scuri: la notte d'avventura</option><option value="pergamena">Chiari: la pergamena (per giocare di giorno)</option></select></label>
+        <label>Colori<select id="optTema"><option value="scuro">Scuri: la notte d'avventura</option><option value="pergamena">Chiari: la pergamena (per giocare di giorno)</option><option value="auto">Come il telefono (chiari o scuri da soli)</option></select></label>
         <label>Modalità notte (luci basse, voce più calma)<select id="optNotte"><option value="no">Spenta</option><option value="si">Accesa</option><option value="auto">Da sola, dalle 22 alle 7</option></select></label>
+        <label>Grafica<select id="optGrafica"><option value="auto">Da sola, in base al dispositivo</option><option value="alta">Alta</option><option value="media">Media</option><option value="bassa">Bassa (telefoni lenti o batteria scarica)</option></select></label>
+        <label class="spunta"><input type="checkbox" id="optOled"> Nero vero con i colori scuri (schermi OLED: consuma meno batteria)</label>
+        <p class="piccolo" id="infoDispositivo"></p>
         <label class="spunta"><input type="checkbox" id="optLeggiTasti"> Leggi ad alta voce i pulsanti che tocchi (per chi vede poco)</label>
         <label class="spunta"><input type="checkbox" id="optMenoMoto"> Meno movimento (niente scosse, lampi e scritte che scorrono)</label>
         <label class="spunta"><input type="checkbox" id="optVibra" checked> Vibrazione sui colpi e sui tiri speciali</label>
@@ -353,6 +356,7 @@
       <button type="button" data-v="vAltro"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></svg><span>Altro</span></button>
     </nav>
   </section>
+  <button id="btnGiornoNotte" class="giorno-notte" type="button" aria-label="Passa ai colori del giorno" title="Giorno (colori chiari) o notte (colori scuri)">☀️</button>
 </main>
 
 <div id="annullaBar" class="annulla-bar" hidden><span id="annullaTesto"></span><button id="btnAnnulla" type="button">Annulla</button></div>

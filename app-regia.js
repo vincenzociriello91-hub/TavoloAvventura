@@ -794,10 +794,38 @@ applicaNotte();
 // colori: scuri (la notte d'avventura) o chiari (la pergamena)
 $('#optTema').value = OPZ.tema || 'scuro';
 $('#optTema').addEventListener('change', e => { OPZ.tema = e.target.value; scrivi('ta_opzioni', OPZ); applicaStile(); if (S.st) { renderTutto(); Mappa.adatta(); } Report.log('tema-colori', { tema: OPZ.tema }); });
+// "come il telefono": se il telefono passa da chiaro a scuro (o al contrario), il tavolo lo segue
+matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', () => { if (OPZ.tema === 'auto') { applicaStile(); if (S.st) { renderTutto(); Mappa.adatta(); } } });
+
+// pulsante sole/luna in basso a sinistra, a portata di pollice: giorno (pergamena) o notte (colori scuri)
+$('#btnGiornoNotte').addEventListener('click', () => {
+  const giorno = !temaChiaro(); OPZ.tema = giorno ? 'pergamena' : 'scuro';
+  if (giorno && OPZ.notte === 'si') { OPZ.notte = 'no'; $('#optNotte').value = 'no'; } // di giorno niente luci basse
+  scrivi('ta_opzioni', OPZ); $('#optTema').value = OPZ.tema; applicaStile(); if (S.st) { renderTutto(); Mappa.adatta(); }
+  toast(giorno ? '☀️ Giorno: colori chiari' : '🌙 Notte: colori scuri'); vibra(15); Report.log('tema-colori', { tema: OPZ.tema, da: 'pulsante' });
+});
+
+// grafica (alta, media, bassa o da sola) e nero vero per gli schermi OLED
+$('#optGrafica').value = OPZ.grafica || 'auto';
+$('#optGrafica').addEventListener('change', e => { OPZ.grafica = e.target.value; scrivi('ta_opzioni', OPZ); $('#optDadi3d').checked = dadi3d(); applicaStile(); if (S.st) Mappa.adatta(); infoDispositivo(); Report.log('grafica', { scelta: OPZ.grafica, qualita: Dispositivo.qualita() }); });
+$('#optOled').checked = !!OPZ.oled;
+$('#optOled').addEventListener('change', e => { OPZ.oled = e.target.checked; scrivi('ta_opzioni', OPZ); applicaStile(); Report.log('aspetto', { oled: OPZ.oled }); });
+// che cosa ha capito l'app del dispositivo (come la riga "Schermo" nelle impostazioni di Varchi)
+const NOMI_TIPO = { telefono: 'Telefono', tablet: 'Tablet', computer: 'Computer', tv: 'TV', console: 'Console portatile' };
+function infoDispositivo(misura = true) {
+  const mostra = () => {
+    const p = Dispositivo.profilo(), q = { alta: 'alta', media: 'media', bassa: 'bassa' }[p.qualita];
+    $('#infoDispositivo').textContent = `${NOMI_TIPO[p.tipo]}${p.modello ? ' ' + p.modello : ''} · schermo ${p.schermo.replace('x', '×')} (${p.pixel.replace('x', '×')} pixel)${p.hz ? ` · fino a ${p.hz} Hz` : ''} · ${p.verticale ? 'verticale' : 'orizzontale'}`
+      + `${p.memoria ? ` · memoria ${p.memoria >= 8 ? 'almeno 8' : p.memoria} GB` : ''}${p.nuclei ? ` · ${p.nuclei} processori` : ''} · grafica ${q}${p.auto ? ' (scelta da sola' + (p.caldo ? ': telefono caldo' : p.risparmioDati ? ': risparmio dati' : p.batteria !== null && p.batteria < 0.15 ? ': batteria scarica' : '') + ')' : ''}`;
+  };
+  mostra(); if (misura) Dispositivo.misuraHz().then(mostra); // i fotogrammi si contano solo con la pagina ferma, non mentre si carica
+}
+infoDispositivo(false);
 
 // monete che cadono quando il tesoro comune cresce
 function piovonoMonete(n = 8) {
   if (menoMoto()) return;
+  if (Dispositivo.qualita() === 'bassa') n = Math.min(n, 3);
   for (let i = 0; i < Math.min(14, n); i++) {
     const m = document.createElement('img'); m.className = 'moneta-cade'; m.src = IconePixel.src('moneta'); m.alt = '';
     m.style.left = `${10 + Math.random() * 80}vw`; m.style.animationDelay = `${i * 70}ms`;

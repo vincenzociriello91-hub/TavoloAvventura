@@ -194,7 +194,7 @@ $('#optLingua').value = OPZ.lingua || '';
 $('#optLingua').addEventListener('change', e => { OPZ.lingua = e.target.value; scrivi('ta_opzioni', OPZ); S.trad.clear(); renderDiario(); (S.st?.diario || []).filter(d => d.tipo === 'narrazione' || (d.tipo === 'chat' && d.chi !== S.io)).slice(-6).forEach(d => traduciTesto(d.testo)); Report.log('lingua', { lingua: OPZ.lingua }); });
 $('#optSottotitoli').checked = OPZ.sottotitoli !== false;
 $('#optSottotitoli').addEventListener('change', e => { OPZ.sottotitoli = e.target.checked; scrivi('ta_opzioni', OPZ); });
-$('#optDadi3d').checked = OPZ.dadi3d !== false;
+$('#optDadi3d').checked = dadi3d();
 $('#optDadi3d').addEventListener('change', e => { OPZ.dadi3d = e.target.checked; scrivi('ta_opzioni', OPZ); });
 $('#optVolume').addEventListener('input', e => { OPZ.volume = Number(e.target.value); Suoni.volume = OPZ.volume; scrivi('ta_opzioni', OPZ); });
 $('#optGrandi').addEventListener('change', e => { OPZ.grandi = e.target.checked; scrivi('ta_opzioni', OPZ); applicaGrandi(); });
