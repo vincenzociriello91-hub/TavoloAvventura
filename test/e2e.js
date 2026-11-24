@@ -6,6 +6,7 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
 (async () => {
   const browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const errori = [];
+  const apri = (p, sel) => p.evaluate(s => apriSezione(s), sel); // apre sezioni e menu che contengono l'elemento
   const nuovo = async (vp) => {
     const ctx = await browser.newContext({ viewport: vp, permissions: ['microphone'], deviceScaleFactor: 1 });
     const p = await ctx.newPage();
@@ -171,10 +172,10 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   v(await A.locator('#schermoMaster').isVisible(), 'schermo del master visibile al master');
   const spunte = await A.evaluate(() => { if (typeof apriSezione === 'function') apriSezione('#optMeteoVero'); return [...document.querySelectorAll('.spunta input')].filter(i => i.offsetParent).map(i => [i.id, Math.round(i.getBoundingClientRect().width)]).filter(([, w]) => w < 20); });
   v(!spunte.length, 'caselle da spuntare tutte della stessa misura, anche con testo lungo ' + JSON.stringify(spunte));
-  await A.click('[data-strumento="png"]');
+  await apri(A, '[data-strumento="png"]'); await A.click('[data-strumento="png"]');
   await A.waitForFunction(() => document.querySelector('#smRisultato strong'), null, { timeout: 8000 });
   v(true, 'lo schermo del master genera un PNG');
-  const [libro] = await Promise.all([A.waitForEvent('popup', { timeout: 8000 }).catch(() => null), A.click('#btnLibro')]);
+  const [libro] = await Promise.all([A.waitForEvent('popup', { timeout: 8000 }).catch(() => null), apri(A, '#btnLibro').then(() => A.click('#btnLibro'))]);
   if (libro) { await libro.waitForLoadState(); v(await libro.locator('h1').count() === 1 && await libro.locator('.pg').count() >= 1, 'libro della campagna aperto, pronto da stampare'); await libro.close(); } else v(false, 'libro della campagna aperto');
   await A.click('#nav button[data-v="vMappa"]');
   // vista 3D (three.js): si accende, disegna, si spegne senza errori
@@ -317,7 +318,7 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await A.click('#btnMondo');
   // 1.5.0: suoni, edifici in cui entrare
   await A.click('#nav button[data-v="vAltro"]');
-  await A.check('#optSuoni');
+  await apri(A, '#optSuoni'); await A.check('#optSuoni');
   await A.evaluate(() => invia({ t: 'vai', nome: 'Città di Argentea' }));
   await A.waitForFunction(() => S.st.luogo?.nome === 'Città di Argentea', null, { timeout: 5000 });
   await A.waitForTimeout(300);
@@ -404,7 +405,7 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   // la pagina scorre quando si tocca un tasto: il riquadro della mappa si rilegge prima di ogni gesto
   let riq; const inquadra = async () => { riq = await A.evaluate(() => { const box = document.querySelector('#mappaBox'); box.scrollTop = 0; box.scrollLeft = 0; box.scrollIntoView({ block: 'center' }); const r2 = document.querySelector('#mappa').getBoundingClientRect(); return { x: r2.left, y: r2.top, t: Mappa.vivo().casella }; }); };
   const cella = (cx, cy) => [riq.x + (cx + 0.5) * riq.t, riq.y + (cy + 0.5) * riq.t];
-  await A.click('#btnRighello'); await inquadra();
+  await apri(A, '#btnRighello'); await A.click('#btnRighello'); await inquadra();
   await A.mouse.move(...cella(2, 3)); await A.mouse.down(); await A.mouse.move(...cella(4, 4), { steps: 3 }); await A.mouse.move(...cella(7, 5), { steps: 3 }); await A.mouse.up();
   const righello = await A.evaluate(() => ({ ...Mappa.vivo(), premuto: document.querySelector('#btnRighello').getAttribute('aria-pressed') }));
   const prima4 = await A.evaluate(() => ({ ...S.st.segnalini[S.io] }));
@@ -575,11 +576,11 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await A.evaluate(() => $('#dlg').close());
   v(/📅/.test(mese.h || '') && mese.numeri >= 2, `il vostro mese: «${mese.h}» con ${mese.numeri} numeri`);
   // 4.5: caccia al tesoro, rompicapi da toccare, torneo, animali che crescono, casa che cresce, avventure scritte da voi
-  await A.evaluate(() => { mostraVista('vDiario'); document.querySelector('#mondoVivo details:last-of-type')?.setAttribute('open', ''); document.querySelector('#mondoVivo [data-caccia="nuova"]').click(); });
+  await A.evaluate(() => { mostraVista('vDiario'); document.querySelector('#mondoVivo [data-caccia="nuova"]').click(); });
   await B.waitForFunction(() => document.querySelector('#mondoVivo .caccia [data-caccia="scava"]'), null, { timeout: 15000 }).catch(() => {});
   const cacciaB = await B.evaluate(() => ({ indizi: document.querySelectorAll('#mondoVivo .caccia .indizi li').length, nascosti: document.querySelectorAll('#mondoVivo .caccia .indizi li.nascosto').length, luogo: S.st.caccia?.luogo }));
   const cacciaA = await A.evaluate(() => /lo vedi solo tu/.test(document.querySelector('#mondoVivo .caccia')?.textContent || ''));
-  v(cacciaB.indizi === 3 && cacciaB.nascosti === 2 && !cacciaB.luogo && cacciaA, 'mappa del tesoro: Marco vede il primo indizio e due da decifrare, il posto lo vede solo chi guida');
+  v(cacciaB.indizi === 3 && cacciaB.nascosti === 2 && !cacciaB.luogo && cacciaA, 'mappa del tesoro: Marco vede il primo indizio e due da decifrare, il posto lo vede solo chi guida' + (cacciaB.indizi === 3 && cacciaA ? '' : ` ${JSON.stringify({ ...cacciaB, cacciaA, statoA: await A.evaluate(() => S.st.caccia && { trovato: S.st.caccia.trovato, decifrati: S.st.caccia.decifrati, indizi: S.st.caccia.indizi?.length }) })}`));
   await B.evaluate(() => document.querySelector('#mondoVivo [data-caccia="scava"]').click());
   await B.waitForFunction(() => S.st.diario.some(d => /il tesoro non è qui/.test(d.testo)), null, { timeout: 8000 }).catch(() => {});
   v(await B.evaluate(() => S.st.diario.some(d => /il tesoro non è qui/.test(d.testo))), 'Marco scava dal tasto: nel posto sbagliato non c\'è niente');

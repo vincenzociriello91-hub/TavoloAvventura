@@ -7,6 +7,7 @@ const errori = [], foto = [];
   const nuovo = async (vp, nome) => { const ctx = await b.newContext({ viewport: vp, ignoreHTTPSErrors: true, permissions: ['microphone'] }); const p = await ctx.newPage();
     p.on('pageerror', e => errori.push(nome + ' pageerror: ' + e.message)); p.on('console', m => { if (m.type() === 'error' && !/fonts|favicon|net::|Failed to load/.test(m.text())) errori.push(nome + ' console: ' + m.text().slice(0, 200)); }); return p; };
   let n = 0; const scatta = async (p, nome, opz = {}) => { const f = `${String(++n).padStart(2, '0')}-${nome}.png`; await p.waitForTimeout(500); await p.screenshot({ path: `${OUT}/${f}`, fullPage: opz.full !== false }); foto.push(f); };
+  const apri = (p, sel) => p.evaluate(s => apriSezione(s), sel); // apre sezioni e menu che contengono l'elemento
   const vista = async (p, v) => { await p.click(`#nav button[data-v="${v}"]`); await p.waitForTimeout(400); };
   const chiudiDialogo = async p => { for (let i = 0; i < 8; i++) { const b = p.locator('dialog[open] button, .dialogo:not([hidden]) button').last(); if (!await b.count()) break; await b.click().catch(() => {}); await p.waitForTimeout(250); } };
   // 1. ingresso
@@ -29,7 +30,7 @@ const errori = [], foto = [];
   await A.click('#btnZoomTutta'); await scatta(A, 'mappa-tutta', { full: false });
   await A.click('#btnMondo'); await A.waitForTimeout(1200); await scatta(A, 'mappa-mondo'); await A.click('#btnMondo');
   await A.click('#btn3d'); await A.waitForTimeout(6000); await scatta(A, 'vista-3d', { full: false }); await A.click('#btn3d');
-  await A.click('#btnArea').catch(() => {}); await A.waitForTimeout(600); await scatta(A, 'area-incantesimo', { full: false }); await chiudiDialogo(A); await A.keyboard.press('Escape');
+  await apri(A, '#btnArea'); await A.click('#btnArea').catch(() => {}); await A.waitForTimeout(600); await scatta(A, 'area-incantesimo', { full: false }); await chiudiDialogo(A); await A.keyboard.press('Escape');
   await B.waitForTimeout(500); await scatta(B, 'desktop-mappa', { full: false });
   // 5. combattimento
   await A.evaluate(() => invia({ t: 'combattimento', azione: 'inizia' })); await A.waitForTimeout(1500); await scatta(A, 'combattimento', { full: false });
@@ -48,7 +49,7 @@ const errori = [], foto = [];
   await vista(A, 'vAltro'); await scatta(A, 'altro');
   await A.evaluate(() => document.querySelectorAll('.piegabile.chiusa > .testa-piega').forEach(h => h.click())); await scatta(A, 'altro-tutto-aperto');
   for (const [id, nome] of [['#btnGuida', 'guida'], ['#btnStatistiche', 'statistiche'], ['#btnRiassunto', 'riassunto']]) { await A.click(id).catch(() => {}); await A.waitForTimeout(2500); if (nome === 'riassunto') await A.waitForSelector('dialog[open]', { timeout: 25000 }).catch(() => {}); await scatta(A, nome, { full: false }); await chiudiDialogo(A); } // il riassunto arriva dal master dopo qualche secondo, in una finestra
-  await A.click('#optGrandi'); await vista(A, 'vScheda'); await scatta(A, 'caratteri-grandi', { full: false }); await vista(A, 'vAltro'); await A.click('#optGrandi');
+  await apri(A, '#optGrandi'); await A.click('#optGrandi'); await vista(A, 'vScheda'); await scatta(A, 'caratteri-grandi', { full: false }); await vista(A, 'vAltro'); await A.click('#optGrandi');
   await A.selectOption('#optLingua', 'en'); await A.evaluate(() => invia({ t: 'chat', testo: 'Cerco tracce di goblin', alMaster: true })); await A.waitForTimeout(9000); await vista(A, 'vDiario'); await scatta(A, 'traduzione', { full: false }); await vista(A, 'vAltro'); await A.selectOption('#optLingua', '');
   // 10. spettatore e TV
   const S1 = await nuovo({ width: 412, height: 915 }, 'Spettatore'); await S1.goto(await A.evaluate(() => `${location.origin}${location.pathname}?c=${S.codice}&i=${S.st.campagna.invitoSpettatori}&s=1`)); await scatta(S1, 'ingresso-spettatore', { full: false }); await S1.fill('#eNome', 'Amico'); await S1.click('#btnEntra'); await S1.waitForSelector('#gioco:not([hidden])'); await S1.waitForTimeout(2000); await chiudiDialogo(S1); await scatta(S1, 'spettatore');

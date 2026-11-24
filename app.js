@@ -1,6 +1,15 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.8.0';
+const VERSION = '4.8.1';
 const CHANGELOG = [
+  { v: '4.8.1', data: '24/11/2026', voci: [
+    'Pulizia: meno pulsanti a vista, niente è stato tolto',
+    'Mappa: righello, aree, note e discesa del giorno sono in «Altri strumenti», sotto la mappa',
+    'Diario: in alto solo quello che si gioca adesso; giornale, missioni, patti, giochi e ricordi nella sezione «Il regno»',
+    'Altro: riassunti, voce e suoni, aspetto e strumenti del master in sezioni che si aprono, e l\'app si ricorda quali hai aperto',
+    'Scheda: il banco del mercante sta accanto all\'equipaggiamento; casa, mercato e giochi di taverna si aprono a richiesta',
+    'Sui telefoni stretti i tasti Invia e Chiedi restano accanto al campo',
+    'All\'apertura il tavolo si collega solo quando l\'app è tutta caricata: niente errori sui telefoni lenti'
+  ] },
   { v: '4.8.0', data: '24/11/2026', voci: [
     'Descrivilo tu: scrivi o detta chi è il tuo personaggio (razza, classe, carattere, passato, altezza, peso, corporatura) e l\'IA compila la scheda',
     'Hai già una scheda? Carica il PDF o una foto della scheda di carta: l\'IA la legge e la ricopia con livello, punti ferita, oggetti e incantesimi',
@@ -572,7 +581,7 @@ const Dispositivo = window.Dispositivo = (() => {
       hz: stato.hz, verticale: mm('(orientation: portrait)'), tocco: mm('(pointer: coarse)'), memoria: memoria(), nuclei: nuclei(), qualita: qualita(), auto: !manuale(),
       caldo: stato.caldo, batteria: stato.batteria, risparmioDati: !!navigator.connection?.saveData, temaTelefono: mm('(prefers-color-scheme: light)') ? 'chiaro' : 'scuro' };
   }
-  return { tipo, qualita, dpr, misuraHz, profilo, cambiato };
+  return { tipo, qualita, dpr, misuraHz, profilo };
 })();
 // dadi 3D: sui dispositivi lenti partono spenti, finché chi gioca non li riaccende
 const dadi3d = () => OPZ.dadi3d ?? Dispositivo.qualita() !== 'bassa';

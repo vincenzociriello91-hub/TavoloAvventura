@@ -163,7 +163,7 @@ function renderTesoro() {
     <div class="riga"><span>Monete in comune: <strong>${g.oro}</strong></span>${gioca ? '<button type="button" data-tes="deposita">Metti monete</button><button type="button" data-tes="dividi">Dividi il bottino</button>' : ''}</div>
     <ul class="tesoro-ogg">${g.oggetti.map(o => `<li><span>${esc(o.nome)}${o.qta > 1 ? ' ×' + o.qta : ''}</span>${gioca ? `<button type="button" data-prendi="${esc(o.nome)}">Prendi</button>` : ''}</li>`).join('') || '<li class="piccolo">Nessun oggetto in comune</li>'}</ul>
     ${gioca ? '<form id="formTesoro" class="riga" autocomplete="off"><input id="tesOggetto" maxlength="60" placeholder="Metti un oggetto in comune"><button class="pieno">Metti</button></form>' : ''}
-    <p class="piccolo">A voce: "metti 20 monete nel tesoro comune", "dividi il bottino".</p>${cartaCasa(gioca)}${cartaMercato(gioca)}${cartaGioco(gioca)}`;
+    <p class="piccolo">A voce: "metti 20 monete nel tesoro comune", "dividi il bottino".</p>${[cartaCasa(gioca), cartaMercato(gioca), cartaGioco(gioca)].filter(Boolean).map(x => `<div class="sezione">${x}</div>`).join('')}`;
   applicaPieghe();
 }
 // giochi di taverna: dadi o carte con le monete della scheda, chi vince prende il piatto
