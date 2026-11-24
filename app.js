@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.8.1';
+const VERSION = '4.8.2';
 const CHANGELOG = [
+  { v: '4.8.2', data: '24/11/2026', voci: [
+    'Partita bot: i dadi di prova leggono solo il proprio tiro (prima un tiro in ritardo faceva scalare tutti i risultati)'
+  ] },
   { v: '4.8.1', data: '24/11/2026', voci: [
     'Pulizia: meno pulsanti a vista, niente è stato tolto',
     'Mappa: righello, aree, note e discesa del giorno sono in «Altri strumenti», sotto la mappa',

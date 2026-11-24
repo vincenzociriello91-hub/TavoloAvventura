@@ -90,7 +90,8 @@ const BotProva = (() => {
       });
 
       // dadi
-      for (const [formula, modo] of [['d20', null], ['d100', null], ['2d6+3', null], ['d20', 'vantaggio'], ['d20', 'svantaggio']]) await prova(`Dadi: ${formula}${modo ? ' con ' + modo : ''}`, async () => { const d = await C.chiedi({ t: 'dado', formula, modo, motivo: 'partita bot' }, 'dado', 8000); return d ? { totale: d.tiro.totale, dadi: d.tiro.dadi } : false; });
+      // solo il proprio tiro: un tiro arrivato in ritardo da un passo prima faceva scalare di uno tutti i risultati
+      for (const [formula, modo] of [['d20', null], ['d100', null], ['2d6+3', null], ['d20', 'vantaggio'], ['d20', 'svantaggio']]) await prova(`Dadi: ${formula}${modo ? ' con ' + modo : ''}`, async () => { const atteso = C.aspetta(m => m.t === 'dado' && m.tiro?.chi === C.io && m.tiro.formula === formula && (m.tiro.modo || null) === modo, 8000); C.manda({ t: 'dado', formula, modo, motivo: 'partita bot' }); const d = await atteso; return d ? { totale: d.tiro.totale, dadi: d.tiro.dadi } : false; });
 
       // il master AI apre la partita
       await prova('Il master AI apre la partita', () => { const p = narra(A); A.manda({ t: 'parlato', testo: 'Siamo pronti, master: entriamo in città e cerchiamo una locanda', alMaster: true }); return p; });
