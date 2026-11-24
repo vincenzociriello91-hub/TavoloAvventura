@@ -579,7 +579,8 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await A.evaluate(() => { mostraVista('vDiario'); document.querySelector('#mondoVivo [data-caccia="nuova"]').click(); });
   await B.waitForFunction(() => document.querySelector('#mondoVivo .caccia [data-caccia="scava"]'), null, { timeout: 15000 }).catch(() => {});
   const cacciaB = await B.evaluate(() => ({ indizi: document.querySelectorAll('#mondoVivo .caccia .indizi li').length, nascosti: document.querySelectorAll('#mondoVivo .caccia .indizi li.nascosto').length, luogo: S.st.caccia?.luogo }));
-  const cacciaA = await A.evaluate(() => /lo vedi solo tu/.test(document.querySelector('#mondoVivo .caccia')?.textContent || ''));
+  // la pagina di chi guida può ridisegnarsi qualche istante dopo quella di Marco: si aspetta, non si guarda una volta sola
+  const cacciaA = await A.waitForFunction(() => /lo vedi solo tu/.test(document.querySelector('#mondoVivo .caccia')?.textContent || ''), null, { timeout: 8000 }).then(() => true, () => false);
   v(cacciaB.indizi === 3 && cacciaB.nascosti === 2 && !cacciaB.luogo && cacciaA, 'mappa del tesoro: Marco vede il primo indizio e due da decifrare, il posto lo vede solo chi guida' + (cacciaB.indizi === 3 && cacciaA ? '' : ` ${JSON.stringify({ ...cacciaB, cacciaA, statoA: await A.evaluate(() => S.st.caccia && { trovato: S.st.caccia.trovato, decifrati: S.st.caccia.decifrati, indizi: S.st.caccia.indizi?.length }) })}`));
   await B.evaluate(() => document.querySelector('#mondoVivo [data-caccia="scava"]').click());
   await B.waitForFunction(() => S.st.diario.some(d => /il tesoro non è qui/.test(d.testo)), null, { timeout: 8000 }).catch(() => {});
