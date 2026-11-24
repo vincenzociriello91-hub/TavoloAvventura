@@ -154,6 +154,37 @@ v((await stato(B)).pg[bB.io].ritratto === rit?.pg.ritratto, 'il ritratto resta a
 A.coda.length = 0; A.invia({ t: 'esporta' }); const esp = await A.aspetta(m => m.t === 'esportazione', 6000);
 v(['cronaca', 'appunti', 'fatti', 'bestiario'].every(k => k in esp.dati), 'la copia della campagna salva anche cronaca, appunti del mondo, fatti e carte');
 
+// ---------- 4.4: mostri e oggetti inventati, diario del personaggio, viaggi a tappe, il vostro mese ----------
+A.coda.length = 0; C.coda.length = 0; B.coda.length = 0;
+A.invia({ t: 'homebrew', mostro: { nome: 'Lupo di cenere', pf: 22, ca: 13, attacco: 'morso +4, 2d6 da fuoco', descrizione: 'un lupo fatto di brace e fumo' } });
+const hb1 = await A.aspetta(m => m.t === 'homebrew');
+A.invia({ t: 'homebrew', oggetto: { nome: 'Lanterna dei sussurri', rarita: 'raro', effetto: 'fa parlare i fantasmi' } }); const hb2 = await A.aspetta(m => m.t === 'homebrew' && m.homebrew.oggetti.length);
+B.invia({ t: 'homebrew', mostro: { nome: 'Barare', pf: 1 } }); await pausa(400);
+v(hb1.homebrew.mostri[0].pf === 22 && hb2.homebrew.oggetti[0].rarita === 'raro' && !C.coda.some(m => m.t === 'homebrew') && !B.coda.some(m => m.t === 'homebrew') && (await stato(B)).homebrew === undefined, 'mostri e oggetti inventati: li crea e li vede solo chi guida');
+await dice('cosa ci aspetta?'); const nHb = (await stato(A)).diario.filter(d => d.tipo === 'narrazione').slice(-1)[0];
+v(/inventati:Lupo di cenere/.test(nHb?.testo || ''), 'il master AI conosce i mostri inventati e può usarli');
+B.coda.length = 0; B.invia({ t: 'diario_pg' });
+const dp = await B.aspetta(m => m.t === 'scheda' && m.per === bB.io && m.pg.pagine?.length, 12000).catch(() => null);
+v(dp && /visto il drago/.test(dp.pg.pagine.slice(-1)[0].testo), 'diario del personaggio: il master scrive una pagina in prima persona');
+const pB3 = (await stato(B)).pg[bB.io]; B.invia({ t: 'scheda', pg: { ...pB3, pagine: undefined } }); await pausa(500);
+v((await stato(B)).pg[bB.io].pagine?.length === dp?.pg.pagine.length, 'le pagine del diario restano anche quando il telefono rimanda la scheda');
+const g0v = (await stato(A)).mondo.calendario?.giorno || 1;
+A.coda.length = 0; const attesaArrivo = A.aspetta(m => m.t === 'narra' && /viaggio:Castello Lontano.*in_?corso:false/.test(m.testo), 60000).catch(() => null); // registrata prima: stato() svuota la coda
+A.invia({ t: 'viaggio', nome: 'Castello Lontano' });
+let arrivato = null, agguati = 0;
+for (let k = 0; k < 8 && !arrivato; k++) {
+  const l = await A.aspetta(m => m.t === 'luogo' && /Castello Lontano/.test(m.luogo.nome), 15000).catch(() => null); if (!l) break;
+  if (l.luogo.nome === 'Castello Lontano') { arrivato = l; break; }
+  agguati++; const sv = await stato(A); if (!sv.viaggio || !Object.values(sv.segnalini).some(x => x.tipo === 'nemico')) break; // agguato lungo la strada: nemici sulla mappa
+  await pausa(600); A.coda.length = 0; A.invia({ t: 'viaggio', riprendi: true });
+}
+const nArr = await attesaArrivo, sArr = await stato(A);
+v(arrivato && !sArr.viaggio && sArr.mondo.calendario.giorno > g0v && sArr.diario.some(d => /Giorno 1 di viaggio/.test(d.testo)), `viaggio a tappe: i giorni passano (${sArr.mondo.calendario.giorno - g0v}), ${agguati} agguati lungo la strada, poi si arriva`);
+v(nArr && /in_?corso:false/.test(nArr.testo), 'all\'arrivo il master racconta il viaggio');
+A.invia({ t: 'dado', formula: 'd20' }); await A.aspetta(m => m.t === 'dado'); A.coda.length = 0; A.invia({ t: 'mese' });
+const ms = await A.aspetta(m => m.t === 'mese');
+v(/^\d{4}-\d{2}$/.test(ms.mese) && Object.values(ms.numeri).some(o => o.tiri >= 1) && Array.isArray(ms.trofei) && ms.luoghi.includes('Castello Lontano'), `il vostro mese (${ms.mese}): dadi, trofei e luoghi scoperti`);
+
 // ---------- 4.2: gioco a distanza ----------
 // il giro conta anche chi non è collegato, l'attesa è in ore e allo scadere il master risponde a chi ha scritto
 A.coda.length = 0; A.invia({ t: 'impostazioni', differito: 24 });

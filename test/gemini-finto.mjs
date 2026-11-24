@@ -38,14 +38,16 @@ http.createServer((req, res) => {
       if (ue.some(e => e.includes('passa un mese intero'))) eventi.push({ tipo: 'tempo', giorni: 30 });
       if (ue.some(e => e.includes('musica di festa'))) eventi.push({ tipo: 'musica', umore: 'festa' });
       const distanza = ue.some(e => e.includes('prova della prima partita')) ? ` [prima:${/PRIMA PARTITA/.test(sys)}|distanza:${/gioco a distanza/.test(String(ctx.giro))}]` : '';
+      const vg = (ctx.viaggio ? ` [viaggio:${ctx.viaggio.verso}|${ctx.viaggio.giorno}/${ctx.viaggio.giorni}|in_corso:${ctx.viaggio.in_corso}]` : '') + (ctx.creature_e_oggetti_inventati?.mostri?.length ? ` [inventati:${ctx.creature_e_oggetti_inventati.mostri.map(x => x.nome).join(',')}]` : '');
       const gia = (ctx.png_incontrati || []).map(p => p.nome).join(', ');
-      out = JSON.stringify({ narrazione: 'Una rissa scoppia nella locanda. Un boccale vola verso di voi.' + (gia ? ` Di nuovo: ${gia}.` : '') + regia + distanza, png: 'Oste Bruno', eventi });
+      out = JSON.stringify({ narrazione: 'Una rissa scoppia nella locanda. Un boccale vola verso di voi.' + (gia ? ` Di nuovo: ${gia}.` : '') + regia + distanza + vg, png: 'Oste Bruno', eventi });
     } else if (/comando per modificare/.test(testoUtente)) out = JSON.stringify({ ops: [{ op: 'car', car: 'sag', delta: 1 }] });
     else if (/^Traduci in inglese/.test(testoUtente)) out = 'The tavern falls silent.';
     else if (/Domanda di regole/.test(testoUtente)) out = 'In 5e un attacco di opportunità si fa con la reazione.';
     else if (/Racconta la serata/.test(testoUtente)) out = JSON.stringify({ titolo: 'La rissa del Cinghiale', racconto: 'Una serata di boccali volanti e goblin sconfitti.', prompt: 'heroes celebrating in a tavern' });
     else if (/PROMPT:/.test(testoUtente)) out = 'PROMPT: a tavern brawl, flying mugs\nDIDASCALIA: Rissa nella locanda';
     else if (/===CRONACA===/.test(testoUtente)) out = 'Memoria finta aggiornata.\n===CRONACA===\n• Il gruppo ha fatto a botte nella locanda.';
+    else if (/pagina del tuo diario personale/.test(testoUtente)) out = 'Oggi ho visto il drago da vicino e mi tremavano le mani.';
     else if (/cantastorie di piazza/.test(testoUtente)) out = 'Riassunto in rima finto.';
     else if (/riassunto completo/.test(testoUtente)) out = 'Riassunto completo finto.';
     else out = 'Riassunto finto.';

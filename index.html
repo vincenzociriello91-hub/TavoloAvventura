@@ -114,12 +114,13 @@
       <div class="hud-gruppo" id="hudGruppo" aria-label="Il gruppo"></div>
       <div class="luogo-testa">
         <div><strong id="luogoNome">Nessun luogo</strong> <span id="luogoTipo" class="piccolo"></span> <button id="btnEsciEd" type="button" class="testo-btn" hidden>Esci all'aperto</button></div>
-        <form id="formVai" class="riga" autocomplete="off"><input id="vaiNome" placeholder="Vai a… (es. Taverna del Drago)" maxlength="60" aria-label="Nome del luogo"><button class="pieno" type="submit">Vai</button></form>
+        <form id="formVai" class="riga" autocomplete="off"><input id="vaiNome" placeholder="Vai a… (es. Taverna del Drago)" maxlength="60" aria-label="Nome del luogo"><button class="pieno" type="submit">Vai</button><button type="button" id="btnViaggio" title="Viaggio a tappe: i giorni passano e lungo la strada può succedere qualcosa">🧭 Viaggio</button></form>
+        <div class="carta-mini viaggio-bar" id="viaggioBar" hidden><span id="viaggioTesto"></span><button type="button" id="btnRiprendi" class="pieno">Riprendi il viaggio</button></div>
       </div>
       <div class="mappa-box" id="mappaBox"><canvas id="mappa" aria-label="Mappa del luogo"></canvas><div class="volano" id="volano" aria-hidden="true"></div>
         <div class="vuoto" id="mappaVuota"><canvas class="fondo-vivo" id="fondoVuoto" width="200" height="120" aria-hidden="true"></canvas><p>Il gruppo non è ancora in nessun luogo.</p><p class="piccolo" id="mappaVuotaSugg">Il master AI vi porterà nel primo luogo appena iniziate a giocare. Potete anche scrivere un luogo qui sopra.</p></div>
       </div>
-      <div class="reazioni" id="reazioni" hidden aria-label="Reazioni"><button type="button" data-reazione="👏">👏</button><button type="button" data-reazione="😂">😂</button><button type="button" data-reazione="😱">😱</button><button type="button" data-reazione="🔥">🔥</button><button type="button" data-reazione="❤️">❤️</button><button type="button" data-reazione="🎲">🎲</button></div>
+      <div class="reazioni" id="reazioni" hidden aria-label="Reazioni"><button type="button" data-reazione="👏" aria-label="Reazione: Applauso">👏</button><button type="button" data-reazione="😂" aria-label="Reazione: Risata">😂</button><button type="button" data-reazione="😱" aria-label="Reazione: Paura">😱</button><button type="button" data-reazione="🔥" aria-label="Reazione: Fuoco">🔥</button><button type="button" data-reazione="❤️" aria-label="Reazione: Cuore">❤️</button><button type="button" data-reazione="🎲" aria-label="Reazione: Dado">🎲</button></div>
       <details class="carta-mini" id="noteMappaBox" hidden><summary>📌 Note sulla mappa (<span id="noteMappaConta">0</span>)</summary><div id="noteMappaLista"></div></details>
       <div class="mappa3d-box" id="mappa3dBox" hidden></div>
       <div class="mondo-box" id="mondoBox" hidden><canvas id="mondoCanvas" role="img" aria-label="Mappa del mondo illustrata: luoghi conosciuti e viaggi del gruppo"></canvas></div>
@@ -214,6 +215,12 @@
         <label>Stile delle illustrazioni<select id="aStile"><option value="realistico">Realistico</option><option value="acquerello">Acquerello</option><option value="fumetto">Fumetto</option><option value="pixel">Pixel art</option><option value="inchiostro">Inchiostro antico</option><option value="olio">Pittura a olio</option></select></label>
         <label>Clessidra del turno in combattimento<select id="aTimer"><option value="0">Nessuna</option><option value="30">30 secondi</option><option value="60">1 minuto</option><option value="90">1 minuto e mezzo</option><option value="120">2 minuti</option></select></label>
         <div class="riga"><button id="btnSalvaCamp" class="pieno" type="button">Salva</button><button id="btnNuovaSessione" type="button">Inizia nuova sessione</button></div>
+        <details id="boxHomebrew"><summary>Mostri e oggetti inventati da voi</summary>
+          <p class="piccolo">Create un mostro o un oggetto magico vostro: il master AI lo userà nella storia. Il mostro riceve anche il suo disegno.</p>
+          <form id="formMostroHb" class="colonna" autocomplete="off"><h3>Nuovo mostro</h3><input name="nome" maxlength="40" placeholder="Nome (es. Lupo di cenere)" required><div class="riga"><input name="pf" type="number" min="1" max="500" placeholder="Punti ferita" aria-label="Punti ferita"><input name="ca" type="number" min="5" max="30" placeholder="Classe armatura" aria-label="Classe armatura"></div><input name="attacco" maxlength="120" placeholder="Attacco (es. morso +4, 2d6 da fuoco)"><input name="descrizione" maxlength="300" placeholder="Com'è fatto e come si comporta"><button type="submit" class="pieno">Crea il mostro</button></form>
+          <form id="formOggettoHb" class="colonna" autocomplete="off"><h3>Nuovo oggetto magico</h3><input name="nome" maxlength="40" placeholder="Nome (es. Lanterna dei sussurri)" required><select name="rarita" aria-label="Rarità"><option>comune</option><option selected>non comune</option><option>raro</option><option>molto raro</option><option>leggendario</option></select><input name="effetto" maxlength="240" placeholder="Cosa fa"><button type="submit" class="pieno">Crea l'oggetto</button></form>
+          <div id="listaHomebrew"></div>
+        </details>
         <details id="boxMondoCodice" hidden><summary>Mondo condiviso: un altro gruppo, lo stesso mondo</summary>
           <p class="piccolo">Con il codice un altro gruppo comincia la sua storia nel vostro mondo: riceve ambientazione, appunti, luoghi con le loro mappe e fazioni. Non riceve i vostri personaggi, il diario e i tesori. Dallo solo a chi può leggere i segreti del mondo.</p>
           <p id="mondoCodice" class="codice-mondo" hidden></p>
@@ -242,10 +249,12 @@
       <div class="carta">
         <h2>Gioco</h2>
         <button id="btnRiassunto" type="button" class="largo">Nella puntata precedente…</button>
+        <button id="btnFilm" type="button" class="largo">🎬 Nelle puntate precedenti, con le immagini</button>
         <div class="riga"><button id="btnRiassuntoLungo" type="button">Riassunto completo</button><button id="btnRiassuntoRima" type="button">Riassunto da cantastorie</button></div>
         <button id="btnRiepilogo" type="button" class="largo" hidden>Fine serata: riepilogo illustrato</button>
         <button id="btnLibro" type="button" class="largo">Libro della campagna (PDF)</button>
         <button id="btnStatistiche" type="button" class="largo">Statistiche e trofei</button>
+        <button id="btnMese" type="button" class="largo">📅 Il vostro mese</button>
         <label class="spunta"><input type="checkbox" id="optNarratore" checked> Leggi ad alta voce il master</label>
         <label class="spunta"><input type="checkbox" id="optAvvisi" checked> Avvisi vocali in cuffia (tocca a te, poca vita)</label>
         <label class="spunta"><input type="checkbox" id="optMaster" checked> Il master AI ascolta quello che dico</label>
@@ -261,6 +270,8 @@
         <h3>Aspetto e comodità</h3>
         <label class="spunta"><input type="checkbox" id="optStileGioco" checked> Aspetto da videogioco (cornici e scritte in pixel)</label>
         <label class="spunta"><input type="checkbox" id="optContrasto"> Alto contrasto</label>
+        <label class="spunta"><input type="checkbox" id="optDaltonici"> Colori per daltonici (rosso e verde diventano arancio e blu)</label>
+        <label class="spunta"><input type="checkbox" id="optLeggiTasti"> Leggi ad alta voce i pulsanti che tocchi (per chi vede poco)</label>
         <label class="spunta"><input type="checkbox" id="optMenoMoto"> Meno movimento (niente scosse, lampi e scritte che scorrono)</label>
         <label class="spunta"><input type="checkbox" id="optVibra" checked> Vibrazione sui colpi e sui tiri speciali</label>
         <label>Velocità di scritte e animazioni<input type="range" id="optVelocita" min="0.5" max="2" step="0.25" value="1"></label>

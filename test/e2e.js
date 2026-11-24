@@ -533,6 +533,47 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await A.waitForFunction(() => mioPg().ritratto, null, { timeout: 20000 }).catch(() => {});
   const rit = await A.evaluate(async () => { renderScheda(); await new Promise(q => setTimeout(q, 800)); const im = document.querySelector('.ritratto.illustrato img'); return { id: mioPg().ritratto, img: !!im && im.naturalWidth > 0 }; });
   v(rit.id && rit.img, 'ritratto illustrato creato dalla scheda e mostrato al posto della figura (tocco per tornare alla figura)');
+  // 4.4: salita di livello guidata, diario del personaggio, viaggio, scheda stampabile, film, mostri inventati, accessibilità, il vostro mese
+  const lvl = await A.evaluate(async () => {
+    mostraVista('vScheda'); S.viewPg = S.io; const p0 = mioPg(), liv0 = p0.livello;
+    const r = { passi: [] }; const pr = livelloGuidato(clona({ ...p0, livello: liv0 - 1, pfMax: p0.pfMax - 6 }));
+    for (let i = 0; i < 6; i++) { await new Promise(q => setTimeout(q, 250)); if (!$('#dlg').open) break; r.passi.push($('#dlgCorpo h2')?.textContent); $('#dlgAzioni button').click(); }
+    await pr.catch(() => {}); return r;
+  });
+  v(/Livello \d+!/.test(lvl.passi[0] || ''), `salita di livello guidata: ${lvl.passi.join(' → ')}`);
+  await B.evaluate(() => { mostraVista('vScheda'); S.viewPg = S.io; renderScheda(); document.querySelector('[data-diario-pg]').click(); });
+  await B.waitForFunction(() => (mioPg().pagine || []).length && document.querySelector('.pagina-pg'), null, { timeout: 15000 }).catch(() => {});
+  v(await B.evaluate(() => !!document.querySelector('.pagina-pg') && /Diario di/.test(document.querySelector('.diario-pg summary').textContent)), 'diario del personaggio: la pagina scritta dal master compare nella scheda');
+  const [stampa] = await Promise.all([A.waitForEvent('popup', { timeout: 8000 }).catch(() => null), A.evaluate(() => { window.print = () => {}; stampaScheda(mioPg()); })]);
+  if (stampa) { await stampa.waitForLoadState().catch(() => {}); }
+  const fog = stampa ? await stampa.evaluate(() => ({ car: document.querySelectorAll('.car').length, testo: document.body.innerText })).catch(e => ({ errore: String(e.message).slice(0, 160) })) : { nessunPopup: true };
+  if (!(fog?.car === 6)) console.log('DEBUG stampa', JSON.stringify(fog).slice(0, 400));
+  v(fog && fog.car === 6 && /Classe armatura/i.test(fog.testo) && /Tiri salvezza/i.test(fog.testo) && /Abilità/i.test(fog.testo), 'scheda stampabile impaginata come quella di carta (caratteristiche, CA, tiri salvezza, abilità)');
+  if (stampa) await stampa.close();
+  await A.evaluate(() => { mostraVista('vMappa'); });
+  const viag = await A.evaluate(async () => {
+    $('#vaiNome').value = 'Rocca del Vento'; $('#btnViaggio').click(); await new Promise(q => setTimeout(q, 300));
+    const ok = $('#dlg').open && !!$('#viaggioMeta'); $('#dlgAzioni button').click();
+    for (let i = 0; i < 80 && !/Rocca del Vento/.test(S.st.luogo?.nome || ''); i++) await new Promise(q => setTimeout(q, 150));
+    return { ok, luogo: S.st.luogo?.nome, giorni: S.st.diario.filter(d => /di viaggio/.test(d.testo)).length, bar: !$('#viaggioBar').hidden };
+  });
+  v(viag.ok && /Rocca del Vento/.test(viag.luogo || '') && viag.giorni >= 1, `viaggio a tappe: ${viag.giorni} giorni nel diario, arrivo a «${viag.luogo}»${/Strada/.test(viag.luogo) ? ' (agguato lungo la strada, con il tasto Riprendi)' : ''}`);
+  if (/Strada/.test(viag.luogo || '')) { await A.evaluate(() => $('#btnRiprendi').click()); await A.waitForFunction(() => S.st.luogo?.nome === 'Rocca del Vento' || /Strada/.test(S.st.luogo?.nome), null, { timeout: 15000 }).catch(() => {}); }
+  await A.evaluate(() => { S.filmAtteso = Date.now(); riassuntoArrivato({ riassunto: true, testo: 'Il gruppo partì da Pietrarossa. Poi trovò la torre. Infine sconfisse i goblin.' }); });
+  const filmOk = await A.evaluate(async () => { await new Promise(q => setTimeout(q, 700)); const f = document.querySelector('.film'); const r = { c: !!f, img: f?.querySelectorAll('img').length || 0, sotto: f?.querySelector('.film-sotto')?.textContent }; f?.querySelector('.film-chiudi')?.click(); return r; });
+  v(filmOk.c && filmOk.img >= 1 && /Pietrarossa/.test(filmOk.sotto || ''), `nelle puntate precedenti con le immagini: ${filmOk.img} quadri e sottotitoli («${filmOk.sotto}»)`);
+  await A.evaluate(() => { mostraVista('vAltro'); const f = $('#formMostroHb'); f.nome.value = 'Lupo di cenere'; f.pf.value = 20; f.ca.value = 13; f.descrizione.value = 'un lupo di brace'; f.requestSubmit(); });
+  await A.waitForFunction(() => /Lupo di cenere/.test($('#listaHomebrew').textContent), null, { timeout: 6000 }).catch(() => {});
+  await A.evaluate(() => { mostraVista('vMappa'); }); await A.evaluate(() => { const b = document.querySelector('[data-hb-scena="Lupo di cenere"]'); b?.click(); });
+  await A.waitForFunction(() => Object.values(S.st.segnalini).some(x => /Lupo di cenere/.test(x.nome)), null, { timeout: 6000 }).catch(() => {});
+  v(await A.evaluate(() => Object.values(S.st.segnalini).some(x => /Lupo di cenere/.test(x.nome))) && await B.evaluate(() => $('#cartaCampagna').hidden), 'mostro inventato da chi guida, messo in scena sulla mappa');
+  const acc = await A.evaluate(() => { $('#optDaltonici').click(); const r = { cls: document.body.classList.contains('daltonici'), verde: getComputedStyle(document.body).getPropertyValue('--verde').trim(), bene: coloreBene() }; $('#optDaltonici').click(); return r; });
+  v(acc.cls && acc.verde === '#3d8fe0' && acc.bene === '#7fd4ff', 'colori per daltonici: niente rosso contro verde');
+  v(await A.evaluate(() => [...document.querySelectorAll('[data-reazione]')].every(b => b.getAttribute('aria-label'))), 'i pulsanti con le sole faccine hanno un nome da leggere a voce');
+  await A.evaluate(() => $('#btnMese').click()); await A.waitForFunction(() => $('#dlg').open && /📅/.test($('#dlgCorpo h2')?.textContent || ''), null, { timeout: 6000 }).catch(() => {});
+  const mese = await A.evaluate(() => ({ h: $('#dlgCorpo h2')?.textContent, numeri: document.querySelectorAll('.mese-numeri div').length }));
+  await A.evaluate(() => $('#dlg').close());
+  v(/📅/.test(mese.h || '') && mese.numeri >= 2, `il vostro mese: «${mese.h}» con ${mese.numeri} numeri`);
   v(errori.length === 0, 'nessun errore JavaScript' + (errori.length ? ': ' + errori.slice(0, 5).join(' | ') : ''));
   await browser.close();
   console.log(`\n${ok} ok, ${ko} falliti`);

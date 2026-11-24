@@ -89,4 +89,8 @@ const vuoto = { equip: [] }; v(Regole.consumaMunizione(vuoto, 'Balestra leggera'
 const mg = Regole.ricalcola(Regole.nuovo('5e', { nome: 'Mira', razza: 'Umano', classe: 'Mago', carBase: { for: 8, des: 14, cos: 12, int: 15, sag: 12, car: 10 } }));
 Comandi.applica(mg, [{ op: 'slot', livello: 1 }]); Regole.ricalcola(mg);
 v(mg.slotLiberi[1] === 1, `slot liberi per il master: speso uno slot di 1° livello ne resta 1 (${JSON.stringify(mg.slotLiberi)})`);
+// salita di livello guidata: incantesimi della tradizione giusta, talenti con spiegazione
+const sugM = Regole.suggerisciIncantesimi(mg).map(x => x.nome), chi = Regole.nuovo('5e', { nome: 'Ada', razza: 'Umano', classe: 'Chierico', carBase: { for: 8, des: 12, cos: 14, int: 10, sag: 15, car: 12 } });
+v(sugM.includes('Dardo incantato') && !sugM.includes('Cura ferite') && Regole.suggerisciIncantesimi(chi).some(x => x.nome === 'Cura ferite'), `incantesimi proposti alla salita: al mago arcani (${sugM.join(', ')}), al chierico divini`);
+v(!Regole.suggerisciIncantesimi(pg).length && Regole.talentiDaScegliere(p35).length >= 10, 'al guerriero nessun incantesimo; nella 3.5 talenti da scegliere con la spiegazione');
 console.log(`${ok} ok, ${ko} falliti`); process.exit(ko ? 1 : 0);
