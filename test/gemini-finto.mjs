@@ -38,6 +38,9 @@ http.createServer((req, res) => {
       if (ue.some(e => e.includes('passano cinque giorni'))) eventi.push({ tipo: 'tempo', giorni: 5 });
       if (ue.some(e => e.includes('passa un mese intero'))) eventi.push({ tipo: 'tempo', giorni: 30 });
       if (ue.some(e => e.includes('musica di festa'))) eventi.push({ tipo: 'musica', umore: 'festa' });
+      if (ue.some(e => e.includes('una porta con le rune'))) eventi.push({ tipo: 'rompicapo', forma: 'rune', trappola: 'fulmine', titolo: 'La porta delle rune' });
+      if (ue.some(e => e.includes('torneo in piazza'))) eventi.push({ tipo: 'torneo' });
+      if (ue.some(e => e.includes('premiate il cane'))) eventi.push({ tipo: 'esperienza', pg: Object.keys(ctx.personaggi || {}).length ? ctx.personaggi.find(x => (x.compagni || []).length)?.id : undefined, quantita: 400 });
       const distanza = ue.some(e => e.includes('prova della prima partita')) ? ` [prima:${/PRIMA PARTITA/.test(sys)}|distanza:${/gioco a distanza/.test(String(ctx.giro))}]` : '';
       const vg = (ctx.viaggio ? ` [viaggio:${ctx.viaggio.verso}|${ctx.viaggio.giorno}/${ctx.viaggio.giorni}|in_corso:${ctx.viaggio.in_corso}]` : '') + (ctx.creature_e_oggetti_inventati?.mostri?.length ? ` [inventati:${ctx.creature_e_oggetti_inventati.mostri.map(x => x.nome).join(',')}]` : '');
       const gia = (ctx.png_incontrati || []).map(p => p.nome).join(', ');
@@ -49,6 +52,7 @@ http.createServer((req, res) => {
     else if (/PROMPT:/.test(testoUtente)) out = 'PROMPT: a tavern brawl, flying mugs\nDIDASCALIA: Rissa nella locanda';
     else if (/===CRONACA===/.test(testoUtente)) out = 'Memoria finta aggiornata.\n===CRONACA===\n• Il gruppo ha fatto a botte nella locanda.';
     else if (/Descrivi l'interno di/.test(testoUtente)) out = JSON.stringify({ descrizione: 'Dentro odora di farina e di polvere antica.', stanze: ['Ingresso', 'Macina', 'Deposito'], png: 'Mugnaio Gerardo' });
+    else if (/caccia al tesoro/.test(testoUtente)) out = JSON.stringify({ titolo: 'Il forziere del pirata', luogo: 'Grotta del Pescatore', indizi: ['Dove il mare canta dentro la roccia.', 'Un pescatore vi teneva la barca.', 'Una grotta che porta il nome di chi pesca.'], oro: 150, oggetto: 'Bussola d\'argento' });
     else if (/pagina del tuo diario personale/.test(testoUtente)) out = 'Oggi ho visto il drago da vicino e mi tremavano le mani.';
     else if (/cantastorie di piazza/.test(testoUtente)) out = 'Riassunto in rima finto.';
     else if (/riassunto completo/.test(testoUtente)) out = 'Riassunto completo finto.';

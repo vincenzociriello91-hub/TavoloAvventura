@@ -1,5 +1,6 @@
 // Prova della regia (4.1): appunti del mondo, master onesto, fatti decisi prima, difficoltà, turni a giro, sussurri, aiuto, mazzo, cronaca, riassunti.
 // E del gioco a distanza, dei mondi condivisi e dell'avventura dei primi passi (4.2).
+// E di caccia al tesoro, rompicapi, torneo, animali che crescono, casa che cresce e avventure scritte da voi (4.5).
 import WebSocket from 'ws';
 const codice = 'REGIA' + Math.random().toString(36).slice(2, 6).toUpperCase();
 let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  ' : 'FAIL', n); };
@@ -246,6 +247,89 @@ const ap = await E.aspetta(m => m.t === 'narra', 12000).catch(() => null); // ne
 v(ap && /Locanda del Gallo Nero profuma/.test(ap.testo) && (await stato(E)).luogo?.nome === 'Locanda del Gallo Nero', 'creato il personaggio, i primi passi cominciano da soli alla locanda con la scena d\'apertura');
 await pausa(1500); E.coda.length = 0; E.invia({ t: 'parlato', testo: 'prova della prima partita', alMaster: true });
 v(/prima:true/.test((await E.aspetta(m => m.t === 'narra', 12000)).testo), 'il master sa che è una prima partita e spiega una cosa alla volta');
+
+// ---------- 4.5: caccia al tesoro, rompicapi, torneo, animali che crescono, casa che cresce, avventure scritte da voi ----------
+const vivo = (cl, f, ms = 8000) => cl.aspetta(m => m.t === 'mondo_vivo' && f(m), ms).catch(() => null);
+const annuncio = (cl, re, ms = 8000) => cl.aspetta(m => m.t === 'diario' && re.test(m.ev?.testo || ''), ms).catch(() => null);
+A.coda.length = 0; B2.coda.length = 0; A.invia({ t: 'caccia_nuova' });
+const cA = (await vivo(A, m => m.caccia && !m.caccia.trovato, 15000))?.caccia, cB = (await vivo(B2, m => m.caccia && !m.caccia.trovato, 15000))?.caccia;
+v(cA?.luogo === 'Grotta del Pescatore' && cA.indizi.length === 3 && cB && !cB.luogo && cB.indizi.length === 1 && cB.totale === 3, 'mappa del tesoro: chi guida vede il posto e tutti gli indizi, i giocatori solo il primo');
+let scop = 1; for (let i = 0; i < 30 && scop < 2; i++) { B2.coda.length = 0; B2.invia({ t: 'caccia_decifra' }); scop = (await vivo(B2, m => m.caccia))?.caccia?.scoperti || scop; }
+v(scop >= 2, 'decifrando la mappa (prova di Intelligenza) si scopre il secondo indizio');
+B2.coda.length = 0; B2.invia({ t: 'caccia_scava' });
+v(!!(await annuncio(B2, /il tesoro non è qui/)), 'scavando nel posto sbagliato si trovano solo terra e sassi');
+const oroPrima = (await stato(A)).gruppo.oro;
+A.coda.length = 0; A.invia({ t: 'vai', nome: 'Grotta del Pescatore' }); await A.aspetta(m => m.t === 'luogo' && m.luogo.nome === 'Grotta del Pescatore', 15000);
+B2.coda.length = 0; B2.invia({ t: 'caccia_scava' }); const trovato = await vivo(B2, m => m.caccia?.trovato), gT = (await stato(A)).gruppo;
+v(trovato?.caccia.luogo === 'Grotta del Pescatore' && gT.oro === oroPrima + 150 && gT.oggetti.some(o => o.nome === 'Bussola d\'argento'), 'nel posto giusto il tesoro va nel tesoro comune: 150 monete e la bussola');
+const pL = (await stato(B2)).pg[bB.io]; B2.invia({ t: 'scheda', pg: { ...pL, equip: [...(pL.equip || []), { nome: 'Mappa di un tesoro sepolto', qta: 1 }] } }); await B2.aspetta(m => m.t === 'scheda' && m.per === bB.io);
+B2.coda.length = 0; B2.invia({ t: 'caccia_nuova' });
+v(!!(await annuncio(B2, /Lira apre una mappa del tesoro/, 15000)) && !(await stato(B2)).pg[bB.io].equip.some(e => /Mappa di un tesoro/.test(e.nome)), 'la «Mappa di un tesoro sepolto» dell\'inventario apre una nuova caccia e si consuma');
+
+A.coda.length = 0; B2.coda.length = 0; A.invia({ t: 'rompicapo_nuovo', forma: 'leve', trappola: 'dardi' });
+const rA = (await vivo(A, m => m.rompicapo?.tipo === 'leve'))?.rompicapo, rBl = (await vivo(B2, m => m.rompicapo?.tipo === 'leve'))?.rompicapo;
+v(rA?.soluzione?.length === 4 && rA.indizi.length >= 1 && rBl && !rBl.soluzione, 'rompicapo delle leve: la soluzione la vede solo chi guida');
+const pfPrima = (await stato(B2)).pg[bB.io].pf;
+B2.coda.length = 0; B2.invia({ t: 'rompicapo_prova', mosse: rA.soluzione.map(x => !x) });
+const trap = await annuncio(B2, /Scatta la trappola: dardi avvelenati/);
+v(!!trap && (await stato(B2)).pg[bB.io].pf < pfPrima, 'leve sbagliate: scatta la trappola e Lira perde punti ferita');
+B2.coda.length = 0; B2.invia({ t: 'rompicapo_prova', mosse: rA.soluzione });
+v(!!(await annuncio(B2, /risolve il rompicapo/)) && (await stato(B2)).rompicapo === null, 'con le leve giuste il passaggio si apre');
+await dice('davanti a voi una porta con le rune');
+const rr = (await stato(A)).rompicapo;
+v(rr?.tipo === 'rune' && rr.trappola === 'fulmine' && /^Prima .+, poi .+, infine .+\.$/.test(rr.indizi[0]), 'il master AI prepara un rompicapo di rune, con il suo indizio');
+A.coda.length = 0; A.invia({ t: 'rompicapo_nuovo', forma: 'serratura' }); const rs = (await vivo(A, m => m.rompicapo?.tipo === 'serratura'))?.rompicapo;
+v(rs?.indizi.length === 3 && rs.soluzione.every(n => n >= 1 && n <= 8), 'serratura a combinazione: un indizio per ogni cifra');
+A.coda.length = 0; A.invia({ t: 'rompicapo_prova', mosse: rs.soluzione }); v(!!(await annuncio(A, /la serratura gira/)), 'con la combinazione giusta la serratura si apre');
+
+A.coda.length = 0; A.invia({ t: 'torneo_apri' });
+let tr = (await vivo(A, m => m.torneo && !m.torneo.finito))?.torneo;
+v(tr?.prove.length === 4 && Object.keys(tr.tiri[0]).filter(k => k.startsWith('npc:')).length === 2, 'torneo aperto: 4 prove e due sfidanti del posto che hanno già tirato');
+for (let r = 0; r < 4; r++) { A.invia({ t: 'torneo_tira' }); await pausa(300); B2.coda.length = 0; B2.invia({ t: 'torneo_tira' }); tr = (await vivo(B2, m => m.torneo && (m.torneo.round > r || m.torneo.finito)))?.torneo || tr; }
+v(tr?.finito && tr.vincitore && Object.values(tr.punti).reduce((a, b) => a + b, 0) >= 24, `torneo finito dopo 4 prove: vince ${tr?.vincitore}`);
+v((await stato(A)).diario.some(d => /Vince il torneo/.test(d.testo)), 'la vittoria del torneo finisce nel diario con la classifica');
+A.invia({ t: 'torneo_chiudi' }); await pausa(300);
+await dice('si apre un torneo in piazza');
+v((await stato(A)).torneo?.prove?.length === 4, 'anche il master AI può aprire un torneo');
+A.invia({ t: 'torneo_chiudi' }); await pausa(300);
+
+A.coda.length = 0; A.invia({ t: 'compagno_nuovo', per: bB.io, nome: 'Fido', specie: 'cane' });
+await B2.aspetta(m => m.t === 'scheda' && m.per === bB.io && m.pg.compagni?.some(a => a.nome === 'Fido'), 10000);
+let fido = null; for (let i = 0; i < 10 && !(fido?.livello >= 2); i++) { const k = (await stato(B2)).pg[bB.io].compagni.findIndex(a => a.nome === 'Fido'); B2.invia({ t: 'addestra', animale: k }); fido = (await B2.aspetta(m => m.t === 'scheda' && m.per === bB.io)).pg.compagni.find(a => a.nome === 'Fido'); }
+v(fido?.livello >= 2 && /^Fiuta le tracce/.test(fido.trucchi[0]) && fido.pfMax > 13, `addestrando il cane cresce: livello ${fido?.livello}, ${fido?.pfMax} PF e il primo trucco`);
+await dice('premiate il cane per il suo aiuto');
+const fido2 = (await stato(B2)).pg[bB.io].compagni.find(a => a.nome === 'Fido');
+v(fido2.livello >= 3 && fido2.trucchi.length >= 2, 'con metà dei PX del padrone il cane impara un altro trucco');
+
+A.invia({ t: 'gruppo', op: 'oro', delta: 2000 }); await pausa(300);
+A.coda.length = 0; A.invia({ t: 'base', cosa: '' }); await vivo(A, m => m.base);
+A.coda.length = 0; A.invia({ t: 'base', cosa: 'livello' }); const loc = await vivo(A, m => m.base?.livello === 2);
+v(!!loc && (await stato(A)).diario.some(d => /diventa una locanda/.test(d.testo)), 'la casa del gruppo diventa una locanda');
+C.invia({ t: 'base', nome: 'Spettatore' }); A.coda.length = 0; A.invia({ t: 'base', nome: 'La Taverna del Drago' });
+v((await vivo(A, m => m.base?.nome === 'La Taverna del Drago'))?.base.livello === 2, 'la casa si può rinominare (gli spettatori no)');
+const st45 = await stato(A), oroG = st45.gruppo.oro, sess = st45.campagna.sessione || 1;
+A.coda.length = 0; A.invia({ t: 'impostazioni', nuovaSessione: true }); await A.aspetta(m => m.t === 'stato' && m.stato.campagna.sessione > sess, 10000);
+v((await stato(A)).gruppo.oro === oroG + 40, 'a ogni nuova serata la locanda rende 40 monete al tesoro comune');
+
+const AVV = { titolo: 'La cripta di sale', sinossi: 'Una cripta sotto le saline.', livelli: '1-2', segreti: 'Il custode è un fantasma\nLa chiave è nel pozzo', ricompensa: '100 mo', scene: [{ luogo: 'Saline di Ponente', leggi: 'Il vento porta odore di sale e di qualcosa di più antico.', obiettivo: 'Trovare l\'ingresso', nemici: '2 Scheletro' }, { luogo: 'Cripta di Sale', leggi: 'Le pareti brillano di cristalli bianchi.', obiettivo: 'Sconfiggere il custode', tesoro: 'Corona di sale' }, { luogo: '', leggi: 'scena vuota' }] };
+B2.coda.length = 0; B2.invia({ t: 'avventura_salva', avventura: AVV }); await pausa(400);
+A.coda.length = 0; A.invia({ t: 'avventura_salva', avventura: AVV });
+const av = await A.aspetta(m => m.t === 'avventure' && Object.keys(m.avventureMie || {}).length, 8000).catch(() => null), idAvv = av && Object.keys(av.avventureMie)[0];
+const avB = await B2.aspetta(m => m.t === 'avventure', 8000).catch(() => null);
+v(idAvv && Object.keys(av.avventureMie).length === 1 && av.avventureMie[idAvv].scene.length === 2 && av.avventureMie[idAvv].scene[0].incontro[0].numero === 2 && av.avventureMie[idAvv].autore === 'Vincenzo' && av.avventure.some(a => a.id === idAvv && a.tipo === 'scritta'), 'avventura scritta da chi guida: 2 scene (quella vuota tolta), nemici letti dal testo');
+v(avB && !avB.avventureMie && avB.avventure.some(a => a.id === idAvv && !a.chiave), 'i giocatori vedono solo il titolo e non possono scriverne');
+A.coda.length = 0; A.invia({ t: 'avventura_condividi', id: idAvv }); const chA = (await A.aspetta(m => m.t === 'avventure' && m.avventureMie?.[idAvv]?.chiave)).avventureMie[idAvv].chiave;
+D.coda.length = 0; D.invia({ t: 'avventura_importa', codice: `${codice}-${chA}` });
+const avD = await D.aspetta(m => m.t === 'avventure' && Object.keys(m.avventureMie || {}).length, 10000).catch(() => null), idD = avD && Object.keys(avD.avventureMie)[0];
+v(idD && avD.avventureMie[idD].titolo === 'La cripta di sale' && avD.avventureMie[idD].da === 'Regia' && !avD.avventureMie[idD].chiave, 'un altro gruppo importa l\'avventura con il codice');
+D.coda.length = 0; D.invia({ t: 'avventura_inizia', id: idD });
+const nD = await D.aspetta(m => m.t === 'narra' && /odore di sale/.test(m.testo), 15000).catch(() => null), sD = await stato(D);
+v(!!nD && sD.luogo?.nome === 'Saline di Ponente' && sD.avventura?.titolo === 'La cripta di sale' && Object.values(sD.segnalini).filter(x => /Scheletro/.test(x.nome)).length === 2, 'l\'avventura importata parte dalla prima scena: testo letto e due scheletri sulla mappa');
+A.coda.length = 0; A.invia({ t: 'avventura_condividi', id: idAvv, ritira: true }); await A.aspetta(m => m.t === 'avventure' && !m.avventureMie?.[idAvv]?.chiave);
+D.coda.length = 0; D.invia({ t: 'avventura_importa', codice: `${codice}-${chA}` });
+v(/non trovata/.test((await D.aspetta(m => m.t === 'avviso')).msg), 'codice ritirato: l\'avventura non si può più importare');
+A.coda.length = 0; A.invia({ t: 'avventura_elimina', id: idAvv });
+v(!Object.keys((await A.aspetta(m => m.t === 'avventure')).avventureMie).length, 'l\'avventura scritta si può eliminare');
 
 for (const c of [A, B2, C, D, E]) c.ws.close();
 console.log(`\n${ok} ok, ${ko} falliti`); process.exit(ko ? 1 : 0);

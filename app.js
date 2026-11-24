@@ -1,6 +1,14 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.4.1';
+const VERSION = '4.5.0';
 const CHANGELOG = [
+  { v: '4.5.0', data: '24/11/2026', voci: [
+    'Mappa del tesoro: il master nasconde un tesoro, voi decifrate gli indizi (prova di Intelligenza) e scavate nel posto giusto. Anche la «Mappa di un tesoro sepolto» del negozio apre una caccia.',
+    'Rompicapi da toccare: quattro leve, rune da premere in ordine, serrature a combinazione. Il gioco prepara indizi e soluzione; chi sbaglia fa scattare la trappola.',
+    'Torneo: prove a punti tra i vostri personaggi e due sfidanti del posto (arco, braccio di ferro, indovinelli…), con classifica e premio. Si gioca anche in solitaria.',
+    'Gli animali compagni crescono: livello, punti ferita e trucchi nuovi, con metà dei vostri PX e con l\'addestramento (una volta al giorno di gioco).',
+    'La casa del gruppo diventa locanda e poi rocca, con una rendita a ogni nuova serata; si può rinominare. La stalla accorcia i viaggi a cavallo, la biblioteca aiuta a decifrare le mappe.',
+    'Avventure scritte da voi: chi guida le scrive a scene nello schermo del master, il master AI le segue, e con un codice le gioca anche un altro gruppo.'
+  ] },
   { v: '4.4.1', data: '24/11/2026', voci: [
     'Entrare in un edificio nuovo è immediato anche quando il servizio che descrive l\'interno è lento: la descrizione arriva appena è pronta.',
     'Scheda stampata: la CD dei tiri salvezza degli incantesimi ora si legge (e c\'è anche il bonus di attacco con incantesimo).'

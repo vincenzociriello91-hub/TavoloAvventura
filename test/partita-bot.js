@@ -38,6 +38,8 @@ const chiedi = (p, msg, tipo, ms = 45000) => p.evaluate(([msg, tipo, ms]) => new
   await passo('il primo bot crea la campagna con il master AI', async () => {
     await A.goto(APP); await A.waitForSelector('#cartaCrea');
     await A.fill('#cNome', `Partita bot flash ${ora}`); await A.click('#chipsAmb .chip >> nth=1'); await A.fill('#cMioNome', nomi[0]);
+    // campagna di prova: immagini finte, così i bot non consumano le immagini gratuite del giorno degli amici
+    await A.evaluate(() => { const vero = connetti; window.connetti = (codice, primo) => vero(codice, () => ({ ...primo(), prova: true })); });
     await A.click('#btnCrea'); await A.waitForSelector('#gioco:not([hidden])', { timeout: 20000 });
     return { master: await A.evaluate(() => S.st.campagna.masterTipo), versione: await A.evaluate(() => VERSION) };
   });
