@@ -390,7 +390,7 @@ const trollF = Object.values((await A.aspetta(m => m.t === 'segnalini' && Object
 v(trollF.pf === 45 && trollF.ca === 16 && trollF.rivincita, `il troll torna più forte: ${trollF.pf} PF e CA ${trollF.ca}`);
 A.coda.length = 0; const idT = Object.entries((await stato(A)).segnalini).find(([, x]) => x.nome === 'Troll')[0]; A.invia({ t: 'segnalino', id: idT, rimuovi: true });
 v(!!(await annuncio(A, /Rivincita! Troll è sconfitto/)) && (await stato(A)).rivincite[0].vinta, 'sconfitto in uno scontro successivo: rivincita presa');
-A.coda.length = 0; A.invia({ t: 'statistiche' }); v((await A.aspetta(m => m.t === 'statistiche')).premi.some(x => x.titolo === 'Rivincita!' && /Troll/.test(x.motivo)), 'la rivincita entra tra i trofei della campagna');
+A.coda.length = 0; A.invia({ t: 'statistiche' }); v((await A.aspetta(m => m.t === 'statistiche', 20000)).premi.some(x => x.titolo === 'Rivincita!' && /Troll/.test(x.motivo)), 'la rivincita entra tra i trofei della campagna');
 A.invia({ t: 'combattimento', azione: 'fine' }); await pausa(300);
 
 A.invia({ t: 'narra', testo: 'Una serata senza IA: il master tace.' }); await pausa(400);

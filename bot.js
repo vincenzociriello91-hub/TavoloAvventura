@@ -44,7 +44,7 @@ const BotProva = (() => {
         if (m.t === 'segnalini') c.stato.segnalini = m.segnalini;
         if (m.t === 'scheda') c.stato.pg[m.per] = m.pg;
         if (m.t === 'diario') (c.stato.diario ||= []).push(m.ev);
-        if (m.t === 'narra') { c.ultimaNarra = m; if (nome === 'A') log('partita-narrazione', { png: m.png || null, testo: m.testo }); }
+        if (m.t === 'narra') { c.ultimaNarra = m; c.suNarra?.(m); if (nome === 'A') log('partita-narrazione', { png: m.png || null, testo: m.testo }); }
         if (m.t === 'richiesta_tiro' && m.pg === c.io) setTimeout(() => c.manda({ t: 'dado', formula: 'd20', motivo: m.prova }), 600);
         for (const a of [...c.attese]) if (a.f(m)) { c.attese.splice(c.attese.indexOf(a), 1); a.res(m); }
       };
@@ -70,12 +70,13 @@ const BotProva = (() => {
     };
     // solo il proprio tiro: quelli chiesti dal master possono arrivare in ritardo e farebbero scalare i risultati
     const tira = (c, formula, modo = null, motivo = 'partita bot') => { const p = c.aspetta(m => m.t === 'dado' && m.tiro?.chi === c.io && m.tiro.formula === formula && (m.tiro.modo || null) === (modo || null), 8000); c.manda({ t: 'dado', formula, modo, motivo }); return p; };
-    const narra = (c, ms = 90000) => c.aspetta(m => m.t === 'narra' || (m.t === 'errore' && /master/i.test(m.msg)), ms).then(m => m?.t === 'narra' ? { testo: m.testo.slice(0, 200) } : false);
+    const narra = (c, ms = 90000) => c.aspetta(m => m.t === 'narra' || (m.t === 'errore' && /master/i.test(m.msg)), ms).then(m => m?.t === 'narra' ? { testo: m.testo.slice(0, 200), ...(m.riserva ? { riserva: true } : {}) } : false);
     const codice = Array.from(crypto.getRandomValues(new Uint32Array(8)), x => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[x % 32]).join('');
     const url = `${opz.server}/tavolo/${codice}/ws`;
     const nomi = mescola(NOMI).slice(0, 4), regole = Math.random() < 0.7 ? '5e' : '3.5';
     const [A, B, C, D] = ['A', 'B', 'C', 'D'].map(n => cliente(url, n, log));
     bot.push(A, B, C, D);
+    const riserve = { vere: 0, finte: 0 }; A.suNarra = m => { if (m.riserva) riserve.finte++; else riserve.vere++; };
     // schermo acceso per tutta la partita; se l'app va in sottofondo lo scrive nel rapporto
     let schermo = null; const tieniAcceso = async () => { try { schermo = await navigator.wakeLock?.request('screen'); } catch {} };
     const pausa = () => { log('partita-pausa', { sottofondo: document.hidden }); if (!document.hidden) tieniAcceso(); };
@@ -214,7 +215,7 @@ const BotProva = (() => {
         await prova(`Turno libero ${i + 1}: "${azione}"`, async () => {
           const p = narra(c); c.manda({ t: 'parlato', testo: azione, alMaster: true }); const r = await p; if (!r) return false;
           const ripetuta = risposte.has(r.testo); risposte.add(r.testo); // una risposta identica a una di prima finisce nel rapporto
-          await dorme(1500); return { risposta: r.testo, ...(ripetuta ? { ripetuta: true } : {}) }; // il tiro chiesto dal master lo fa da solo il bot (richiesta_tiro)
+          await dorme(1500); return { risposta: r.testo, ...(ripetuta ? { ripetuta: true } : {}), ...(r.riserva ? { riserva: true } : {}) }; // il tiro chiesto dal master lo fa da solo il bot (richiesta_tiro)
         });
       }
       await prova('Uno sceglie un suggerimento del master', async () => {
@@ -245,7 +246,7 @@ const BotProva = (() => {
     document.removeEventListener('visibilitychange', pausa); try { schermo?.release(); } catch {}
     for (const c of [D, C, B, A]) { c.chiudendo = true; c.manda({ t: 'esci' }); await dorme(300); try { c.ws?.close(); } catch {} }
     attivo = false;
-    const r = { codice, durataS: Math.round((Date.now() - t0) / 1000), ok: esiti.filter(e => e.ok).length, falliti: esiti.filter(e => !e.ok).map(e => e.nome) };
+    const r = { codice, durataS: Math.round((Date.now() - t0) / 1000), ok: esiti.filter(e => e.ok).length, falliti: esiti.filter(e => !e.ok).map(e => e.nome), rispostePiene: riserve.vere, risposteDiRiserva: riserve.finte }; // quante volte il master ha risposto davvero e quante con una frase di riserva (IA lenta o finita)
     log('partita-fine', r);
     return r;
   }

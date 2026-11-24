@@ -276,7 +276,7 @@ $('#btnBot').addEventListener('click', async () => {
     onPasso: t => ul.insertAdjacentHTML('beforeend', `<li>▶ ${esc(t)}</li>`),
     onErr: m => ul.insertAdjacentHTML('beforeend', `<li>❌ ${esc(m)}</li>`)
   });
-  if (r) ul.insertAdjacentHTML('beforeend', `<li>✅ Finito in ${r.durataS} s: ${r.ok} prove riuscite, ${r.falliti.length} non riuscite${r.falliti.length ? ' (' + esc(r.falliti.join(', ')) + ')' : ''}.</li>`);
+  if (r) ul.insertAdjacentHTML('beforeend', `<li>✅ Finito in ${r.durataS} s: ${r.ok} prove riuscite, ${r.falliti.length} non riuscite${r.falliti.length ? ' (' + esc(r.falliti.join(', ')) + ')' : ''}.${r.risposteDiRiserva ? ` Il master ha risposto davvero ${r.rispostePiene} volte e ${r.risposteDiRiserva} con una frase di riserva (IA lenta o quota finita).` : ''}</li>`);
   $('#btnBot').disabled = false; $('#btnBot').textContent = 'Avvia partita bot';
   await Report.chiudi('partita bot'); toast('Rapporto della partita bot inviato');
 });
