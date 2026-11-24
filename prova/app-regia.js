@@ -498,14 +498,14 @@ async function mostraMese(r) {
     ${r.serate.length ? `<h3>Serate</h3><ul>${r.serate.map(s => `<li>${esc(s.titolo)}</li>`).join('')}</ul>` : ''}
     ${r.luoghi.length ? `<h3>Luoghi scoperti</h3><p>${r.luoghi.map(esc).join(' · ')}</p>` : ''}
     ${r.illustrazioni.length ? `<div class="mese-img">${r.illustrazioni.map(x => `<img src="${urlMedia('img', x.img)}" alt="${esc(x.testo)}" loading="lazy">`).join('')}</div>` : ''}`,
-  [...(vuoto ? [] : [{ testo: 'Condividi come immagine', pieno: true }]), ...(prima ? [{ testo: `← ${nomeMese(prima)}` }] : []), { testo: 'Chiudi' }]);
+  [...(vuoto ? [] : [{ testo: 'Condividi come immagine', pieno: true }]), ...(prima ? [{ testo: `‹ ${nomeMese(prima)}` }] : []), { testo: 'Chiudi' }]);
   const azioni = [...(vuoto ? [] : ['img']), ...(prima ? ['prima'] : []), 'chiudi'];
   if (azioni[i] === 'img') return cartolinaMese(r, tot);
   if (azioni[i] === 'prima') invia({ t: 'mese', mese: prima });
 }
 async function cartolinaMese(r, tot) {
   const W = 1080, H = 1350, c = Object.assign(document.createElement('canvas'), { width: W, height: H }), k = c.getContext('2d'), px = stileGioco();
-  if (px) await document.fonts.load('64px "Jersey 15"').catch(() => {});
+  await Promise.all(['64px "Jersey 15"', '700 64px Cinzel', '600 26px Inter'].map(f => document.fonts.load(f).catch(() => {}))); // le immagini da condividere non partono con il carattere di riserva
   const F = (n, p = 'Inter, sans-serif') => px ? `400 ${Math.round(n * 1.35)}px "Jersey 15", sans-serif` : `600 ${n}px ${p}`;
   const g = k.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#231a2e'); g.addColorStop(1, '#0e0b12'); k.fillStyle = g; k.fillRect(0, 0, W, H);
   k.strokeStyle = '#d9a441'; k.lineWidth = 10; k.strokeRect(24, 24, W - 48, H - 48);

@@ -1,6 +1,10 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.6.1';
+const VERSION = '4.6.2';
 const CHANGELOG = [
+  { v: '4.6.2', data: '24/11/2026', voci: [
+    'Caratteri controllati: Inter e Cinzel ora sono dentro l\'app, come Jersey 15. Si vedono giusti anche senza rete o dove Google è bloccato, con tutti gli spessori, e senza richieste a Google.',
+    'Le immagini da condividere (cartolina, il vostro mese) aspettano i caratteri veri prima di disegnarsi; la mappa si ridisegna appena arrivano.'
+  ] },
   { v: '4.6.1', data: '24/11/2026', voci: [
     'Riepilogo illustrato della serata più affidabile: l\'IA ha più tempo per scriverlo e, se non risponde, arriva lo stesso con i numeri della serata.'
   ] },
