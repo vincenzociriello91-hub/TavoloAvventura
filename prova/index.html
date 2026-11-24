@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<script>try { if (!/[?&]i=/.test(location.search) && (/[?&]c=/.test(location.search) || localStorage.getItem('ta_attiva'))) document.documentElement.classList.add('rientro'); } catch {}</script>
 <header class="barra">
   <div class="logo" aria-hidden="true">
     <svg viewBox="0 0 24 24" width="28" height="28"><path d="M12 2 21 7v10l-9 5-9-5V7z" fill="#d9a441"/><path d="M12 2v20M3 7l9 5 9-5M3 17l9-5 9 5" stroke="#14110f" stroke-width="1.2" fill="none"/></svg>
@@ -34,6 +35,7 @@
 
 <main>
   <!-- INGRESSO -->
+  <div class="rientro-attesa" aria-live="polite">Rientro al tavolo…</div>
   <section id="ingresso" class="ingresso">
     <div class="eroe">
       <canvas class="fondo-vivo" id="fondoIngresso" width="200" height="120" aria-hidden="true"></canvas>

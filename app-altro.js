@@ -317,5 +317,5 @@ setInterval(() => cercaAggiornamenti(false), 30 * 60 * 1000);
 if ('serviceWorker' in navigator && location.protocol !== 'file:' && location.hostname !== 'localhost') {
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => { swReg = reg; reg.update().catch(() => {}); }).catch(() => {});
   const aveva = !!navigator.serviceWorker.controller; let ricaricato = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (aveva && !ricaricato) { ricaricato = true; location.reload(); } });
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (aveva && !ricaricato && performance.now() > 15000) { ricaricato = true; location.reload(); } }); // appena aperta la pagina è già nuova (prima la rete): ricaricarla farebbe vedere tutto due volte
 }

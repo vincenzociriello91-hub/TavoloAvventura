@@ -1,6 +1,10 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.6.3';
+const VERSION = '4.6.4';
 const CHANGELOG = [
+  { v: '4.6.4', data: '24/11/2026', voci: [
+    'Apertura più pulita: chi rientra nella sua campagna non vede più passare la schermata d\'ingresso, ma solo «Rientro al tavolo…» e poi il tavolo.',
+    'Dopo un aggiornamento l\'app non si ricarica più da sola appena aperta (si vedeva tutto due volte).'
+  ] },
   { v: '4.6.3', data: '24/11/2026', voci: [
     'Scritte più leggibili: etichette della scheda (classe armatura, iniziativa, caratteristiche) e carte da collezione un po\' più grandi; le scritte piccole in pixel dentro titoli e pulsanti ora si leggono.',
     'Barra in basso: su telefoni stretti la voce «Altro» non esce più dallo schermo. Cursori del volume allineati.'
