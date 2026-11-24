@@ -214,7 +214,7 @@ async function cartolina(r) {
   if (r.img) { const im = await carica(urlMedia('img', r.img)); if (im) { const lato = W - 120; k.drawImage(im, 60, 60, lato, lato * 0.62); k.strokeStyle = 'rgba(217,164,65,.7)'; k.lineWidth = 4; k.strokeRect(60, 60, lato, lato * 0.62); } }
   k.fillStyle = '#f0c46a'; k.textAlign = 'center'; k.font = '700 58px Cinzel, Georgia, serif';
   const testoA = (t, y, max, font, col, alt) => { k.font = font; k.fillStyle = col; const parole = String(t).split(' '); let riga = '', yy = y; for (const p of parole) { if (k.measureText(riga + p).width > max) { k.fillText(riga.trim(), W / 2, yy); riga = ''; yy += alt; } riga += p + ' '; } k.fillText(riga.trim(), W / 2, yy); return yy; };
-  const px = stileGioco(); if (px) await document.fonts.load('64px "Jersey 15"').catch(() => {}); // con l'aspetto da videogioco anche la cartolina usa le scritte in pixel
+  const px = stileGioco(); await Promise.all(['64px "Jersey 15"', '700 64px Cinzel', '600 26px Inter'].map(f => document.fonts.load(f).catch(() => {}))); // con l'aspetto da videogioco anche la cartolina usa le scritte in pixel
   let y = testoA(r.titolo, 700, W - 160, px ? '400 76px "Jersey 15", Georgia, serif' : '700 56px Cinzel, Georgia, serif', '#f0c46a', px ? 72 : 64);
   const momento = (r.racconto || '').split(/(?<=[.!?])\s/)[0];
   y = testoA('«' + momento + '»', y + 70, W - 200, 'italic 34px Georgia, serif', '#f3ead9', 44);

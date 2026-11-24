@@ -281,6 +281,7 @@ document.addEventListener('click', e => {
   }
 })();
 applicaStile();
+document.fonts?.ready.then(() => { if (S.st) Mappa.adatta(); }); // la mappa si ridisegna con i caratteri veri appena arrivano
 
 /* ============ LETTURA A VOCE DEI PULSANTI ============ */
 // per chi vede poco: ogni pulsante, scheda o campo toccato si sente a voce (il nome del pulsante, o la sua descrizione)
