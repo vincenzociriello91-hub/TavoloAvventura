@@ -75,7 +75,9 @@ function gestisci(m) {
     case 'dado': {
       S.st.dadi = [...(S.st.dadi || []), m.tiro].slice(-60);
       if (/attacc|colp|fendent|affond|spada|ascia|mazza|martell|pugnal|arco|frecci|balestr|incantesim|dardo|palla di fuoco|raggio|per colpire|tiro per colpire/i.test(m.tiro.motivo || '')) { Mappa.attacco(m.tiro.chi); S.ultimoAttacco = { chi: m.tiro.chi, t: Date.now() }; if (/arco|frecci|balestr|quadrell|fionda|giavellott|incantesim|dardo|palla di fuoco|raggio|fulmin|magic|trucchett/i.test(m.tiro.motivo || '')) { Mappa.proiettile(m.tiro.chi, m.tiro.motivo); Suoni.effetto(/arco|frecci|balestr|quadrell|fionda|giavellott/i.test(m.tiro.motivo) ? 'fruscio' : 'magia'); } }
-      if (m.tiro.chi === S.io) { S.ultimoMio = m.tiro; $('#tiroAzioni').hidden = false; Suoni.effetto(m.tiro.critico ? 'critico' : m.tiro.fallimento ? 'fallimento' : 'dado'); }
+      const temaCrit = m.tiro.critico && S.st.pg?.[m.tiro.chi]?.tema; // il tema di chi fa il critico lo sentono tutti
+      if (temaCrit) Suoni.tema(temaCrit);
+      if (m.tiro.chi === S.io) { S.ultimoMio = m.tiro; $('#tiroAzioni').hidden = false; if (!temaCrit) Suoni.effetto(m.tiro.critico ? 'critico' : m.tiro.fallimento ? 'fallimento' : 'dado'); }
       const conPannello = m.tiro.chi === S.io && provaInVista(m.tiro);
       if (m.tiro.chi === S.io || document.body.classList.contains('tv')) mostraTiro(m.tiro, conPannello);
       if (OPZ.dadi3d !== false && (m.tiro.chi === S.io || S.vista === 'vMappa' || document.body.classList.contains('tv'))) import('./dadi3d.js').then(d => d.lancia(m.tiro, m.tiro.chi === S.io ? { colore: OPZ.dadiColore, materiale: OPZ.dadiMateriale } : { colore: S.st.membri?.[m.tiro.chi]?.colore, materiale: 'opaco' })).catch(e => Report.log('dadi-3d', { errore: String(e?.message || e) }));
@@ -129,7 +131,7 @@ function gestisci(m) {
       S.st.diario = [...(S.st.diario || []), ev].slice(-200);
       if (S.ultimoParlato) { Report.log('master-risposta', { ms: Date.now() - S.ultimoParlato, modello: m.modello, parole: m.testo.split(' ').length }); S.ultimoParlato = 0; }
       Report.log('narrazione', { png: m.png || null, testo: m.testo, modello: m.modello || null, riassunto: !!m.riassunto, riserva: !!m.riserva }); // ogni battuta parola per parola, come nei Varchi
-      mostraNarrazione(m.testo, m.png); renderDiario(); traduciTesto(m.testo);
+      mostraNarrazione(m.testo, m.png); renderDiario(); traduciTesto(m.testo); mostraScelte(m.scelte);
       riassuntoArrivato(m);
       if (OPZ.narratore && altraLingua()) { S.daLeggere = m.testo; } // si legge la traduzione, appena arriva
       else if (OPZ.narratore && m.voce) { // la voce naturale arriva tra poco: si aspetta al massimo 12 secondi, poi voce del telefono
@@ -167,6 +169,8 @@ function gestisci(m) {
     case 'statistiche': mostraStatistiche(m); return;
     case 'mese': mostraMese(m); return;
     case 'avventura': S.st.avventura = m.avventura; renderAvventura(); return;
+    case 'giornale': S.st.giornali = [...(S.st.giornali || []), m.giornale].slice(-12); S.giornaleN = null; renderGiornale(); return;
+    case 'album': mostraAlbum(m); return;
     case 'avventure': S.st.avventure = m.avventure; if (m.avventureMie) S.st.avventureMie = m.avventureMie; renderAvventura(); renderAvventureMie(); return;
     case 'sessione_zero': szRisposta(m); return;
     case 'mostri': S.st.mostri = m.mostri; Mappa.disegna(); if (S.m3) S.m3.aggiorna(Mappa.dati3D()); return;
@@ -250,6 +254,7 @@ $('#btnSfida').addEventListener('click', () => {
   connetti(codiceNuovo(), () => ({ t: 'crea', nome: 'Sfida: ' + sf.titolo, regole: $('input[name="cRegole"]:checked').value, ambientazione: 'Fantasy classico. ' + sf.obiettivo, masterTipo: 'ai', mioNome, solitaria: true, sfida: sf }));
 });
 function sfidaFinita(sf) {
+  if (sf?.allenamento) { chiedi(`<h2>🎯 Allenamento finito</h2><p>${esc(sf.titolo)}: ora conosci meglio il tuo personaggio. Puoi continuare a giocare qui o provarne un altro.</p>`, [{ testo: 'Ok', pieno: true }]); return; }
   if (sf?.esito === 'vinta') { const v = leggi('ta_sfide_vinte', []); if (!v.some(x => x.settimana === sf.settimana)) { v.push({ settimana: sf.settimana, titolo: sf.titolo }); scrivi('ta_sfide_vinte', v); } }
   chiedi(sf?.esito === 'vinta' ? `<h2>🏆 Sfida vinta!</h2><p>${esc(sf.titolo)}: ce l'hai fatta. Lunedì arriva la prossima.</p>` : `<h2>Sfida persa</h2><p>${esc(sf?.titolo || '')}: non è andata. Puoi riprovarla quando vuoi fino a domenica.</p>`, [{ testo: 'Ok', pieno: true }]);
 }
@@ -293,7 +298,7 @@ function renderTutto() {
   $('#optMaster').closest('label').hidden = !masterAI();
   $('#btnCombat').hidden = !capo(); $('#btnPulisciAree').hidden = !capo(); if ($('#schermoMaster').hidden === capo()) { $('#schermoMaster').hidden = !capo(); if (capo()) invia({ t: 'note_master' }); }
   if (capo()) renderAvventura(); $('#btnIllustra').hidden = !capo(); $('#btnRiepilogo').hidden = !capo();
-  renderPresenza(); renderMappa(); renderCombat(); renderHud(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#altriStrumenti').hidden = me()?.ruolo === 'spettatore'; $('#btnArea').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#copiaBox').hidden = !me()?.admin; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro(); renderRegia(); renderAvventureMie(); renderPassi(); renderViaggio();
+  renderPresenza(); renderMappa(); renderCombat(); renderHud(); renderSchedaSeServe(true); renderTesoro(); renderTiri(); renderRapidi(); renderDiario(); renderDiarioExtra(); renderMondoVivo(); renderSerate(); renderPresenze(); renderNoteMappa(); $('#reazioni').hidden = me()?.ruolo !== 'spettatore'; $('#btnNota').hidden = me()?.ruolo === 'spettatore'; $('#altriStrumenti').hidden = me()?.ruolo === 'spettatore'; $('#btnArea').hidden = me()?.ruolo === 'spettatore'; $('#btnDungeon').hidden = !(capo() || masterAI()) || me()?.ruolo === 'spettatore'; $('#copiaBox').hidden = !me()?.admin; $('#optMeteoVero').closest('label').hidden = !capo(); renderMondo(); renderAltro(); renderRegia(); renderAvventureMie(); renderGiornale(); mostraScelte(S.st.scelteRapide); renderPassi(); renderViaggio();
 }
 function renderPresenza() {
   if (!S.st) return;

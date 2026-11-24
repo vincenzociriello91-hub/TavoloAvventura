@@ -89,6 +89,9 @@
       <p id="sfidaTesto" class="piccolo"></p>
       <button id="btnSfida" type="button" class="largo">Gioca la sfida da solo</button>
       <p id="sfidaVinte" class="piccolo"></p>
+      <h3>Allenamento di cinque minuti</h3>
+      <p class="piccolo">Una scena veloce da solo per provare un personaggio nuovo.</p>
+      <div class="riga"><select id="allenamento" aria-label="Scena di allenamento"></select><button id="btnAllenamento" type="button">Prova</button></div>
     </div>
     <div class="carta" id="cartaMie" hidden>
       <h2>Le tue campagne</h2>
@@ -105,6 +108,7 @@
         <div class="narr-testa"><span id="narrChi">Il master</span><span class="riga"><button id="btnCondividiNarr" class="testo-btn" type="button" hidden>Condividi</button><button id="btnZitto" class="testo-btn" type="button">Silenzio</button></span></div>
         <div class="narr-corpo"><div class="narr-volto" id="narrVolto" hidden></div><p id="narrTesto"></p></div>
       </div>
+      <div class="scelte-rapide" id="scelteRapide" hidden></div>
       <div class="combat" id="combat" hidden></div>
       <div class="richiesta" id="richiesta" hidden>
         <span id="richTesto"></span>
@@ -154,6 +158,11 @@
       <div class="chips" id="rapidi"></div>
       <h3>Tiri del tavolo</h3>
       <ul class="lista-tiri" id="listaTiri"></ul>
+      <details class="carta-mini biblioteca"><summary>📚 Biblioteca delle regole</summary>
+        <p class="piccolo">Tocca una voce per vedere la sua scheda con il disegno.</p>
+        <input id="cercaRegola" type="search" maxlength="40" placeholder="Cerca (es. prono, palla di fuoco)" aria-label="Cerca nella biblioteca delle regole">
+        <div id="bibliotecaVoci"></div>
+      </details>
     </div>
 
     <div class="vista" id="vDiario">
@@ -175,6 +184,7 @@
       </form>
       <div id="rispostaRegola" class="carta-mini" hidden></div>
       <details class="carta-mini" id="boxCronaca"><summary>Cosa ricorda il master</summary><div id="cronaca" class="cronaca"></div><form id="formRicorda" class="riga" autocomplete="off" hidden><input id="ricordaTesto" maxlength="300" placeholder="Un fatto che il master deve ricordare" aria-label="Fatto da ricordare"><button type="submit">Fallo ricordare</button></form></details>
+      <div id="giornale"></div>
       <div id="mondoVivo" class="mondo-vivo"></div>
       <details class="carta-mini" id="boxMondo"><summary>Il mondo: fazioni, valute, notizie</summary><div id="mondo"></div></details>
       <details class="carta-mini" id="galleriaPng" hidden><summary>Personaggi incontrati (<span id="galleriaPngConta">0</span>)</summary><div id="galleriaPngLista" class="galleria-png"></div></details>
@@ -270,6 +280,7 @@
         <button id="btnLibro" type="button" class="largo">Libro della campagna (PDF)</button>
         <button id="btnStatistiche" type="button" class="largo">Statistiche e trofei</button>
         <button id="btnMese" type="button" class="largo">📅 Il vostro mese</button>
+        <button id="btnAlbum" type="button" class="largo">📷 Album della campagna</button>
         <label class="spunta"><input type="checkbox" id="optNarratore" checked> Leggi ad alta voce il master</label>
         <label class="spunta"><input type="checkbox" id="optAvvisi" checked> Avvisi vocali in cuffia (tocca a te, poca vita)</label>
         <label class="spunta"><input type="checkbox" id="optMaster" checked> Il master AI ascolta quello che dico</label>
@@ -286,6 +297,7 @@
         <label class="spunta"><input type="checkbox" id="optStileGioco" checked> Aspetto da videogioco (cornici e scritte in pixel)</label>
         <label class="spunta"><input type="checkbox" id="optContrasto"> Alto contrasto</label>
         <label class="spunta"><input type="checkbox" id="optDaltonici"> Colori per daltonici (rosso e verde diventano arancio e blu)</label>
+        <label>Modalità notte (luci basse, voce più calma)<select id="optNotte"><option value="no">Spenta</option><option value="si">Accesa</option><option value="auto">Da sola, dalle 22 alle 7</option></select></label>
         <label class="spunta"><input type="checkbox" id="optLeggiTasti"> Leggi ad alta voce i pulsanti che tocchi (per chi vede poco)</label>
         <label class="spunta"><input type="checkbox" id="optMenoMoto"> Meno movimento (niente scosse, lampi e scritte che scorrono)</label>
         <label class="spunta"><input type="checkbox" id="optVibra" checked> Vibrazione sui colpi e sui tiri speciali</label>

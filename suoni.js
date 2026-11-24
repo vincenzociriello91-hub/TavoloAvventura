@@ -123,6 +123,16 @@ const Suoni = (() => {
     if (tipo === 'cura') [523, 659, 784, 1047].forEach((f, i) => nota(f, 0.5, 'sine', 0.05, fx, i * 0.08));
     if (tipo === 'striscione') { nota(196, 0.5, 'sawtooth', 0.05, fx, 0, 392); botto(800, 0.4, 0.12, fx); }
   }
+  // tema personale che parte con il colpo critico di chi lo ha scelto: poche note, riconoscibili
+  const TEMI = {
+    eroico: () => [392, 523, 659, 784, 1047].forEach((f, i) => nota(f, i === 4 ? 0.8 : 0.22, 'sawtooth', 0.05, fx, i * 0.13)),
+    arpa: () => [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => nota(f, 0.9, 'sine', 0.06, fx, i * 0.07)),
+    tamburi: () => [0, 0.18, 0.36, 0.5, 0.62, 0.74].forEach((t, i) => botto(i % 3 === 2 ? 160 : 90, 0.25, 0.45, fx, t)),
+    flauto: () => [784, 880, 988, 880, 1175].forEach((f, i) => nota(f, 0.3, 'sine', 0.07, fx, i * 0.16, f * 1.01)),
+    oscuro: () => [220, 262, 311, 208].forEach((f, i) => { nota(f, 0.9, 'sawtooth', 0.04, fx, i * 0.22); nota(f / 2, 0.9, 'square', 0.025, fx, i * 0.22); }),
+    campane: () => [1047, 784, 880, 1319].forEach((f, i) => { nota(f, 1.6, 'sine', 0.06, fx, i * 0.3); nota(f * 2.76, 0.6, 'sine', 0.015, fx, i * 0.3); })
+  };
+  function tema(nome) { if (!attivo || !ctx || !TEMI[nome]) return false; TEMI[nome](); return true; }
   // musica e ambiente si abbassano per un attimo: il colpo si sente senza alzare il volume
   function abbassa(ms = 500) {
     if (!attivo || !ctx) return;
@@ -131,7 +141,7 @@ const Suoni = (() => {
     clearTimeout(abbassa._t); abbassa._t = setTimeout(() => { giu = 1; if (brano) brano.volume = volume * 0.45 * vm; if (busAmb) busAmb.gain.setTargetAtTime(vm, ctx.currentTime, 0.12); }, ms);
   }
   return {
-    avvia, effetto, ambiente, abbassa,
+    avvia, effetto, ambiente, abbassa, tema, temi: ['eroico', 'arpa', 'tamburi', 'flauto', 'oscuro', 'campane'],
     scena: n => cambiaScena(n),
     set attivo(b) { attivo = b; if (b) { avvia(); const s = scena; scena = null; cambiaScena(s || 'aperto'); meteoAttivo = null; aggiornaAmbiente(); } else { fermaBrano(); timer.forEach(clearTimeout); timer = []; nodi.forEach(n => { try { n.stop(); } catch {} }); nodi = []; gainScena?.disconnect(); gainScena = null; nodiAmb.forEach(n => { try { n.stop(); } catch {} }); nodiAmb = []; timerAmb.forEach(clearTimeout); timerAmb = []; gMeteo?.disconnect(); gMeteo = null; gFuoco?.disconnect(); gFuoco = null; meteoAttivo = ''; } },
     get attivo() { return attivo; },

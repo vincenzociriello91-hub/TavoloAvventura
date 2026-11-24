@@ -1,6 +1,20 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.5.0';
+const VERSION = '4.6.0';
 const CHANGELOG = [
+  { v: '4.6.0', data: '24/11/2026', voci: [
+    'Mercato tra di voi: mettete sulla bancarella (o regalate) gli oggetti dell\'inventario, le monete passano da una scheda all\'altra.',
+    'Duello amichevole tra due personaggi o con il campione dell\'arena: colpo dopo colpo, senza ferite vere.',
+    'Giornale del regno: a ogni nuova serata le vostre imprese raccontate dalla gente, con un pettegolezzo che può diventare la prossima avventura.',
+    'Patti e debiti con i PNG: le promesse restano segnate, il master le ricorda e torna a riscuoterle; chi tradisce un patto se lo sente rinfacciare.',
+    'Feste delle stagioni: Festa dei Fiori, Torneo d\'Estate, Festa del Raccolto e Festa del Ghiaccio portano una missione speciale (d\'estate anche il torneo).',
+    'Allenamento di cinque minuti: una scena veloce da solo per provare un personaggio nuovo.',
+    'Biblioteca delle regole illustrata: condizioni, incantesimi e regole di base, ognuno con la sua scheda e il suo disegno (anche dalla scheda del personaggio).',
+    'Scelte rapide: con ogni risposta il master propone tre idee, per chi non sa cosa fare.',
+    'Tema musicale personale: ognuno sceglie il suo, e parte per tutti quando fa un colpo critico.',
+    'Album della campagna: tutte le illustrazioni divise per serata, da sfogliare in grande.',
+    'Rivincite: il nemico che vi ha messi a terra torna più forte, e batterlo vale il trofeo «Rivincita!».',
+    'Modalità notte: luci basse, effetti più piano e voce del master più calma, anche da sola dalle 22 alle 7.'
+  ] },
   { v: '4.5.0', data: '24/11/2026', voci: [
     'Mappa del tesoro: il master nasconde un tesoro, voi decifrate gli indizi (prova di Intelligenza) e scavate nel posto giusto. Anche la «Mappa di un tesoro sepolto» del negozio apre una caccia.',
     'Rompicapi da toccare: quattro leve, rune da premere in ordine, serrature a combinazione. Il gioco prepara indizi e soluzione; chi sbaglia fa scattare la trappola.',

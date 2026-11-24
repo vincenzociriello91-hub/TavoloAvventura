@@ -764,3 +764,36 @@ body.gs .mese-numeri div, body.gs .mese-img img { border-radius: 0; }
 .avv-scena { border: 1px solid var(--bordo); border-radius: 12px; padding: 10px; margin: 8px 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .avv-scena legend { color: var(--oro2); font-weight: 700; padding: 0 6px; }
 body.gs .leva, body.gs .runa, body.gs .cifra span, body.gs .cifra button, body.gs .avv-scena, body.gs .barra-px { border-radius: 0; }
+
+/* ---- 4.6: mercato, duello, giornale, patti, biblioteca, scelte rapide, album, rivincite, notte ---- */
+.scelte-rapide { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 10px; }
+.scelte-rapide .chip { white-space: normal; text-align: left; }
+.giornale { background: #efe4c8; color: #2a2116; border-radius: 12px; padding: 14px 16px; margin: 10px 0; font-family: Georgia, 'Times New Roman', serif; box-shadow: var(--ombra); }
+.giornale header { text-align: center; border-bottom: 3px double #2a2116; margin-bottom: 8px; }
+.giornale h3 { font-family: Cinzel, Georgia, serif; font-size: 1.35rem; margin: 2px 0; color: #2a2116; }
+.giornale .piccolo { color: #5a4a35; }
+.giornale section { border-bottom: 1px solid rgba(42,33,22,.25); padding: 6px 0; }
+.giornale h4 { margin: 4px 0; font-size: 1.02rem; }
+.giornale p { margin: 4px 0; line-height: 1.45; }
+.giornale .pettegolezzo { font-style: italic; }
+.giornale select, .giornale button { color: #2a2116; background: #e2d4b0; border-color: #b8a47a; }
+.duello { border-color: var(--rosso); }
+.duellante { margin: 6px 0; }
+.voce-bib { text-align: center; }
+.voce-disegno { font-size: 4.2rem; line-height: 1.1; margin: 4px auto 6px; width: 104px; height: 104px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle, var(--superficie2), var(--superficie)); border: 2px solid var(--oro); }
+.voce-bib p:last-child { text-align: left; line-height: 1.5; }
+.biblioteca h4 { margin: 10px 0 4px; color: var(--oro2); }
+.cond-voce { min-height: 0; padding: 0 4px; border: none; background: none; color: #ffb199; text-decoration: underline dotted; font: inherit; }
+.album-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; margin-bottom: 10px; }
+.album-foto { padding: 0; border-radius: 8px; overflow: hidden; aspect-ratio: 1; min-height: 0; }
+.album-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.album-grande { position: fixed; inset: 0; z-index: 60; background: rgba(8,6,5,.95); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; }
+.album-grande img { max-width: 100%; max-height: 70vh; border-radius: 10px; }
+.album-grande p { color: var(--testo); text-align: center; max-width: 640px; }
+body.notte::after { content: ''; position: fixed; inset: 0; background: rgba(4, 6, 20, .32); pointer-events: none; z-index: 9990; }
+body.gs .giornale, body.gs .album-foto, body.gs .album-grande img, body.gs .voce-disegno { border-radius: 0; }
+body .giornale h3, body.gs .giornale h3 { color: #2a2116; }
+body .giornale button, body .giornale select, body.gs .giornale button, body.gs .giornale select { color: #2a2116; background: #e2d4b0; border-color: #8a7550; }
+.patti .mondo-riga > .riga { flex: 0 0 auto; flex-wrap: nowrap; gap: 6px; }
+.patti .mondo-riga > .riga button { min-width: 44px; padding: 8px 10px; }
+.patti select { flex: 1 1 170px; }

@@ -288,7 +288,7 @@ function recuperaMunizioni() {
 /* ============ CALENDARIO DI GIOCO ============ */
 // stagioni di 30 giorni, settimane di 7, una festa per stagione (stessa regola in tavolo-dati.js sul server)
 const GIORNI_SETT = ['Giorno della Luna', 'Giorno del Fuoco', 'Giorno dell\'Acqua', 'Giorno del Vento', 'Giorno della Terra', 'Giorno delle Stelle', 'Giorno del Sole'];
-const FESTE = { primavera: [15, 'Festa dei Fiori'], estate: [20, 'Notte dei Fuochi'], autunno: [10, 'Festa del Raccolto'], inverno: [25, 'Notte Lunga'] };
+const FESTE = { primavera: [15, 'Festa dei Fiori'], estate: [20, 'Torneo d\'Estate'], autunno: [10, 'Festa del Raccolto'], inverno: [25, 'Festa del Ghiaccio'] };
 function dataGioco(cal) {
   if (!cal) return null;
   const g = cal.giorno || 1, gs = g - (cal.inizioStagione || 1) + 1, [gf, festa] = FESTE[cal.stagione] || [0, ''];
@@ -569,7 +569,8 @@ function htmlGiochiCapo() {
   return `<details class="carta-mini"><summary>🎲 Giochi per il gruppo: tesoro, rompicapo, torneo</summary>
     <div class="riga"><button type="button" data-caccia="nuova" ${S.st.caccia && !S.st.caccia.trovato ? 'disabled' : ''}>🗺️ Nascondi un tesoro</button><button type="button" data-torneo="apri" ${S.st.torneo && !S.st.torneo.finito ? 'disabled' : ''}>🏆 Organizza un torneo</button></div>
     <form class="riga" data-rompicapo-nuovo autocomplete="off"><select name="forma" aria-label="Tipo di rompicapo"><option value="">Rompicapo a caso</option><option value="leve">Quattro leve</option><option value="rune">Rune in ordine</option><option value="serratura">Serratura a combinazione</option></select><select name="trappola" aria-label="Trappola"><option value="">Trappola a caso</option><option value="dardi">Dardi avvelenati</option><option value="fulmine">Fulmini</option><option value="gas">Gas</option><option value="fossa">Botola</option><option value="lame">Lame</option></select><button>🔐 Prepara</button></form>
-    <p class="piccolo">Indizi e soluzioni li prepara il gioco. Anche il master AI può nascondere tesori, preparare rompicapi e aprire tornei.</p></details>`;
+    <div class="riga"><button type="button" data-festa>🎉 Festa della stagione adesso</button><button type="button" data-giornale>📰 Stampa il giornale</button></div>
+    <p class="piccolo">Indizi e soluzioni li prepara il gioco. Anche il master AI può nascondere tesori, preparare rompicapi e aprire tornei. Le feste arrivano da sole nel giorno giusto del calendario.</p></details>`;
 }
 $('#mondoVivo').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || !S.st) return;
@@ -643,3 +644,148 @@ $('#avvScene').addEventListener('click', e => { if (e.target.closest('[data-togl
 $('#btnAvvAnnulla').addEventListener('click', () => apriEditor());
 $('#formAvvImporta').addEventListener('submit', e => { e.preventDefault(); const c = $('#avvCodice').value.trim(); if (!c) return; invia({ t: 'avventura_importa', codice: c }); $('#avvCodice').value = ''; Report.log('avventura_mia', { cosa: 'importa' }); });
 apriEditor();
+
+/* ============ 4.6: mercato, duello, giornale, patti, feste delle stagioni, allenamento, biblioteca, scelte rapide, temi, album, rivincite, notte ============ */
+// mercato tra di voi: una bancarella con gli oggetti messi in vendita (o regalati) dai personaggi
+function cartaMercato(gioca) {
+  const b = S.st?.bancarella || [], pg = mioPg(), mie = (pg?.equip || []).filter(e => !e.indossato);
+  return `<h3>Mercato tra di voi</h3><ul class="tesoro-ogg">${b.map(x => `<li><span><strong>${esc(x.nome)}</strong> <span class="piccolo">di ${esc(x.chi)} · ${x.prezzo ? x.prezzo + ' mo' : 'in regalo'}</span></span>${gioca && pg ? (x.da === S.io ? `<button type="button" data-banc-togli="${esc(x.id)}">Riprendi</button>` : `<button type="button" data-banc-compra="${esc(x.id)}" ${(pg.oro || 0) >= x.prezzo ? '' : 'disabled'}>${x.prezzo ? 'Compra' : 'Prendi'}</button>`) : capo() ? `<button type="button" data-banc-togli="${esc(x.id)}">Togli</button>` : ''}</li>`).join('') || '<li class="piccolo">La bancarella è vuota</li>'}</ul>
+    ${gioca && pg && mie.length ? `<form id="formBancarella" class="riga" autocomplete="off"><select id="bancOggetto" aria-label="Oggetto da mettere sulla bancarella">${[...new Set(mie.map(e => e.nome))].map(n => `<option>${esc(n)}</option>`).join('')}</select><input id="bancPrezzo" type="number" min="0" max="100000" value="0" inputmode="numeric" style="width:90px;flex:0 0 90px" aria-label="Prezzo in monete (0 = regalo)"><button>Metti in vendita</button></form><p class="piccolo">Prezzo 0 = lo regali. Le monete passano da una scheda all'altra.</p>` : ''}`;
+}
+$('#tesoro').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.bancCompra) { invia({ t: 'bancarella_compra', id: b.dataset.bancCompra }); Report.log('mercato', { cosa: 'compra' }); } if (b.dataset.bancTogli) invia({ t: 'bancarella_togli', id: b.dataset.bancTogli }); });
+$('#tesoro').addEventListener('submit', e => { if (e.target.id !== 'formBancarella') return; e.preventDefault(); invia({ t: 'bancarella_metti', nome: $('#bancOggetto').value, prezzo: Number($('#bancPrezzo').value) || 0 }); Report.log('mercato', { cosa: 'metti' }); });
+
+// duello amichevole: due personaggi o il campione dell'arena, senza ferite vere
+function htmlDuello(gioca) {
+  const d = S.st?.duello, pg = mioPg(), io = S.io;
+  if (!d) {
+    if (!gioca || !pg) return '';
+    const altri = Object.entries(S.st.pg || {}).filter(([id, p]) => id !== io && p?.nome);
+    return `<details class="carta-mini"><summary>⚔️ Duello amichevole</summary><p class="piccolo">Un combattimento veloce tra due personaggi: nessuna ferita vera, solo l'onore.</p><form class="riga" data-duello-sfida autocomplete="off"><select name="con" aria-label="Chi sfidi a duello">${altri.map(([id, p]) => `<option value="${esc(id)}">${esc(p.nome)}</option>`).join('')}<option value="campione">Il campione dell'arena</option></select><button>Sfida</button></form></details>`;
+  }
+  const dentro = io === d.a || io === d.b;
+  const barra = id => { const st = d.stat[id], perc = Math.round(d.pf[id] / st.pf * 100); return `<div class="duellante"><div class="mondo-riga"><strong>${esc(d.nomi[id])}</strong> <span class="piccolo">CA ${st.ca} · ${d.pf[id]}/${st.pf} PF</span></div><div class="barra-px" role="progressbar" aria-label="Punti ferita di ${esc(d.nomi[id])} nel duello" aria-valuenow="${perc}" aria-valuemin="0" aria-valuemax="100"><span style="width:${perc}%;background:${perc > 50 ? coloreBene() : coloreMale()}"></span></div></div>`; };
+  const fondo = d.finito ? `<p><strong>🏆 Vince ${esc(d.nomi[d.vincitore])}</strong></p>${dentro || capo() ? '<button type="button" data-duello="chiudi">Chiudi</button>' : ''}`
+    : d.stato === 'invito' ? (io === d.b ? '<div class="riga"><button type="button" class="pieno" data-duello="si">Accetto</button><button type="button" data-duello="no">No, grazie</button></div>' : `<p class="piccolo">Si aspetta che ${esc(d.nomi[d.b])} accetti…</p>${dentro || capo() ? '<button type="button" class="testo-btn" data-duello="chiudi">Annulla</button>' : ''}`)
+      : `<p class="piccolo">Tocca a ${esc(d.nomi[d.turno])}</p><div class="riga">${d.turno === io ? '<button type="button" class="pieno" data-duello="colpo">⚔️ Colpisci</button>' : ''}${dentro ? '<button type="button" class="testo-btn" data-duello="resa">Mi arrendo</button>' : ''}</div>`;
+  return `<div class="carta-mini duello"><strong>⚔️ Duello: ${esc(d.nomi[d.a])} contro ${esc(d.nomi[d.b])}</strong>${barra(d.a)}${barra(d.b)}${d.log.length ? `<ul class="tiri">${d.log.slice(-4).map(x => `<li class="piccolo">${esc(x)}</li>`).join('')}</ul>` : ''}${fondo}</div>`;
+}
+// patti e debiti con i PNG: il master li ricorda e li fa pagare
+function htmlPatti() {
+  const l = S.st?.patti || [], aperti = l.filter(x => x.stato === 'aperto'), chiusi = l.filter(x => x.stato !== 'aperto');
+  if (!l.length && !capo()) return '';
+  const riga = x => `<div class="mondo-riga"><span>${x.chi === 'png' ? `<strong>${esc(x.png)}</strong> deve al gruppo: ` : `Il gruppo deve a <strong>${esc(x.png)}</strong>: `}${esc(x.cosa)}${x.stato !== 'aperto' ? ` <span class="piccolo">(${x.stato === 'saldato' ? 'mantenuto' : 'tradito'})</span>` : ''}</span>${capo() && x.stato === 'aperto' ? `<span class="riga"><button type="button" data-patto="${esc(x.id)}" data-esito="saldato" aria-label="Patto mantenuto">✔</button><button type="button" data-patto="${esc(x.id)}" data-esito="tradito" aria-label="Patto tradito">✖</button></span>` : ''}</div>`;
+  return `<details class="carta-mini patti"${aperti.length ? ' open' : ''}><summary>🤝 Patti e debiti (${aperti.length})</summary>${aperti.map(riga).join('') || '<p class="piccolo">Nessuna promessa in sospeso.</p>'}${chiusi.length ? `<details><summary class="piccolo">Patti chiusi (${chiusi.length})</summary>${chiusi.map(riga).join('')}</details>` : ''}
+    ${capo() ? '<form class="colonna" data-patto-nuovo autocomplete="off"><div class="riga"><input name="png" maxlength="60" placeholder="Con chi (es. Oste Bruno)" aria-label="Personaggio del patto"><select name="chi" aria-label="Chi deve a chi" style="flex:0 0 150px"><option value="gruppo">Il gruppo deve</option><option value="png">Il PNG deve</option></select></div><div class="riga"><input name="cosa" maxlength="200" placeholder="Cosa (es. un favore a sua figlia)" aria-label="Cosa è stato promesso"><button>Segna</button></div></form>' : ''}
+    <p class="piccolo">Il master ricorda le promesse e torna a riscuoterle al momento giusto.</p></details>`;
+}
+// rivincite: chi vi ha messo a terra torna più forte; batterlo vale un trofeo
+function htmlRivincite() {
+  const l = S.st?.rivincite || []; if (!l.length) return '';
+  return `<div class="carta-mini rivincite"><strong>🔁 Rivincite</strong>${l.map(r => `<div class="mondo-riga"><span>${r.vinta ? '🏆' : '⚡'} <strong>${esc(r.nome)}</strong> <span class="piccolo">${r.vinta ? 'sconfitto: rivincita presa!' : `vi ha battuti ${r.volte === 1 ? 'una volta' : r.volte + ' volte'}${r.chi ? ` (ultima: ${esc(r.chi)} a terra)` : ''}`}</span></span></div>`).join('')}<p class="piccolo">Quando torna è più forte: batterlo vale il trofeo «Rivincita!».</p></div>`;
+}
+$('#mondoVivo').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || !S.st) return;
+  const d = b.dataset.duello; if (d) { invia(d === 'si' || d === 'no' ? { t: 'duello_rispondi', si: d === 'si' } : { t: 'duello_' + d }); Report.log('duello', { cosa: d }); }
+  if (b.dataset.patto) invia({ t: 'patto_chiudi', id: b.dataset.patto, esito: b.dataset.esito });
+  if (b.dataset.festa !== undefined) { invia({ t: 'festa_stagione' }); Report.log('festa', {}); }
+  if (b.dataset.giornale !== undefined) invia({ t: 'giornale_stampa' });
+});
+$('#mondoVivo').addEventListener('submit', e => {
+  const f = e.target;
+  if (f.dataset.duelloSfida !== undefined) { e.preventDefault(); invia({ t: 'duello_sfida', con: f.con.value }); Report.log('duello', { cosa: 'sfida' }); }
+  if (f.dataset.pattoNuovo !== undefined) { e.preventDefault(); if (f.png.value.trim() && f.cosa.value.trim()) invia({ t: 'patto_nuovo', png: f.png.value.trim(), cosa: f.cosa.value.trim(), chi: f.chi.value }); else toast('Scrivi con chi è il patto e cosa è stato promesso', true); }
+});
+
+// giornale del regno: l'ultimo numero e i precedenti
+function renderGiornale() {
+  const box = $('#giornale'); if (!box || !S.st) return;
+  const l = S.st.giornali || [], g = l.find(x => x.numero === S.giornaleN) || l.at(-1);
+  if (!g) { box.innerHTML = capo() ? '<div class="carta-mini"><strong>📰 Il giornale del regno</strong><p class="piccolo">Esce da solo a ogni nuova serata, con le vostre imprese viste dalla gente.</p><button type="button" data-stampa-giornale>Stampa il primo numero</button></div>' : ''; return; }
+  box.innerHTML = `<article class="giornale"><header><h3>${esc(g.testata)}</h3><p class="piccolo">Numero ${g.numero} · serata ${g.sessione}</p></header>${g.articoli.map(a => `<section><h4>${esc(a.titolo)}</h4><p>${esc(a.testo)}</p></section>`).join('')}${g.pettegolezzo ? `<p class="pettegolezzo"><strong>Si mormora:</strong> ${esc(g.pettegolezzo)}</p>` : ''}
+    <div class="riga">${l.length > 1 ? `<select data-numero aria-label="Numero del giornale">${[...l].reverse().map(x => `<option value="${x.numero}" ${x.numero === g.numero ? 'selected' : ''}>Numero ${x.numero}</option>`).join('')}</select>` : ''}${capo() ? '<button type="button" data-stampa-giornale>Stampa un numero nuovo</button>' : ''}</div></article>`;
+}
+$('#giornale').addEventListener('click', e => { if (e.target.closest('[data-stampa-giornale]')) { invia({ t: 'giornale_stampa' }); Report.log('giornale', {}); } });
+$('#giornale').addEventListener('change', e => { if (e.target.dataset.numero !== undefined) { S.giornaleN = Number(e.target.value); renderGiornale(); } });
+
+// scelte rapide: tre idee del master per chi non sa cosa fare
+function mostraScelte(scelte) {
+  const box = $('#scelteRapide'); if (!box) return;
+  const l = Array.isArray(scelte) ? scelte : []; S.scelte = l;
+  box.hidden = !l.length || me()?.ruolo !== 'giocatore' || !mioPg() || !masterAI();
+  box.innerHTML = box.hidden ? '' : `<span class="piccolo">Non sai cosa fare? Prova:</span>${l.map((x, i) => `<button type="button" class="chip" data-scelta="${i}">${esc(x)}</button>`).join('')}`;
+}
+$('#scelteRapide').addEventListener('click', e => { const b = e.target.closest('[data-scelta]'); if (!b) return; const t = S.scelte?.[+b.dataset.scelta]; if (!t) return; invia({ t: 'parlato', testo: t, alMaster: true }); S.ultimoParlato = Date.now(); mostraScelte([]); Report.log('scelta-rapida', {}); });
+
+// biblioteca delle regole illustrata: condizioni, incantesimi e regole di base, ognuna con il suo disegno
+function voceBiblioteca(nome) {
+  for (const [tipo, gr] of Object.entries(BIBLIOTECA)) { const k = Object.keys(gr).find(x => x.toLowerCase() === String(nome).toLowerCase()); if (k) return { tipo, nome: k, icona: gr[k][0], testo: gr[k][1] }; }
+  return null;
+}
+function apriVoce(nome) {
+  const v = voceBiblioteca(nome); if (!v) return;
+  const liv = v.tipo === 'incantesimi' ? INCANTESIMI_NOTI[v.nome] : null;
+  chiedi(`<div class="voce-bib"><div class="voce-disegno" aria-hidden="true">${v.icona}</div><h2>${esc(v.nome[0].toUpperCase() + v.nome.slice(1))}</h2><p class="piccolo">${v.tipo === 'condizioni' ? 'Condizione' : v.tipo === 'incantesimi' ? (liv ? `Incantesimo di ${liv}° livello` : 'Trucchetto') : 'Regola'}</p><p>${esc(v.testo)}</p></div>`, [{ testo: 'Chiudi', pieno: true }]);
+  Report.log('biblioteca', { voce: v.nome });
+}
+function renderBiblioteca() {
+  const box = $('#bibliotecaVoci'); if (!box) return;
+  const q = ($('#cercaRegola')?.value || '').trim().toLowerCase(), TIT = { condizioni: 'Condizioni', incantesimi: 'Incantesimi', regole: 'Regole di base' };
+  box.innerHTML = Object.entries(BIBLIOTECA).map(([tipo, gr]) => { const voci = Object.entries(gr).filter(([n, [, t]]) => !q || n.toLowerCase().includes(q) || t.toLowerCase().includes(q)); return voci.length ? `<h4>${TIT[tipo]}</h4><div class="chips">${voci.map(([n, [ic]]) => `<button type="button" class="chip" data-voce="${esc(n)}"><span aria-hidden="true">${ic}</span> ${esc(n)}</button>`).join('')}</div>` : ''; }).join('') || '<p class="piccolo">Niente con queste parole.</p>';
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-voce]'); if (b) apriVoce(b.dataset.voce); });
+$('#cercaRegola').addEventListener('input', renderBiblioteca);
+renderBiblioteca();
+
+// tema personale: parte quando il personaggio fa un colpo critico (lo sentono tutti)
+const NOMI_TEMI = { eroico: 'Fanfara eroica', arpa: 'Arpa elfica', tamburi: 'Tamburi dei nani', flauto: 'Flauto del bosco', oscuro: 'Organo oscuro', campane: 'Campane del tempio' };
+function htmlTema(pg, puo) {
+  return `<label>Il tuo tema sui colpi critici<select data-tema ${puo ? '' : 'disabled'}><option value="">quello di tutti</option>${Object.entries(NOMI_TEMI).map(([k, n]) => `<option value="${k}" ${pg.tema === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`;
+}
+$('#scheda').addEventListener('change', e => { if (e.target.dataset.tema === undefined || S.viewPg !== S.io || !mioPg()) return; const v = e.target.value; invia({ t: 'scheda', pg: { ...mioPg(), tema: v || undefined } }); Suoni.avvia(); if (v) Suoni.tema(v); else Suoni.effetto('critico'); toast(v ? `Tema scelto: ${NOMI_TEMI[v]}` : 'Tema di tutti'); Report.log('tema', { tema: v }); });
+
+// album della campagna: tutte le illustrazioni, serata per serata
+function mostraAlbum(m) {
+  const per = {}; for (const x of m.immagini || []) (per[x.sessione] = per[x.sessione] || []).push(x);
+  const serate = Object.keys(per).map(Number).sort((a, b) => b - a);
+  S.album = serate.flatMap(n => per[n]);
+  chiedi(`<h2>📷 Album della campagna</h2>${serate.length ? serate.map(n => `<h3>Serata ${n}</h3><div class="album-griglia">${per[n].map(x => `<button type="button" class="album-foto" data-foto="${esc(x.id)}" aria-label="${esc(x.didascalia || 'Illustrazione')}"><img src="${urlMedia('img', x.id)}" alt="" loading="lazy"></button>`).join('')}</div>`).join('') : '<p class="piccolo">Ancora nessuna illustrazione: chiedete al master di disegnare una scena.</p>'}`, [{ testo: 'Chiudi', pieno: true }]);
+  Report.log('album', { foto: S.album.length });
+}
+function fotoGrande(i) {
+  const x = S.album?.[i]; if (!x) return; document.querySelector('.album-grande')?.remove();
+  const el = document.createElement('div'); el.className = 'album-grande'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Illustrazione');
+  el.innerHTML = `<img src="${urlMedia('img', x.id)}" alt="${esc(x.didascalia || '')}"><p>${esc(x.didascalia || '')}${x.luogo ? ` <span class="piccolo">· ${esc(S.st.luoghi?.[x.luogo]?.nome || '')}</span>` : ''}</p><div class="riga"><button type="button" data-album="-1" ${i ? '' : 'disabled'}>‹ Prima</button><button type="button" data-album="chiudi" class="pieno">Chiudi</button><button type="button" data-album="1" ${i < S.album.length - 1 ? '' : 'disabled'}>Dopo ›</button></div>`;
+  el.dataset.i = i; ($('#dlg').open ? $('#dlg') : document.body).append(el); el.querySelector('[data-album="chiudi"]').focus();
+}
+document.addEventListener('click', e => {
+  const f = e.target.closest('[data-foto]'); if (f) fotoGrande(S.album.findIndex(x => x.id === f.dataset.foto));
+  const a = e.target.closest('[data-album]'); if (a) { const el = a.closest('.album-grande'), i = Number(el.dataset.i); if (a.dataset.album === 'chiudi') el.remove(); else fotoGrande(i + Number(a.dataset.album)); }
+});
+$('#btnAlbum').addEventListener('click', () => invia({ t: 'album' }));
+
+// allenamento di cinque minuti: una scena da soli per provare un personaggio nuovo
+const ALLENAMENTI = [
+  { titolo: 'L\'arena', obiettivo: 'Nell\'arena di Pietrarossa due goblin ti sfidano davanti alla folla: battili, con le armi o con la magia.' },
+  { titolo: 'Il corridoio delle trappole', obiettivo: 'Attraversa un vecchio corridoio pieno di trappole fino alla porta in fondo, perdendo meno ferite possibile.' },
+  { titolo: 'La torre del mago', obiettivo: 'Un vecchio mago ti mette alla prova con tre piccoli incarichi da risolvere con l\'ingegno o con i tuoi poteri.' },
+  { titolo: 'La trattativa', obiettivo: 'Convinci il capo dei banditi a liberare un mercante senza combattere.' }
+];
+$('#allenamento').innerHTML = ALLENAMENTI.map((a, i) => `<option value="${i}">${esc(a.titolo)}</option>`).join('');
+$('#btnAllenamento').addEventListener('click', () => {
+  const mioNome = $('#cMioNome').value.trim() || leggi('ta_nome', '') || $('#eNome').value.trim();
+  if (!mioNome) { toast('Scrivi il tuo nome nella carta "Crea una campagna"', true); $('#cMioNome').focus(); return; }
+  const a = ALLENAMENTI[Number($('#allenamento').value) || 0]; scrivi('ta_nome', mioNome); Voce.riattivaAudio(); Report.log('allenamento', { titolo: a.titolo });
+  connetti(codiceNuovo(), () => ({ t: 'crea', nome: 'Allenamento: ' + a.titolo, regole: $('input[name="cRegole"]:checked').value, ambientazione: 'Fantasy classico. ' + a.obiettivo, masterTipo: 'ai', mioNome, solitaria: true, sfida: { ...a, settimana: 'allenamento', allenamento: true } }));
+});
+
+// modalità notte: luci basse, effetti più piano e voce del master più calma (anche da sola, dalle 22 alle 7)
+function notteAttiva() { const o = OPZ.notte; if (o === 'si') return true; if (o !== 'auto') return false; const h = new Date().getHours(); return h >= 22 || h < 7; }
+function applicaNotte() {
+  const n = notteAttiva(); document.body.classList.toggle('notte', n); Narratore.calmo = n;
+  Narratore.volume = (OPZ.volVoce ?? 1) * (n ? 0.6 : 1); Suoni.volEffetti = (OPZ.volEffetti ?? 1) * (n ? 0.5 : 1); Suoni.volMusica = (OPZ.volMusica ?? 1) * (n ? 0.6 : 1);
+}
+$('#optNotte').value = OPZ.notte || 'no';
+$('#optNotte').addEventListener('change', e => { OPZ.notte = e.target.value; scrivi('ta_opzioni', OPZ); applicaNotte(); Report.log('notte', { notte: OPZ.notte }); });
+setInterval(() => { if (OPZ.notte === 'auto') applicaNotte(); }, 60000);
+applicaNotte();

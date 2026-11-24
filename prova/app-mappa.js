@@ -163,7 +163,7 @@ function renderTesoro() {
     <div class="riga"><span>Monete in comune: <strong>${g.oro}</strong></span>${gioca ? '<button type="button" data-tes="deposita">Metti monete</button><button type="button" data-tes="dividi">Dividi il bottino</button>' : ''}</div>
     <ul class="tesoro-ogg">${g.oggetti.map(o => `<li><span>${esc(o.nome)}${o.qta > 1 ? ' ×' + o.qta : ''}</span>${gioca ? `<button type="button" data-prendi="${esc(o.nome)}">Prendi</button>` : ''}</li>`).join('') || '<li class="piccolo">Nessun oggetto in comune</li>'}</ul>
     ${gioca ? '<form id="formTesoro" class="riga" autocomplete="off"><input id="tesOggetto" maxlength="60" placeholder="Metti un oggetto in comune"><button class="pieno">Metti</button></form>' : ''}
-    <p class="piccolo">A voce: "metti 20 monete nel tesoro comune", "dividi il bottino".</p>${cartaCasa(gioca)}${cartaGioco(gioca)}`;
+    <p class="piccolo">A voce: "metti 20 monete nel tesoro comune", "dividi il bottino".</p>${cartaCasa(gioca)}${cartaMercato(gioca)}${cartaGioco(gioca)}`;
   applicaPieghe();
 }
 // giochi di taverna: dadi o carte con le monete della scheda, chi vince prende il piatto
@@ -192,7 +192,7 @@ $('#tesoro').addEventListener('click', e => {
   if (b.dataset.tes === 'dividi') invia({ t: 'gruppo', op: 'dividi' });
   if (b.dataset.tes === 'deposita') { const v = parseInt(prompt('Quante monete metti nel tesoro comune?'), 10); if (v > 0) { if (mioPg()) modifica([{ op: 'oro', delta: -v }]); invia({ t: 'gruppo', op: 'oro', delta: v }); } }
 });
-$('#tesoro').addEventListener('submit', e => { e.preventDefault(); if (e.target.id === 'formGioco') { invia({ t: 'gioco_apri', tipo: $('#giocoTipo').value, posta: +$('#giocoPosta').value }); Report.log('gioco_taverna', {}); return; } const n = $('#tesOggetto').value.trim(); if (n) invia({ t: 'gruppo', op: 'oggetto', nome: n, qta: 1 }); });
+$('#tesoro').addEventListener('submit', e => { e.preventDefault(); if (e.target.id === 'formBancarella') return; if (e.target.id === 'formGioco') { invia({ t: 'gioco_apri', tipo: $('#giocoTipo').value, posta: +$('#giocoPosta').value }); Report.log('gioco_taverna', {}); return; } const n = $('#tesOggetto').value.trim(); if (n) invia({ t: 'gruppo', op: 'oggetto', nome: n, qta: 1 }); });
 $('#btnEsciEd').addEventListener('click', () => invia({ t: 'esci_edificio' }));
 $('#formVai').addEventListener('submit', e => { e.preventDefault(); const n = $('#vaiNome').value.trim(); if (!n) return; invia({ t: 'vai', nome: n }); $('#vaiNome').value = ''; Report.log('vai', { nome: n }); });
 // volto del PNG: illustrato dall'AI quando è pronto, altrimenti quello in pixel art

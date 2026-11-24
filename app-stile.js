@@ -14,6 +14,7 @@ function applicaStile() {
   Mappa.opzioni?.({ menoMoto: menoMoto(), velocita: velocita(), pixel: stileGioco(), simboli: true });
   Suoni.volMusica = OPZ.volMusica ?? 1; Suoni.volEffetti = OPZ.volEffetti ?? 1; Narratore.volume = OPZ.volVoce ?? 1;
   FondoVivo.aggiorna();
+  if (typeof applicaNotte === 'function') applicaNotte(); // la modalità notte abbassa voce ed effetti sopra i cursori
 }
 
 /* ============ VOLTI: un disegno per ogni personaggio, messo una volta sola nella pagina ============ */
