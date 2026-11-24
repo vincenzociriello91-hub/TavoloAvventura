@@ -1,6 +1,10 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.4.0';
+const VERSION = '4.4.1';
 const CHANGELOG = [
+  { v: '4.4.1', data: '24/11/2026', voci: [
+    'Entrare in un edificio nuovo è immediato anche quando il servizio che descrive l\'interno è lento: la descrizione arriva appena è pronta.',
+    'Scheda stampata: la CD dei tiri salvezza degli incantesimi ora si legge (e c\'è anche il bonus di attacco con incantesimo).'
+  ] },
   { v: '4.4.0', data: '24/11/2026', voci: [
     'Salita di livello guidata: dopo «Sali di livello» l\'app spiega cosa cambia e ti guida nelle scelte, una alla volta (caratteristiche consigliate per la classe, incantesimi nuovi adatti, talento nella 3.5).',
     'Diario del personaggio: nella scheda il master scrive una pagina in prima persona, con la voce del tuo personaggio, su quello che è successo. Si può condividere.',

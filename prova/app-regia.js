@@ -432,7 +432,7 @@ function stampaScheda(pg) {
       <div class="box"><h2>Attacchi</h2><table><tr><th>Arma</th><th>Colpire</th><th>Danni</th></tr>${armi.map(({ e, a }) => `<tr><td>${esc(e.nome)}${e.bonus ? ' +' + e.bonus : ''}</td><td>${sg(a.colpire)}</td><td>${esc(a.danno)}</td></tr>`).join('') || '<tr><td colspan="3">—</td></tr>'}</table></div>
       <div class="box"><h2>Equipaggiamento</h2><p>${(pg.equip || []).map(e => esc(e.nome) + (e.qta > 1 ? ' ×' + e.qta : '')).join(', ') || '—'}</p><p><b>Monete d'oro:</b> ${pg.oro || 0}</p></div>
       ${(pg.talenti || []).length ? `<div class="box"><h2>Talenti</h2><p>${pg.talenti.map(esc).join(', ')}</p></div>` : ''}
-      ${(pg.incantesimi || []).length || max.some(n => n) ? `<div class="box"><h2>Incantesimi</h2>${max.map((n, l) => n && l ? riga(`Slot di ${l}° livello`, `${'○'.repeat(n)}`) : '').join('')}${Regole.cd ? riga('CD dei tiri salvezza', Regole.cd(pg) || '—') : ''}<p>${(pg.incantesimi || []).map(i => `${esc(i.nome)} <small>(${i.livello ? i.livello + '°' : 'trucchetto'})</small>`).join(', ')}</p></div>` : ''}
+      ${(pg.incantesimi || []).length || max.some(n => n) ? `<div class="box"><h2>Incantesimi</h2>${max.map((n, l) => n && l ? riga(`Slot di ${l}° livello`, `${'○'.repeat(n)}`) : '').join('')}${(c2 => c2 ? riga('CD dei tiri salvezza', `${c2.cd}${c2.nota ? ' ' + c2.nota : ''}`) + (c2.attacco !== undefined ? riga('Attacco con incantesimo', sg(c2.attacco)) : '') : '')(Regole.cd(pg))}<p>${(pg.incantesimi || []).map(i => `${esc(i.nome)} <small>(${i.livello ? i.livello + '°' : 'trucchetto'})</small>`).join(', ')}</p></div>` : ''}
       ${pg.storia ? `<div class="box"><h2>Storia</h2><p>${esc(pg.storia)}</p></div>` : ''}
     </div>
   </div>
