@@ -548,7 +548,7 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   if (stampa) { await stampa.waitForLoadState().catch(() => {}); }
   const fog = stampa ? await stampa.evaluate(() => ({ car: document.querySelectorAll('.car').length, testo: document.body.innerText })).catch(e => ({ errore: String(e.message).slice(0, 160) })) : { nessunPopup: true };
   if (!(fog?.car === 6)) console.log('DEBUG stampa', JSON.stringify(fog).slice(0, 400));
-  v(fog && fog.car === 6 && /Classe armatura/i.test(fog.testo) && /Tiri salvezza/i.test(fog.testo) && /Abilità/i.test(fog.testo), 'scheda stampabile impaginata come quella di carta (caratteristiche, CA, tiri salvezza, abilità)');
+  v(fog && fog.car === 6 && !/object Object|undefined|NaN/.test(fog.testo) && /Classe armatura/i.test(fog.testo) && /Tiri salvezza/i.test(fog.testo) && /Abilità/i.test(fog.testo), 'scheda stampabile impaginata come quella di carta (caratteristiche, CA, tiri salvezza, abilità)');
   if (stampa) await stampa.close();
   await A.evaluate(() => { mostraVista('vMappa'); });
   const viag = await A.evaluate(async () => {
