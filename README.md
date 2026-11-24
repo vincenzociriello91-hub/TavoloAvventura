@@ -31,6 +31,7 @@ D&D online con gli amici, dal browser di qualsiasi telefono, PC, Odin o TV. Nien
 - **4.4**: salita di livello guidata, diario del personaggio in prima persona, viaggi a tappe con agguati lungo la strada, scheda stampabile come quella di carta, «Nelle puntate precedenti» con le immagini, mostri e oggetti inventati da chi guida, colori per daltonici e lettura a voce dei pulsanti, riepilogo del mese.
 - **4.5**: mappa del tesoro a indizi, rompicapi da toccare (leve, rune, serrature) con trappole, torneo tra i personaggi, animali che crescono e imparano trucchi, casa del gruppo che diventa locanda e rocca, avventure scritte da voi e condivisibili con un codice.
 - **4.6**: mercato tra giocatori, duello amichevole, giornale del regno, patti e debiti con i PNG, feste delle stagioni con missioni speciali, allenamento di cinque minuti, biblioteca delle regole illustrata, scelte rapide del master, tema musicale sui colpi critici, album della campagna, rivincite sui nemici, modalità notte.
+- **4.7**: icona nuova in pixel art (anche ritagliabile per Android e a un colore, in `icone/`), icone delle stagioni nel browser, scorciatoie dall'icona, foto per l'installazione, icone in pixel al posto delle faccine, animazioni (carta, monete, pergamene), cornici per tesoro, rompicapi, torneo e duello, tema chiaro «pergamena».
 - **Dadi tirati dal server** (nessuno bara), vantaggio/svantaggio, tiri segreti del master.
 - **Modalità TV**, prova di microfono e connessione, domande sulle regole, suggerimenti, rapporti cifrati, aggiornamento dall'app.
 

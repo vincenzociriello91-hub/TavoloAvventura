@@ -809,5 +809,76 @@ body.gs .av { font-size: 1rem; }
 
 /* rientro in una campagna: al posto della schermata d'ingresso, una scritta d'attesa finché il tavolo risponde */
 .rientro-attesa { display: none; }
-html.rientro .rientro-attesa { display: grid; place-items: center; min-height: 60vh; color: var(--tenue); font-size: 1.1rem; }
+html.rientro .rientro-attesa { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-height: 60vh; color: var(--tenue); font-size: 1.1rem; }
+.rientro-attesa img { image-rendering: pixelated; }
 html.rientro #ingresso { display: none !important; }
+
+/* icone in pixel al posto delle faccine (solo con l'aspetto da videogioco) */
+.pi { width: 24px; height: 24px; image-rendering: pixelated; vertical-align: -6px; margin-right: 6px; flex: 0 0 auto; }
+summary .pi, h3 .pi, h4 .pi, strong .pi { width: 18px; height: 18px; vertical-align: -3px; margin-right: 5px; }
+.pi-nav { display: none; width: 24px; height: 24px; image-rendering: pixelated; }
+body.gs .nav .pi-nav { display: block; }
+body.gs .nav svg { display: none; }
+
+/* ---- 4.7: animazioni piccole ---- */
+@keyframes cartaEsce { 0% { transform: translateY(60px) rotateY(180deg) scale(.6); opacity: 0; } 45% { transform: translateY(10px) rotateY(90deg) scale(.9); opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes srotola { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+.srotola { animation: srotola .7s steps(10, end) both; }
+@keyframes cadeMoneta { 0% { transform: translateY(-40px) rotate(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(70vh) rotate(540deg); opacity: 0; } }
+.moneta-cade { position: fixed; top: 60px; z-index: 70; width: 24px; height: 24px; image-rendering: pixelated; pointer-events: none; animation: cadeMoneta 1.3s cubic-bezier(.45, 0, .8, .6) both; }
+body.meno-moto .srotola, body.meno-moto .moneta-cade { animation: none; }
+body.meno-moto .moneta-cade { display: none; }
+
+/* ---- 4.7: cornici diverse per le novità: pergamena (tesoro), pietra (rompicapi), stendardo (torneo), acciaio (duello) ---- */
+.caccia { background: #efe0b8; color: #2a2116; border-color: #9a8058; }
+.caccia strong, .caccia .indizi li, .caccia p { color: #2a2116; }
+.caccia .indizi li.nascosto, .caccia .piccolo { color: #6b5a40; }
+.rompicapo { background: #34303d url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='8' shape-rendering='crispEdges'%3E%3Cpath fill='%23000' fill-opacity='.18' d='M0 7h16v1H0zM7 0h1v4H7zM15 4h1v4h-1z'/%3E%3C/svg%3E"); border-color: #6b6578; }
+.torneo { background: linear-gradient(180deg, #3d1b24 0, var(--superficie2) 46px); border-top: 6px solid #a83a2c; }
+.duello { background: linear-gradient(160deg, #2c3240, var(--superficie2)); border-color: #6f7c8f; }
+body.gs .caccia, body.gs .rompicapo, body.gs .torneo, body.gs .duello { border: 6px solid transparent; border-image: var(--cornice) 6 / 6px stretch; background-clip: padding-box; padding: 10px 12px; }
+body.gs .rompicapo, body.gs .duello { border-image-source: var(--cornice-pietra); }
+body.gs .torneo { border-image-source: var(--cornice-rossa); }
+body.gs .caccia button:not(.pieno) { background-color: #e2d4b0; color: #2a2116; }
+
+/* ---- 4.7: tema chiaro «pergamena» (Altro → Gioco) ---- */
+body.pergamena, body.gs.pergamena {
+  --sfondo: #efe3c4; --superficie: #faf2dc; --superficie2: #f1e5c4; --bordo: #c4ab7c; --testo: #2a2116; --tenue: #6b5a40;
+  --oro: #c48a2c; --oro2: #8a5a14; --rosso: #b8432e; --verde: #2f8a4a; --blu: #2f6db8; --ombra: 0 4px 12px rgba(90,64,24,.18);
+  color-scheme: light; background: #efe3c4;
+}
+body.gs.pergamena { --ombra: 0 4px 0 rgba(90,64,24,.25); background: #efe3c4 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' shape-rendering='crispEdges'%3E%3Cpath fill='%23704f20' fill-opacity='.05' d='M0 0h4v4H0zM4 4h4v4H4z'/%3E%3C/svg%3E") fixed; }
+body.pergamena .barra, body.gs.pergamena .barra { background: #e6d6ae; box-shadow: none; }
+body.pergamena .nav, body.gs.pergamena .nav { background: #e6d6ae; box-shadow: 0 -4px 12px rgba(90,64,24,.15); }
+body.gs.pergamena .nav button.attivo { background: #f6ecd2; }
+body.pergamena input, body.pergamena select, body.pergamena textarea, body.pergamena .segmentato span, body.gs.pergamena input, body.gs.pergamena select, body.gs.pergamena textarea, body.gs.pergamena .segmentato span { background: #fffaf0; color: #2a2116; }
+body.gs.pergamena button, body.gs.pergamena .bottone, body.gs.pergamena .dadi-tasti button { background-color: #e8d8b0; color: #2a2116; }
+body.gs.pergamena .pieno, body.pergamena .pieno { background-color: var(--oro); color: #1b1206; }
+body.gs.pergamena .dadi-tasti button.scelto { background: #f0c46a; color: #2a2116; }
+body.pergamena .toast, body.gs.pergamena .toast, body.pergamena .annulla-bar, body.gs.pergamena .annulla-bar { background-color: #2e2539; color: #f6ecd8; }
+body.pergamena .narrazione, body.gs.pergamena .narrazione, body.gs.pergamena .diario li.narrazione-ev, body.pergamena .diario li.narrazione-ev, body.gs.pergamena .diario li.illustrazione-ev, body.pergamena .diario li.illustrazione-ev { background-color: #fbf4e0; }
+body.pergamena .combat, body.gs.pergamena .combat { background-color: #f6dcd2; }
+body.pergamena .richiesta, body.gs.pergamena .richiesta { background-color: #dcefdc; }
+body.pergamena .hud-pg, body.gs.pergamena button.hud-pg, body.gs.pergamena .combat li { background: #faf2dc; }
+body.pergamena .prova, body.pergamena .zoom-mappa, body.gs.pergamena .zoom-mappa { background: #faf2dc; }
+body.pergamena .prova-dado { background: #f1e5c4; }
+body.pergamena .barra-pf, body.gs.pergamena .barra-pf, body.gs.pergamena .rep, body.pergamena .rep, body.pergamena .hud-pg .vita, body.pergamena .hud-pg img, body.pergamena .barra-px { background: #fffaf0; }
+body.pergamena .ritratto, body.gs.pergamena .ritratto, body.gs.pergamena .narr-volto { background: #f1e5c4; }
+body.pergamena .titolo strong, body.gs.pergamena .titolo strong { text-shadow: none; }
+body.pergamena .rompicapo { background-color: #d8d2c4; }
+body.pergamena .rompicapo .cifra span { background: #fffaf0; }
+body.pergamena .torneo { background: linear-gradient(180deg, #f2cfc6 0, var(--superficie2) 46px); }
+body.pergamena .duello { background: linear-gradient(160deg, #d9dee6, var(--superficie2)); }
+body.pergamena .giornale { box-shadow: 0 0 0 1px #c4ab7c; }
+body.gs .caccia, body.gs .caccia strong, body.gs .caccia .indizi li, body.gs .caccia p, body.gs .caccia summary { color: #2a2116; }
+body.gs .caccia .indizi li.nascosto, body.gs .caccia .piccolo { color: #5e4d33; }
+body.gs .caccia { background: #efe0b8; background-clip: padding-box; }
+body.gs .rompicapo { background-color: #34303d; }
+body.gs .torneo { background: linear-gradient(180deg, #3d1b24 0, var(--superficie2) 46px); background-clip: padding-box; }
+body.gs .duello { background: linear-gradient(160deg, #2c3240, var(--superficie2)); background-clip: padding-box; }
+body.gs.pergamena .rompicapo { background-color: #d8d2c4; }
+body.gs.pergamena .torneo { background: linear-gradient(180deg, #f2cfc6 0, var(--superficie2) 46px); background-clip: padding-box; }
+body.gs.pergamena .duello { background: linear-gradient(160deg, #d9dee6, var(--superficie2)); background-clip: padding-box; }
+body.pergamena .narrazione, body.gs.pergamena .narrazione { background: #fbf4e0; border-color: #c4ab7c; background-clip: padding-box; }
+body.pergamena .narr-volto { background: #f1e5c4; }
+body.pergamena .diario li.narrazione-ev { background: #fbf4e0; border-color: #c4ab7c; }

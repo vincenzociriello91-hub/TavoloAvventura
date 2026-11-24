@@ -38,6 +38,7 @@ function gestisci(m) {
       Report.log('entrato', { ruolo: me()?.ruolo, admin: me()?.admin, regole: regole(), master: S.st.campagna.masterTipo });
       mostraGioco(); renderTutto(); avviaVoce(); controllaMappa(); meteoVero(); if (S.st.luogo) setTimeout(() => entraLuogo(S.st.luogo), 400); $('#invitoGuida').hidden = !(me()?.ruolo === 'giocatore' && !leggi('ta_guida_vista', false)); renderPassi(); // l'elenco dei primi passi aspetta che l'invito alla guida sia chiuso
       Mappa.pacchetti(`${SERVER_WS.replace(/^ws/, 'http')}/tavolo/${S.codice}/grafica/atlante`, S.io, S.chiave); // grafica comprata, solo per i membri
+      if (S.azioneAvvio === 'd20' && mioPg()) { S.azioneAvvio = null; setTimeout(() => { mostraVista('vDadi'); tira('d20', 'dalla scorciatoia'); }, 700); } // scorciatoia «Tira un d20» dall'icona
       // l'invito sparisce dalla barra degli indirizzi; resta il codice, così ricaricando si rientra da soli
       history.replaceState(null, '', `${location.pathname}?c=${S.codice}${document.body.classList.contains('tv') ? '&tv=1' : ''}`);
       scrivi('ta_attiva', S.codice);
@@ -169,7 +170,7 @@ function gestisci(m) {
     case 'statistiche': mostraStatistiche(m); return;
     case 'mese': mostraMese(m); return;
     case 'avventura': S.st.avventura = m.avventura; renderAvventura(); return;
-    case 'giornale': S.st.giornali = [...(S.st.giornali || []), m.giornale].slice(-12); S.giornaleN = null; renderGiornale(); return;
+    case 'giornale': S.st.giornali = [...(S.st.giornali || []), m.giornale].slice(-12); S.giornaleN = null; S.giornaleNuovo = true; renderGiornale(); return;
     case 'album': mostraAlbum(m); return;
     case 'avventure': S.st.avventure = m.avventure; if (m.avventureMie) S.st.avventureMie = m.avventureMie; renderAvventura(); renderAvventureMie(); return;
     case 'sessione_zero': szRisposta(m); return;
@@ -208,7 +209,7 @@ function gestisci(m) {
     }
     case 'aree': { const nuove = (m.aree || []).filter(a => !(S.st.aree || []).some(b => b.x === a.x && b.y === a.y && b.nome === a.nome)); S.st.aree = m.aree; aggiornaExtraMappa(); nuove.forEach(a => Mappa.effettoArea(a)); return; }
     case 'nebbia': if (S.st.luogo?.id === m.id) { S.st.luogo.visto = m.visto; Mappa.setVisto(m.id, m.visto); } return;
-    case 'gruppo': S.st.gruppo = m.gruppo; renderTesoro(); return;
+    case 'gruppo': { const prima = S.st.gruppo?.oro || 0; S.st.gruppo = m.gruppo; renderTesoro(); if ((m.gruppo?.oro || 0) > prima) piovonoMonete(Math.ceil(((m.gruppo.oro || 0) - prima) / 20)); return; }
     case 'mondo': S.st.mondo = m.mondo; renderMondo(); aggiornaTesta(); Mappa.setAmbiente(m.mondo?.calendario); if (!$('#mondoBox').hidden) renderMappaMondo(); return;
     case 'relazioni': S.st.relazioni = m.relazioni; renderSchedaSeServe(); return;
     case 'pong': S.latenza = Math.round(performance.now() - (S.ping || performance.now())); S.pong = Date.now(); return;
