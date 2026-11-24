@@ -8,6 +8,15 @@ const BotProva = (() => {
   const AMBIENTI = ['Fantasy classico', 'Montagne innevate del nord', 'Città portuale piena di intrighi', 'Foresta antica e misteriosa', 'Deserto di rovine dimenticate'];
   const FRASI = ['subisco 5 danni', 'recupero 3 punti ferita', "equipaggio l'ascia bipenne", 'indosso un elmo', 'raccolgo una pozione di guarigione', "trovo 25 monete d'oro", 'guadagno 300 punti esperienza', 'sono avvelenato', 'non sono più avvelenato', 'tiro per percezione con vantaggio', 'tiro per furtività', 'lancio un dardo incantato', 'bevo la pozione di guarigione'];
   const LUOGHI = ['Cripta del Re Senza Nome', 'Bosco delle Lucciole', 'Porto di Salmastro', 'Villaggio di Pietrarossa', 'Castello di Rocca Grigia', 'Taverna del Drago Ubriaco', 'Grotta dei Sussurri'];
+  // azioni di chi gioca davvero: parlare coi PNG, esplorare, combattere, fare magie, scherzare, fare domande al master
+  const AZIONI = [
+    "Chiedo all'oste se ha sentito voci strane in giro", 'Provo a convincere la guardia a farci passare senza pagare', 'Offro da bere al vecchio in fondo alla sala per farlo parlare',
+    'Controllo se la porta ha trappole prima di aprirla', 'Mi arrampico sul tetto per guardare intorno', 'Seguo le impronte nel fango', 'Frugo nel baule in fondo alla stanza',
+    "Mi nascondo nell'ombra e aspetto che passino", 'Provo a rubare la borsa al mercante distratto', 'Ascolto dietro la porta',
+    'Attacco il nemico più vicino con la mia arma', 'Lancio un incantesimo sul gruppo di nemici', 'Mi metto davanti al mago per proteggerlo', 'Bevo la pozione di guarigione',
+    'Accendo la lanterna e scendo per primo', 'Lascio una moneta al mendicante e gli chiedo cosa ha visto', 'Ci accampiamo per la notte e facciamo i turni di guardia',
+    "Racconto una barzelletta all'oste per fargli fare sconto", "Chiedo al master: cosa vedo esattamente nella stanza?", "Torno indietro all'ultimo villaggio a comprare corda e torce"];
+  const CHIACCHIERE = ['Ragazzi, secondo me è una trappola', 'Io avrei fame, facciamo una pausa?', 'Chi ha le pozioni?', 'Vado io avanti, voi coprite le spalle', 'Ma il mago dove si è cacciato?'];
   const caso = a => a[Math.floor(Math.random() * a.length)];
   const mescola = a => [...a].sort(() => Math.random() - 0.5);
   const dorme = ms => new Promise(r => setTimeout(r, ms));
@@ -26,14 +35,14 @@ const BotProva = (() => {
       c.ws.onopen = () => c.manda(primo);
       c.ws.onmessage = e => {
         let m; try { m = JSON.parse(e.data); } catch { return; }
-        if (m.t === 'benvenuto') { c.io = m.io; c.stato = m.stato; res(true); }
+        if (m.t === 'benvenuto') { c.io = m.io; c.stato = m.stato; if (m.chiave) c.chiave = m.chiave; res(true); }
         if (!c.stato) { if (m.t === 'errore') { log('partita-errore-server', { bot: nome, msg: m.msg }); res(false); } return; }
         if (m.t === 'errore') log('partita-errore-server', { bot: nome, msg: m.msg });
         if (m.t === 'luogo') { c.stato.luogo = m.luogo; c.stato.segnalini = m.segnalini; }
         if (m.t === 'segnalini') c.stato.segnalini = m.segnalini;
         if (m.t === 'scheda') c.stato.pg[m.per] = m.pg;
         if (m.t === 'diario') (c.stato.diario ||= []).push(m.ev);
-        if (m.t === 'narra' && nome === 'A') log('partita-narrazione', { png: m.png || null, testo: m.testo });
+        if (m.t === 'narra') { c.ultimaNarra = m; if (nome === 'A') log('partita-narrazione', { png: m.png || null, testo: m.testo }); }
         if (m.t === 'richiesta_tiro' && m.pg === c.io) setTimeout(() => c.manda({ t: 'dado', formula: 'd20', motivo: m.prova }), 600);
         for (const a of [...c.attese]) if (a.f(m)) { c.attese.splice(c.attese.indexOf(a), 1); a.res(m); }
       };
@@ -53,6 +62,8 @@ const BotProva = (() => {
       try { const r = await fn(); const ok = r !== false && r != null; esiti.push({ ok, nome }); log('partita-passo', { passo: nome, ok, dettagli: typeof r === 'object' ? r : undefined }); if (!ok) { onErr(nome); impara(); } }
       catch (e) { esiti.push({ ok: false, nome }); log('partita-passo', { passo: nome, ok: false, errore: e.message }); onErr(`${nome}: ${e.message}`); impara(String(e.message).slice(0, 120)); }
     };
+    // solo il proprio tiro: quelli chiesti dal master possono arrivare in ritardo e farebbero scalare i risultati
+    const tira = (c, formula, modo = null, motivo = 'partita bot') => { const p = c.aspetta(m => m.t === 'dado' && m.tiro?.chi === c.io && m.tiro.formula === formula && (m.tiro.modo || null) === (modo || null), 8000); c.manda({ t: 'dado', formula, modo, motivo }); return p; };
     const narra = (c, ms = 90000) => c.aspetta(m => m.t === 'narra' || (m.t === 'errore' && /master/i.test(m.msg)), ms).then(m => m?.t === 'narra' ? { testo: m.testo.slice(0, 200) } : false);
     const codice = Array.from(crypto.getRandomValues(new Uint32Array(8)), x => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[x % 32]).join('');
     const url = `${opz.server}/tavolo/${codice}/ws`;
@@ -82,7 +93,7 @@ const BotProva = (() => {
       for (const c of bot) for (const frase of mescola(FRASI).slice(0, 3)) await prova(`A voce: "${frase}"`, async () => {
         const r = Comandi.interpreta(frase, c.pg(), regole);
         if (r?.ops) { Comandi.applica(c.pg(), r.ops); Regole.ricalcola(c.pg()); c.salva(`a voce: "${frase}"`); return { ops: r.ops.length }; }
-        if (r?.dado) { const d = await c.chiedi({ t: 'dado', formula: r.dado.formula, modo: r.dado.modo, motivo: r.dado.motivo }, 'dado', 8000); return d ? { totale: d.tiro.totale } : false; }
+        if (r?.dado) { const d = await tira(c, r.dado.formula, r.dado.modo, r.dado.motivo); return d ? { totale: d.tiro.totale } : false; }
         const id = 'b' + Math.random().toString(36).slice(2, 7);
         const attesa = c.aspetta(m => m.t === 'interpretato' && m.id === id, 30000); c.manda({ t: 'interpreta', id, testo: frase, regole }); const ri = await attesa;
         if (ri?.ops?.length) { Comandi.applica(c.pg(), ri.ops); Regole.ricalcola(c.pg()); c.salva(`a voce (AI): "${frase}"`); return { ai: true }; }
@@ -90,8 +101,7 @@ const BotProva = (() => {
       });
 
       // dadi
-      // solo il proprio tiro: un tiro arrivato in ritardo da un passo prima faceva scalare di uno tutti i risultati
-      for (const [formula, modo] of [['d20', null], ['d100', null], ['2d6+3', null], ['d20', 'vantaggio'], ['d20', 'svantaggio']]) await prova(`Dadi: ${formula}${modo ? ' con ' + modo : ''}`, async () => { const atteso = C.aspetta(m => m.t === 'dado' && m.tiro?.chi === C.io && m.tiro.formula === formula && (m.tiro.modo || null) === modo, 8000); C.manda({ t: 'dado', formula, modo, motivo: 'partita bot' }); const d = await atteso; return d ? { totale: d.tiro.totale, dadi: d.tiro.dadi } : false; });
+      for (const [formula, modo] of [['d20', null], ['d100', null], ['2d6+3', null], ['d20', 'vantaggio'], ['d20', 'svantaggio']]) await prova(`Dadi: ${formula}${modo ? ' con ' + modo : ''}`, async () => { const d = await tira(C, formula, modo); return d ? { totale: d.tiro.totale, dadi: d.tiro.dadi } : false; });
 
       // il master AI apre la partita
       await prova('Il master AI apre la partita', () => { const p = narra(A); A.manda({ t: 'parlato', testo: 'Siamo pronti, master: entriamo in città e cerchiamo una locanda', alMaster: true }); return p; });
@@ -186,6 +196,37 @@ const BotProva = (() => {
 
       // la mappa di un luogo già visto resta identica
       if (primo) await prova('Mappe persistenti', async () => { A.manda({ t: 'vai', nome: primo.nome }); const m = await A.aspetta(m => m.t === 'luogo' && m.luogo.nome === primo.nome, 15000); return !!m && JSON.stringify(m.luogo.celle) === JSON.stringify(primo.celle); });
+
+      // giocata come persone vere: turni liberi e improvvisati, scelte suggerite, chiacchiere, azioni insieme, chi esce e rientra
+      const risposte = new Set();
+      for (const [i, c] of mescola(bot).concat(caso(bot)).slice(0, 5).entries()) {
+        const azione = caso(AZIONI);
+        await prova(`Turno libero ${i + 1}: "${azione}"`, async () => {
+          const p = narra(c); c.manda({ t: 'parlato', testo: azione, alMaster: true }); const r = await p; if (!r) return false;
+          const ripetuta = risposte.has(r.testo); risposte.add(r.testo); // una risposta identica a una di prima finisce nel rapporto
+          await dorme(1500); return { risposta: r.testo, ...(ripetuta ? { ripetuta: true } : {}) }; // il tiro chiesto dal master lo fa da solo il bot (richiesta_tiro)
+        });
+      }
+      await prova('Uno sceglie un suggerimento del master', async () => {
+        const sc = A.ultimaNarra?.scelte || B.ultimaNarra?.scelte; if (!sc?.length) return { nota: 'il master non ha dato suggerimenti in questo turno' };
+        const scelta = caso(sc), p = narra(B); B.manda({ t: 'parlato', testo: scelta, alMaster: true }); const r = await p; return r ? { scelta, risposta: r.testo } : false;
+      });
+      await prova('Chiacchiere tra giocatori', async () => {
+        const frase = caso(CHIACCHIERE), arriva = A.aspetta(m => m.t === 'diario' && m.ev?.testo?.includes(frase), 8000), master = C.aspetta(m => m.t === 'narra', 8000);
+        D.manda({ t: 'chat', testo: frase, alMaster: false });
+        const [ok, risposta] = await Promise.all([arriva, master]); if (!ok) throw new Error('la frase non arriva agli altri'); return { frase, ...(risposta ? { nota: 'nel frattempo il master ha parlato (di solito per un tiro chiesto prima)' } : {}) };
+      });
+      await prova('Due giocatori agiscono insieme', async () => {
+        const p = narra(A, 120000); B.manda({ t: 'parlato', testo: caso(AZIONI), alMaster: true }); C.manda({ t: 'parlato', testo: caso(AZIONI), alMaster: true });
+        const r = await p; await dorme(4000); return r ? { risposta: r.testo } : false;
+      });
+      await prova('Domanda fuori dal gioco al master', async () => { const p = narra(D); D.manda({ t: 'parlato', testo: 'Scusa master, quanto manca alla fine della serata?', alMaster: true }); return p; });
+      await prova('Un giocatore perde la connessione e rientra', async () => {
+        if (!B.chiave) return { nota: 'nessuna chiave per rientrare' };
+        const pfPrima = B.pg()?.pf; try { B.ws.close(); } catch {} await dorme(2500);
+        if (!await B.apri({ t: 'ciao', membro: B.io, chiave: B.chiave })) return false;
+        return B.pg() && B.pg().pf === pfPrima ? { pf: pfPrima } : false;
+      });
 
       await prova('Riepilogo illustrato della serata', async () => { A.manda({ t: 'riepilogo' }); return !!await A.aspetta(m => m.t === 'riepilogo' || (m.t === 'diario' && m.ev?.tipo === 'riepilogo'), 150000); });
     } catch (e) { onErr(e.message); log('partita-errore', { msg: e.message }); }

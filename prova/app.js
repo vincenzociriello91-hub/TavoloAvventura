@@ -1,6 +1,13 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.8.2';
+const VERSION = '4.8.3';
 const CHANGELOG = [
+  { v: '4.8.3', data: '24/11/2026', voci: [
+    'Partita bot più realistica: dopo i passi di sempre i bot giocano come persone vere, 76 passi in tutto',
+    'Turni liberi con azioni scelte a caso tra venti (parlare coi PNG, esplorare, rubare, combattere, fare magie, accamparsi, scherzare), e i tiri chiesti dal master',
+    'Un bot sceglie uno dei suggerimenti del master, i giocatori chiacchierano tra loro, due agiscono nello stesso momento, uno fa una domanda fuori dal gioco',
+    'Un bot perde la connessione e rientra: la sua scheda deve restare uguale',
+    'Nel rapporto si vede se il master ha ripetuto la stessa risposta'
+  ] },
   { v: '4.8.2', data: '24/11/2026', voci: [
     'Partita bot: i dadi di prova leggono solo il proprio tiro (prima un tiro in ritardo faceva scalare tutti i risultati)'
   ] },
