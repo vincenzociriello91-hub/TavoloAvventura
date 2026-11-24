@@ -185,6 +185,15 @@ A.invia({ t: 'dado', formula: 'd20' }); await A.aspetta(m => m.t === 'dado'); A.
 const ms = await A.aspetta(m => m.t === 'mese');
 v(/^\d{4}-\d{2}$/.test(ms.mese) && Object.values(ms.numeri).some(o => o.tiri >= 1) && Array.isArray(ms.trofei) && ms.luoghi.includes('Castello Lontano'), `il vostro mese (${ms.mese}): dadi, trofei e luoghi scoperti`);
 
+// entrare in un edificio non aspetta l'IA lenta: si entra subito, la descrizione arriva dopo
+A.coda.length = 0; A.invia({ t: 'vai', nome: 'Borgo Lento' }); const bl = (await A.aspetta(m => m.t === 'luogo' && m.luogo.nome === 'Borgo Lento', 15000)).luogo;
+const edL = bl.edifici.find(e => e.stato !== 'distrutto' && !/pozzo|torre|radura/i.test(e.nome)), t0e = Date.now();
+const descrLenta = A.aspetta(m => m.t === 'narra' && /farina e di polvere/.test(m.testo), 40000).catch(() => null);
+A.invia({ t: 'entra_edificio', edificio: edL.id }); const dentro = await A.aspetta(m => m.t === 'luogo' && m.luogo.genitore, 20000).catch(() => null), sec = Math.round((Date.now() - t0e) / 1000);
+v(dentro && sec <= 13, `con l'IA lenta si entra lo stesso in ${sec} s (prima si aspettava la descrizione)`);
+v(!!(await descrLenta), 'la descrizione dell\'interno arriva appena l\'IA risponde');
+A.invia({ t: 'esci_edificio' }); await A.aspetta(m => m.t === 'luogo' && !m.luogo.genitore, 15000).catch(() => null);
+
 // ---------- 4.2: gioco a distanza ----------
 // il giro conta anche chi non è collegato, l'attesa è in ore e allo scadere il master risponde a chi ha scritto
 A.coda.length = 0; A.invia({ t: 'impostazioni', differito: 24 });

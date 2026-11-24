@@ -5,6 +5,7 @@ http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/ultima-voce') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(ultimo.voci || [])); } // per le prove: che cosa è stato mandato ai modelli di voce
   let b = ''; req.on('data', d => b += d); req.on('end', () => {
     const j = JSON.parse(b || '{}');
+    if (/Descrivi l'interno di .*Borgo Lento/.test(j.contents?.[0]?.parts?.[0]?.text || '') && !req.ritardato) { req.ritardato = true; return setTimeout(() => req.emit('end'), 14000); } // per le prove: un'IA lenta
     const testoUtente = j.contents?.[0]?.parts?.[0]?.text || '';
     let out;
     if (j.generationConfig?.responseModalities?.includes('AUDIO')) { // voce: mezzo secondo di tono a 24 kHz
@@ -47,6 +48,7 @@ http.createServer((req, res) => {
     else if (/Racconta la serata/.test(testoUtente)) out = JSON.stringify({ titolo: 'La rissa del Cinghiale', racconto: 'Una serata di boccali volanti e goblin sconfitti.', prompt: 'heroes celebrating in a tavern' });
     else if (/PROMPT:/.test(testoUtente)) out = 'PROMPT: a tavern brawl, flying mugs\nDIDASCALIA: Rissa nella locanda';
     else if (/===CRONACA===/.test(testoUtente)) out = 'Memoria finta aggiornata.\n===CRONACA===\n• Il gruppo ha fatto a botte nella locanda.';
+    else if (/Descrivi l'interno di/.test(testoUtente)) out = JSON.stringify({ descrizione: 'Dentro odora di farina e di polvere antica.', stanze: ['Ingresso', 'Macina', 'Deposito'], png: 'Mugnaio Gerardo' });
     else if (/pagina del tuo diario personale/.test(testoUtente)) out = 'Oggi ho visto il drago da vicino e mi tremavano le mani.';
     else if (/cantastorie di piazza/.test(testoUtente)) out = 'Riassunto in rima finto.';
     else if (/riassunto completo/.test(testoUtente)) out = 'Riassunto completo finto.';
