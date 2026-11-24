@@ -127,7 +127,9 @@ const Mappa = (() => {
     cv.style.width = luogo.w * tile + 'px'; cv.style.height = luogo.h * tile + 'px';
     cacheChiave = ''; disegna();
   }
-  function imposta(l, s, m) { const nuovo = !luogo || !l || luogo.id !== l.id; if (l !== luogo) { cacheChiave = ''; gCache = null; } if (nuovo) tileManuale = 0; luogo = l; segnalini = s || {}; membri = m || membri; if (nuovo) adatta(); else disegna(); if (opz.vediTutto?.()) zoom('tutta'); cambiato(); }
+  function imposta(l, s, m) { const nuovo = !luogo || !l || luogo.id !== l.id; if (l !== luogo) { cacheChiave = ''; gCache = null; } if (nuovo) tileManuale = 0; luogo = l; segnalini = s || {}; membri = m || membri; if (nuovo) { adatta(); inquadra(); } else disegna(); if (opz.vediTutto?.()) zoom('tutta'); cambiato(); }
+  // luogo nuovo più largo dello schermo: la vista parte dalla propria figura (spettatori: dal primo personaggio), non dall'angolo in alto a sinistra
+  function inquadra() { const box = cv?.parentElement, s = segnalini[opz.io?.()] || Object.values(segnalini).find(x => x.tipo === 'pg'); if (!box || !s) return; box.scrollLeft = s.x * tile + tile / 2 - box.clientWidth / 2; box.scrollTop = s.y * tile + tile / 2 - box.clientHeight / 2; }
   function aggiornaSegnalini(s) { segnalini = s || {}; ultimoGesto = performance.now(); disegna(); cambiato(); }
   function cella(x, y) { return luogo.celle[y]?.[x] ?? '#'; }
   const muro = c => c === '#' || c === 'w' || c === 'R';

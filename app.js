@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.3.2';
+const VERSION = '4.3.3';
 const CHANGELOG = [
+  { v: '4.3.3', data: '24/11/2026', voci: [
+    'Entrando in un luogo più largo dello schermo, la mappa parte dalla tua figura (per gli spettatori dal primo personaggio) invece che dall\'angolo in alto a sinistra.'
+  ] },
   { v: '4.3.2', data: '24/11/2026', voci: [
     'Finito lo scontro, l\'avviso «È il tuo turno!» sparisce subito invece di restare in alto.',
     'Quando arriva il riassunto, l\'avviso «Il master prepara il riassunto» si chiude da solo.',
