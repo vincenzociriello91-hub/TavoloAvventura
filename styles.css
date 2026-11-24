@@ -74,11 +74,11 @@ main { padding: 16px; padding-bottom: calc(var(--navh) + 24px + env(safe-area-in
 /* Gioco: telefono = una vista alla volta con barra in basso; PC = mappa sempre visibile + pannello */
 .vista { display: none; }
 .vista.attiva { display: block; }
-.nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: grid; grid-template-columns: repeat(5, 1fr); background: rgba(20,17,15,.96); border-top: 1px solid var(--bordo); padding-bottom: env(safe-area-inset-bottom); }
-.nav button { flex-direction: column; gap: 2px; border: none; background: none; border-radius: 0; min-height: var(--navh); font-size: .75rem; color: var(--tenue); }
+.nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); background: rgba(20,17,15,.96); border-top: 1px solid var(--bordo); padding-bottom: env(safe-area-inset-bottom); }
+.nav button { flex-direction: column; gap: 2px; border: none; background: none; border-radius: 0; min-height: var(--navh); padding: 6px 2px; font-size: .75rem; color: var(--tenue); }
 .nav svg { width: 24px; height: 24px; }
 .nav button.attivo { color: var(--oro2); }
-.nav button.attivo svg { background: rgba(217,164,65,.18); border-radius: 999px; padding: 2px 14px; width: 52px; box-sizing: content-box; height: 22px; }
+.nav button.attivo svg { background: rgba(217,164,65,.18); border-radius: 999px; padding: 2px 10px; width: 40px; box-sizing: content-box; height: 22px; }
 @media (min-width: 1100px) {
   main { padding-bottom: 24px; }
   .gioco { display: grid; grid-template-columns: minmax(0, 1fr) 440px; grid-template-rows: auto 1fr; gap: 16px; align-items: start; }
@@ -119,12 +119,12 @@ main { padding: 16px; padding-bottom: calc(var(--navh) + 24px + env(safe-area-in
 .statini { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
 .stat { background: var(--superficie2); border: 1px solid var(--bordo); border-radius: 12px; padding: 8px; text-align: center; }
 .stat b { display: block; font-size: 1.25rem; }
-.stat span { font-size: .72rem; color: var(--tenue); letter-spacing: .5px; }
+.stat span { font-size: .75rem; color: var(--tenue); letter-spacing: .5px; }
 .car-griglia { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .car { background: var(--superficie2); border: 1px solid var(--bordo); border-radius: 12px; padding: 8px; text-align: center; position: relative; }
 .car button.tira { all: unset; cursor: pointer; display: block; width: 100%; border-radius: 10px; }
 .car button.tira:focus-visible { outline: 3px solid var(--oro2); }
-.car .sigla { font-size: .72rem; color: var(--tenue); letter-spacing: 1px; }
+.car .sigla { font-size: .75rem; color: var(--tenue); letter-spacing: 1px; }
 .car .val { font-size: 1.4rem; font-weight: 700; }
 .car .mod { font-size: .9rem; color: var(--oro2); }
 .car .piu { position: absolute; top: 4px; right: 4px; min-height: 30px; width: 30px; padding: 0; border-radius: 50%; background: var(--verde); color: #10140f; border: none; font-weight: 800; }
@@ -576,7 +576,7 @@ body.contrasto input, body.contrasto select, body.contrasto textarea { backgroun
 .volumi { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .volumi label { margin: 4px 0; font-size: .8rem; }
 @media print { body.gs .carta, body.gs .stat, body.gs .car, body.gs .lista-ab li, body.gs .equip li { border-image: none; border: 1px solid #999; } body.gs { background: #fff; } }
-body.gs .stat { padding: 6px 2px; } body.gs .stat span { font-size: .62rem; letter-spacing: 0; overflow-wrap: anywhere; display: block; line-height: 1.2; }
+body.gs .stat { padding: 6px 2px; } body.gs .stat span { font-size: .75rem; letter-spacing: 0; overflow-wrap: anywhere; display: block; line-height: 1.2; }
 body.gs .car { padding: 4px 2px; }
 body.gs .spunta input { flex: 0 0 22px; }
 /* 1 naturale */
@@ -687,7 +687,7 @@ body.gs .codice-mondo { border-radius: 0; }
 .carta-coll .cc-img img { width: 100%; height: 100%; object-fit: cover; }
 .carta-coll .cc-img img.pixel { image-rendering: pixelated; object-fit: contain; width: 72px; height: 72px; }
 .carta-coll strong { font-size: .92rem; line-height: 1.15; }
-.carta-coll .piccolo { font-size: .74rem; }
+.carta-coll .piccolo { font-size: .78rem; }
 .carta-coll.bronzo { border-color: #b0703a; }
 .carta-coll.argento { border-color: #c9d1d9; box-shadow: 0 0 10px rgba(201, 209, 217, .25); }
 .carta-coll.oro { border-color: #f2c14e; box-shadow: 0 0 14px rgba(242, 193, 78, .4); }
@@ -802,3 +802,7 @@ body .giornale button, body .giornale select, body.gs .giornale button, body.gs 
 .patti .mondo-riga > .riga { flex: 0 0 auto; flex-wrap: nowrap; gap: 6px; }
 .patti .mondo-riga > .riga button { min-width: 44px; padding: 8px 10px; }
 .patti select { flex: 1 1 170px; }
+
+/* scritte piccole dentro titoli e pulsanti in pixel: Jersey 15 sotto i 16px non si legge bene */
+body.gs :is(h1, h2, h3, summary, legend, button, .bottone, .narr-testa) .piccolo { font-size: 1rem; }
+body.gs .av { font-size: 1rem; }

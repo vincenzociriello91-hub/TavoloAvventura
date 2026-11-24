@@ -1,6 +1,10 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.6.2';
+const VERSION = '4.6.3';
 const CHANGELOG = [
+  { v: '4.6.3', data: '24/11/2026', voci: [
+    'Scritte più leggibili: etichette della scheda (classe armatura, iniziativa, caratteristiche) e carte da collezione un po\' più grandi; le scritte piccole in pixel dentro titoli e pulsanti ora si leggono.',
+    'Barra in basso: su telefoni stretti la voce «Altro» non esce più dallo schermo. Cursori del volume allineati.'
+  ] },
   { v: '4.6.2', data: '24/11/2026', voci: [
     'Caratteri controllati: Inter e Cinzel ora sono dentro l\'app, come Jersey 15. Si vedono giusti anche senza rete o dove Google è bloccato, con tutti gli spessori, e senza richieste a Google.',
     'Le immagini da condividere (cartolina, il vostro mese) aspettano i caratteri veri prima di disegnarsi; la mappa si ridisegna appena arrivano.'
