@@ -340,9 +340,7 @@ function jpegLeggero(src) {
   throw new Error('La foto è troppo pesante anche rimpicciolita');
 }
 async function primaPaginaPdf(file) {
-  const pdfjs = await import('./vendor/pdf.min.mjs');
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL('vendor/pdf.worker.min.mjs', location.href).href;
-  const pag = await (await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise).getPage(1);
+  const pag = await (await apriPdf(file)).getPage(1);
   const v = pag.getViewport({ scale: 1 }), vp = pag.getViewport({ scale: 1600 / Math.max(v.width, v.height) }), cv = document.createElement('canvas');
   cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
   await pag.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
@@ -356,10 +354,13 @@ $('#scheda').addEventListener('change', async e => {
 });
 
 // testo di un PDF letto nel telefono con pdf.js (Apache 2.0, in vendor/): si carica solo quando serve
-async function testoDaPdf(file) {
+async function apriPdf(file) {
   const pdfjs = await import('./vendor/pdf.min.mjs');
   pdfjs.GlobalWorkerOptions.workerSrc = new URL('vendor/pdf.worker.min.mjs', location.href).href;
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise, righe = [];
+  return pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+}
+async function testoDaPdf(file) {
+  const doc = await apriPdf(file), righe = [];
   for (let i = 1; i <= Math.min(doc.numPages, 60) && righe.join('\n').length < 9000; i++) {
     const c = await (await doc.getPage(i)).getTextContent();
     righe.push(c.items.map(x => x.str + (x.hasEOL ? '\n' : ' ')).join('').replace(/[ \t]+/g, ' ').trim());
@@ -813,9 +814,8 @@ const ALLENAMENTI = [
 ];
 $('#allenamento').innerHTML = ALLENAMENTI.map((a, i) => `<option value="${i}">${esc(a.titolo)}</option>`).join('');
 $('#btnAllenamento').addEventListener('click', () => {
-  const mioNome = $('#cMioNome').value.trim() || leggi('ta_nome', '') || $('#eNome').value.trim();
-  if (!mioNome) { toast('Scrivi il tuo nome nella carta "Crea una campagna"', true); $('#cMioNome').focus(); return; }
-  const a = ALLENAMENTI[Number($('#allenamento').value) || 0]; scrivi('ta_nome', mioNome); Voce.riattivaAudio(); Report.log('allenamento', { titolo: a.titolo });
+  const mioNome = nomeDiChiGioca(); if (!mioNome) return;
+  const a = ALLENAMENTI[Number($('#allenamento').value) || 0]; Voce.riattivaAudio(); Report.log('allenamento', { titolo: a.titolo });
   connetti(codiceNuovo(), () => ({ t: 'crea', nome: 'Allenamento: ' + a.titolo, regole: $('input[name="cRegole"]:checked').value, ambientazione: 'Fantasy classico. ' + a.obiettivo, masterTipo: 'ai', mioNome, solitaria: true, sfida: { ...a, settimana: 'allenamento', allenamento: true } }));
 });
 

@@ -24,10 +24,12 @@ window.addEventListener('resize', () => { if (largo() && S.vista === 'vMappa') m
   if (azione === 'd20' && !salvata) setTimeout(() => toast('Per tirare il d20 entra prima in una campagna'), 400);
   if (!salvata) mostraIngresso(); else setTimeout(() => { if ($('#gioco').hidden) mostraIngresso(); }, 8000); // rientro: niente schermata d'ingresso finché il tavolo risponde (al massimo 8 s)
   if (largo()) mostraVista('vScheda');
-  if (salvata) { S.io = salvata.io; S.chiave = salvata.chiave; connetti(codice, () => ({ t: 'ciao', membro: salvata.io, chiave: salvata.chiave })); return; }
+  // ci si collega solo quando tutti i file dell'app sono caricati: un messaggio arrivato prima troverebbe funzioni non ancora definite
+  const pronti = f => document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', f, { once: true }) : f();
+  if (salvata) { S.io = salvata.io; S.chiave = salvata.chiave; pronti(() => connetti(codice, () => ({ t: 'ciao', membro: salvata.io, chiave: salvata.chiave }))); return; }
   if (codice && invito) {
     $('#eCodice').value = codice; $('#eInvito').value = invito;
-    if (document.body.classList.contains('tv')) { connetti(codice, () => ({ t: 'entra', invito, nome: 'TV del tavolo', ruolo: 'spettatore' })); return; }
+    if (document.body.classList.contains('tv')) { pronti(() => connetti(codice, () => ({ t: 'entra', invito, nome: 'TV del tavolo', ruolo: 'spettatore' }))); return; }
     $('#cartaCrea').hidden = true; $('#eNome').focus();
     if (q.get('s') === '1') { $('input[name="eRuolo"][value="spettatore"]').checked = true; $('#btnEntra').textContent = 'Guarda la partita'; $('#eRuolo').hidden = true; } // con questo link si entra solo a guardare: la scelta del ruolo non serve
   }

@@ -29,8 +29,7 @@ function renderScheda() {
   const comp = pg.regole === '3.5' ? `<div class="stat"><b>${segno(Regole.bab('3.5', pg.classe, pg.livello, pg))}</b><span>BAB</span></div>` : `<div class="stat"><b>+${Regole.competenza(pg.livello)}</b><span>COMPETENZA</span></div>`;
   const ts = pg.regole === '3.5' ? [['tem', 'Tempra'], ['rif', 'Riflessi'], ['vol', 'Volontà']] : CAR.map(k => [k, CAR_SIGLE[k]]);
   const armi = (pg.equip || []).filter(e => e.indossato && (ARMI[e.nome] || tipoOggetto(e.nome) === 'arma'));
-  box.innerHTML = `${S.viewPg === S.io ? cartaNegozio(pg) : ''}
-  <div class="carta">
+  box.innerHTML = `<div class="carta">
     <div class="pg-testa">
       <div class="ritratto${pg.ritratto && !S.ritrattoPixel ? ' illustrato' : ''}" ${pg.ritratto ? 'data-cambia-ritratto title="Tocca per passare dal ritratto illustrato alla figura in pixel"' : ''}>${pg.ritratto && !S.ritrattoPixel ? `<img src="${urlMedia('img', pg.ritratto)}" alt="Ritratto di ${esc(pg.nome)}" onerror="this.parentElement.innerHTML=''">` : Ritratto.svg(pg, { dim: largo() ? 130 : 120 })}</div>
       <div class="pg-info">
@@ -61,6 +60,7 @@ function renderScheda() {
   <div class="carta"><h3 style="margin-top:0">Abilità</h3>
     <ul class="lista-ab">${Object.keys(set.abilita).map(ab => `<li><span class="nome">${pg.regole === '5e' ? `<input type="checkbox" class="comp" data-comp="${esc(ab)}" ${(pg.competenze || []).includes(ab) ? 'checked' : ''} ${puo ? '' : 'disabled'} aria-label="Competenza in ${esc(ab)}"> ` : ''}${esc(ab)} <span class="piccolo">${CAR_SIGLE[set.abilita[ab]]}${pg.regole === '3.5' ? ' · gradi ' + (pg.gradi?.[ab] || 0) : ''}</span></span><b class="b">${segno(Regole.abilita(pg, ab))}</b>${pg.regole === '3.5' && puo && pg.puntiAbilita ? `<button data-grado="${esc(ab)}" aria-label="Aggiungi un grado a ${esc(ab)}">+</button>` : ''}<button data-prova="ab:${esc(ab)}" aria-label="Tira ${esc(ab)}">Tira</button></li>`).join('')}</ul>
   </div>
+  ${S.viewPg === S.io ? cartaNegozio(pg) : ''}
   <div class="carta"><h3 style="margin-top:0">Equipaggiamento</h3>
     <ul class="equip">${(pg.equip || []).map((e, i) => `<li class="${e.indossato ? 'ind' : ''}"><span class="icona-ogg" ${puo && tipoOggetto(e.nome) ? `data-trascina="${i}" title="Trascina sul ritratto per indossarlo"` : ''}>${Ritratto.icona(e.nome, 26)}</span><span class="n">${esc(e.nome)}${e.bonus ? ' +' + e.bonus : ''}${e.qta > 1 ? ' ×' + e.qta : ''}${e.rarita ? ` <span class="piccolo" style="color:${COLORI_RARITA[e.rarita] || '#bcae96'}">${esc(e.rarita)}</span>` : ''}${e.indossato ? ' <span class="piccolo">· indossato</span>' : ''}</span>${puo ? `${tipoOggetto(e.nome) ? `<button data-ind="${i}">${e.indossato ? 'Riponi' : 'Indossa'}</button>` : ''}<button data-modogg="${i}" aria-label="Modifica ${esc(e.nome)}">✎</button><button data-tog="${i}" aria-label="Togli ${esc(e.nome)}">Togli</button>` : ''}</li>`).join('') || '<li class="piccolo">Zaino vuoto</li>'}</ul>
     <p class="piccolo">Capacità di carico: ${Regole.caricoMax(pg)} kg${pg.aspetto?.altezza ? ` · altezza ${esc(pg.aspetto.altezza)} cm` : ''}${pg.aspetto?.peso ? ` · peso ${esc(pg.aspetto.peso)} kg` : ''}${pg.carCorpo || pg.velCorpo ? ` · il corpo: ${[...Object.entries(pg.carCorpo || {}).map(([k, v]) => `${v > 0 ? '+' : '−'}${Math.abs(v)} ${CAR_SIGLE[k]}`), ...(pg.velCorpo ? [`${pg.velCorpo > 0 ? '+' : '−'}${String(Math.abs(pg.velCorpo)).replace('.', ',')} m`] : [])].join(', ')}` : ''}</p>
@@ -108,19 +108,24 @@ $('#scheda').addEventListener('click', e => { const b = e.target.closest('[data-
 $('#scheda').addEventListener('submit', e => { const f = e.target.closest('[data-compagno]'); if (!f) return; e.preventDefault(); invia({ t: 'compagno_nuovo', per: S.viewPg, nome: f.nome.value.trim(), specie: f.specie.value }); });
 // il mondo vivo: voto del gruppo, enigma, bacheca, nemesi, minacce, scelte morali
 function renderMondoVivo() {
-  const box = $('#mondoVivo'); if (!box || !S.st) return;
+  if (!$('#mondoAttivi') || !S.st) return;
   const v = S.st.voto, en = S.st.enigma, q = S.st.missioni || [], ne = S.st.nemesi, mi = (S.st.minacce || []).filter(x => !x.sventata), sc = S.st.scelte || [];
   const gioca = me()?.ruolo === 'giocatore' || capo(), mioVoto = v?.voti?.[S.io];
   const conta = v ? v.opzioni.map((_, i) => Object.values(v.voti || {}).filter(x => x === i).length) : [];
-  box.innerHTML = `${v ? `<div class="carta-mini voto"><strong>🗳️ Il gruppo decide: ${esc(v.domanda)}</strong><div class="opzioni-voto">${v.opzioni.map((o, i) => `<button type="button" data-voto="${i}" class="${mioVoto === i ? 'pieno' : ''}" ${gioca ? '' : 'disabled'}>${esc(o)} <span class="piccolo">${conta[i]}</span></button>`).join('')}</div>${capo() ? '<button type="button" class="testo-btn" data-voto-chiudi>Chiudi la votazione</button>' : ''}</div>` : ''}
+  const caccia = htmlCaccia(gioca), trovato = !!S.st.caccia?.trovato, duello = htmlDuello(gioca), inCorso = !!S.st.duello;
+  // in alto solo quello che si gioca adesso; il resto del regno sta nella sezione che si apre
+  $('#mondoAttivi').innerHTML = `${v ? `<div class="carta-mini voto"><strong>🗳️ Il gruppo decide: ${esc(v.domanda)}</strong><div class="opzioni-voto">${v.opzioni.map((o, i) => `<button type="button" data-voto="${i}" class="${mioVoto === i ? 'pieno' : ''}" ${gioca ? '' : 'disabled'}>${esc(o)} <span class="piccolo">${conta[i]}</span></button>`).join('')}</div>${capo() ? '<button type="button" class="testo-btn" data-voto-chiudi>Chiudi la votazione</button>' : ''}</div>` : ''}
     ${en ? `<div class="carta-mini enigma"><strong>🧩 Enigma</strong><p class="storia-pg">${esc(en.domanda)}</p>${en.risposta ? `<p class="piccolo">Risposta (la vedi solo tu): ${esc(en.risposta)}</p>` : ''}<form class="riga" data-enigma autocomplete="off"><input name="r" maxlength="60" placeholder="La vostra risposta"><button class="pieno">Rispondi</button></form>${en.tentativi ? `<p class="piccolo">Tentativi sbagliati: ${en.tentativi}${en.tentativi >= 3 && en.indizio ? ` · Indizio: ${esc(en.indizio)}` : ''}</p>` : ''}</div>` : ''}
-    ${htmlRompicapo(gioca)}${htmlCaccia(gioca)}${htmlTorneo(gioca)}${htmlDuello(gioca)}${htmlRivincite()}${htmlPatti()}
+    ${htmlRompicapo(gioca)}${trovato ? '' : caccia}${htmlTorneo(gioca)}${inCorso ? duello : ''}`;
+  $('#mondoAltro').innerHTML = `${trovato ? caccia : ''}${inCorso ? '' : duello}${htmlRivincite()}${htmlPatti()}
     ${ne ? `<div class="carta-mini nemesi"><strong>😈 ${esc(ne.nome)}</strong><p class="piccolo">${esc(ne.descrizione || '')}</p><p class="piccolo">Incontri: ${ne.incontri || 1}${ne.fughe ? ` · fughe: ${ne.fughe}` : ''}${ne.ultimaFuga ? ` · l'ultima volta: ${esc(ne.ultimaFuga)}` : ''}</p></div>` : ''}
     ${mi.length ? `<div class="carta-mini"><strong>⚠️ Minacce che crescono</strong>${mi.map(x => `<div class="mondo-riga"><span><strong>${esc(x.nome)}</strong> <span class="piccolo">${esc(x.descrizione || '')}</span></span><span class="livello-minaccia" aria-label="livello ${x.livello} su 5">${'●'.repeat(x.livello)}${'○'.repeat(5 - x.livello)}</span></div>`).join('')}<p class="piccolo">Se le ignorate peggiorano a ogni sessione.</p></div>` : ''}
     <details class="carta-mini"${q.some(x => x.stato === 'aperta') ? ' open' : ''}><summary>📜 Bacheca delle missioni (${q.filter(x => x.stato !== 'completata').length})</summary>${q.map(x => `<div class="missione ${x.stato}"><strong>${esc(x.titolo)}</strong> <span class="piccolo">${x.stato}${x.ricompensa ? ' · ricompensa: ' + esc(x.ricompensa) : ''}${x.scadenza && x.stato === 'aperta' || x.scadenza && x.stato === 'accettata' ? ` · ⏳ entro il giorno ${x.scadenza}` : ''}</span><p class="piccolo">${esc(x.descrizione || '')}</p>${x.stato === 'aperta' && gioca ? `<button type="button" data-missione="${x.id}">Accettiamo</button>` : ''}</div>`).join('') || '<p class="piccolo">Nessuna missione appesa. Passate da una taverna o da una città.</p>'}
       ${capo() ? `<form class="colonna" data-missione-nuova autocomplete="off"><input name="titolo" maxlength="80" placeholder="Titolo della missione"><input name="descrizione" maxlength="300" placeholder="Cosa bisogna fare"><div class="riga"><input name="ricompensa" maxlength="80" placeholder="Ricompensa"><input name="entro" type="number" min="0" max="120" placeholder="Entro giorni" aria-label="Scade tra quanti giorni (facoltativo)" style="width:110px;flex:0 0 110px"><button>Appendi</button></div></form>` : ''}</details>
     ${sc.length ? `<details class="carta-mini"><summary>⚖️ Le vostre scelte (${sc.filter(x => x.peso === 'buona').length} buone, ${sc.filter(x => x.peso === 'cattiva').length} cattive)</summary>${[...sc].reverse().map(x => `<p class="piccolo">${x.peso === 'buona' ? '🕊️' : x.peso === 'cattiva' ? '🗡️' : '🌗'} ${esc(x.descrizione)}</p>`).join('')}<p class="piccolo">Il finale della campagna dipende da queste scelte.</p></details>` : ''}
     ${capo() && !v ? `<details class="carta-mini"><summary>🗳️ Fai votare il gruppo</summary><form class="colonna" data-voto-apri autocomplete="off"><input name="domanda" maxlength="160" placeholder="Domanda (es. Da che parte andiamo?)"><input name="opzioni" maxlength="240" placeholder="Opzioni separate da virgola (es. ponte, foresta, fiume)"><button>Apri il voto</button></form></details>` : ''}${htmlGiochiCapo()}`;
+  const nM = q.filter(x => x.stato !== 'completata').length, nP = (S.st.patti || []).filter(x => x.stato === 'aperto').length;
+  $('#regnoConta').textContent = [nM ? `${nM} mission${nM > 1 ? 'i' : 'e'}` : '', nP ? `${nP} patt${nP > 1 ? 'i' : 'o'}` : ''].filter(Boolean).map(x => '· ' + x).join(' ');
 }
 $('#mondoVivo').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -252,6 +257,8 @@ function cartaDescrivi() {
     <label class="bottone largo">${a.attesa === 'scheda' ? "📜 L'IA legge la scheda…" : '📜 PDF o foto della scheda'}<input type="file" id="cpFileScheda" accept="image/*,application/pdf" hidden${a.attesa ? ' disabled' : ''}></label>
   </details>`;
 }
+// una frase detta al microfono (il tasto resta spento finché ascolta)
+function detta(b, ms, fatto) { b.disabled = true; Ascolto.unaFrase({ log: (t, d) => Report.log(t, d) }).then(f => { b.disabled = false; if (f) fatto(f); }); setTimeout(() => Ascolto.fineFrase(), ms); }
 function pgDaTestoInvia(dati, modo) {
   const set = Regole.set(regole());
   S.pgTesto = { ...(S.pgTesto || {}), attesa: modo };
@@ -351,9 +358,9 @@ $('#scheda').addEventListener('click', async e => {
   if (b.id === 'cpTira') { const v = CAR.map(() => Regole.tira4d6()).sort((x, y) => y - x); (PRIORITA[bozza.classe] || 'for des cos int sag car').split(' ').forEach((k, i) => bozza.carBase[k] = v[i]); renderScheda(); toast('Tirati: ' + v.join(', ')); return; }
   if (b.dataset.cpab) { const s = new Set(bozza.competenze); const max = Regole.set(regole()).classi[bozza.classe].abilita; s.has(b.dataset.cpab) ? s.delete(b.dataset.cpab) : s.size < max ? s.add(b.dataset.cpab) : toast(`La classe ${bozza.classe} ne ha ${max}`); bozza.competenze = [...s]; renderScheda(); return; }
   if (b.id === 'cpDescrCrea') { const t = ($('#cpDescr').value || '').trim(); if (t.length < 15) { toast('Scrivi qualcosa in più sul personaggio', true); $('#cpDescr').focus(); return; } pgDaTestoInvia({ testo: t }, 'testo'); return; }
-  if (b.id === 'cpDescrParla') { b.disabled = true; Ascolto.unaFrase({ log: (t, d) => Report.log(t, d) }).then(f => { b.disabled = false; if (!f) return; const el = $('#cpDescr'); el.value = (el.value.trim() + ' ' + f).trim(); S.pgTesto = { ...(S.pgTesto || {}), testo: el.value }; }); setTimeout(() => Ascolto.fineFrase(), 12000); return; }
+  if (b.id === 'cpDescrParla') { detta(b, 12000, f => { const el = $('#cpDescr'); el.value = (el.value.trim() + ' ' + f).trim(); S.pgTesto = { ...(S.pgTesto || {}), testo: el.value }; }); return; }
   if (b.id === 'szInizia' || b.id === 'szInvia') { szInvia(b.id === 'szInizia' ? null : $('#szTesto').value); return; }
-  if (b.id === 'szParla') { b.disabled = true; Ascolto.unaFrase({ log: (t, d) => Report.log(t, d) }).then(f => { b.disabled = false; if (f) szInvia(f); }); setTimeout(() => Ascolto.fineFrase(), 9000); return; }
+  if (b.id === 'szParla') { detta(b, 9000, szInvia); return; }
   if (b.id === 'szUsa' && S.sz?.proposta) { const pr = S.sz.proposta; Object.assign(bozza, { nome: pr.nome || bozza.nome, razza: pr.razza, classe: pr.classe, allineamento: pr.allineamento || bozza.allineamento, aspetto: { ...bozza.aspetto, ...(pr.aspetto || {}) }, note: [pr.storia, pr.legami && 'Legami: ' + pr.legami].filter(Boolean).join('\n\n'), competenze: [] }); S.sz.usata = true; renderScheda(); toast('Proposta applicata: scegli le caratteristiche e crea il personaggio'); return; }
   if (b.dataset.compra) { invia({ t: 'compra', merce: b.dataset.compra }); return; }
   if (b.dataset.vendi !== undefined) { invia({ t: 'vendi', indice: Number(b.dataset.vendi) }); return; }

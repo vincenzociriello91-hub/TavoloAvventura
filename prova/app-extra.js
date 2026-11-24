@@ -38,11 +38,13 @@ $('#optMeteoVero').checked = !!OPZ.meteoVero;
 $('#optMeteoVero').addEventListener('change', e => { OPZ.meteoVero = e.target.checked; scrivi('ta_opzioni', OPZ); if (OPZ.meteoVero) meteoVero(); else clearTimeout(S.timerMeteo); });
 $('#btnDungeon').addEventListener('click', () => { invia({ t: 'dungeon_giorno' }); Report.log('dungeon-giorno', {}); });
 /* ============ Sezioni pieghevoli: il titolo apre e chiude, l'app si ricorda com'erano ============ */
-const APERTE = ['Invita al tavolo', 'Prossime serate', 'Schermo del master', 'Gioco', 'Caratteristiche', 'Attacchi', 'Equipaggiamento', 'Incantesimi', 'Banco', 'Tesoro del gruppo', 'Tiri salvezza'];
+const APERTE = ['Invita al tavolo', 'Tavolo di', 'Schermo del master', 'Gioco', 'Caratteristiche', 'Attacchi', 'Equipaggiamento', 'Incantesimi', 'Banco', 'Tesoro del gruppo', 'Tiri salvezza'];
 const pieghe = leggi('ta_pieghe', {});
 const titoloPiega = h => h.firstChild?.textContent?.trim().split(/[·(:]/)[0].trim() || h.textContent.trim();
+// apre le sezioni e i menu che contengono un elemento (serve alle prove automatiche: test/e2e.js, test/partita-bot.js)
+function apriSezione(sel) { for (let e = document.querySelector(sel); e; e = e.parentElement) { if (e.tagName === 'DETAILS') e.open = true; const h = e.classList?.contains('chiusa') && e.querySelector(':scope > .testa-piega'); if (h) piega(h, true); } }
 function applicaPieghe() {
-  document.querySelectorAll('#vAltro > .carta > h2, #scheda .carta > h3:first-child, #tesoro > h3:first-child').forEach(h => {
+  document.querySelectorAll('#vAltro > .carta > h2, #scheda .carta > h3:first-child, #tesoro > h3:first-child, .sezione > h3:first-child').forEach(h => {
     const c = h.parentElement, k = titoloPiega(h), aperta = pieghe[k] ?? APERTE.some(a => k.startsWith(a));
     c.classList.add('piegabile'); h.classList.add('testa-piega'); h.setAttribute('role', 'button'); h.tabIndex = 0;
     c.classList.toggle('chiusa', !aperta); h.setAttribute('aria-expanded', aperta);
@@ -51,8 +53,6 @@ function applicaPieghe() {
 function piega(h, aperta) { const c = h.parentElement; c.classList.toggle('chiusa', !aperta); h.setAttribute('aria-expanded', aperta); pieghe[titoloPiega(h)] = aperta; scrivi('ta_pieghe', pieghe); }
 document.addEventListener('click', e => { const h = e.target.closest('.testa-piega'); if (h && !e.target.closest('button, a, input, select, label')) piega(h, h.parentElement.classList.contains('chiusa')); });
 document.addEventListener('keydown', e => { const h = e.target.closest?.('.testa-piega'); if (h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); piega(h, h.parentElement.classList.contains('chiusa')); } });
-// apre la sezione che contiene un elemento (serve anche alle prove automatiche)
-function apriSezione(sel) { const c = document.querySelector(sel)?.closest('.piegabile'); const h = c?.querySelector(':scope > .testa-piega'); if (h && c.classList.contains('chiusa')) piega(h, true); }
 applicaPieghe();
 /* ============ Traduzione automatica di master e chat ============ */
 // chi gioca in un'altra lingua sente il master nella sua lingua (voce del telefono)

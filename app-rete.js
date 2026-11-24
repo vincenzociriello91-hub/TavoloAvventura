@@ -249,10 +249,14 @@ const SFIDE = [
 ];
 function sfidaDellaSettimana() { const d = new Date(), inizio = new Date(d.getFullYear(), 0, 1), sett = Math.ceil(((d - inizio) / 86400000 + inizio.getDay() + 1) / 7); return { ...SFIDE[(d.getFullYear() * 53 + sett) % SFIDE.length], settimana: `${d.getFullYear()}-${sett}` }; }
 (() => { const sf = sfidaDellaSettimana(), vinte = leggi('ta_sfide_vinte', []); $('#sfidaTesto').innerHTML = `<strong>${esc(sf.titolo)}</strong>: ${esc(sf.obiettivo)}`; $('#sfidaVinte').textContent = vinte.length ? `Sfide vinte: ${vinte.length}${vinte.some(v => v.settimana === sf.settimana) ? ' (questa l\'hai già vinta!)' : ''}` : 'Ogni lunedì una sfida nuova: giochi da solo con il master AI e due compagni.'; })();
+// il tuo nome per le partite che partono da sole (sfida, allenamento): quello scritto, l'ultimo usato o quello dell'invito
+function nomeDiChiGioca() {
+  const n = $('#cMioNome').value.trim() || leggi('ta_nome', '') || $('#eNome').value.trim();
+  if (!n) { toast('Scrivi il tuo nome nella carta "Crea una campagna"', true); $('#cMioNome').focus(); return null; }
+  scrivi('ta_nome', n); return n;
+}
 $('#btnSfida').addEventListener('click', () => {
-  const mioNome = $('#cMioNome').value.trim() || leggi('ta_nome', '') || $('#eNome').value.trim();
-  if (!mioNome) { toast('Scrivi il tuo nome nella carta "Crea una campagna"', true); $('#cMioNome').focus(); return; }
-  scrivi('ta_nome', mioNome); const sf = sfidaDellaSettimana();
+  const mioNome = nomeDiChiGioca(); if (!mioNome) return; const sf = sfidaDellaSettimana();
   Voce.riattivaAudio(); Report.log('sfida', { settimana: sf.settimana });
   connetti(codiceNuovo(), () => ({ t: 'crea', nome: 'Sfida: ' + sf.titolo, regole: $('input[name="cRegole"]:checked').value, ambientazione: 'Fantasy classico. ' + sf.obiettivo, masterTipo: 'ai', mioNome, solitaria: true, sfida: sf }));
 });
