@@ -669,6 +669,33 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   v(pix.nav === 5 && pix.pulsanti >= 5 && pix.faccine === 0 && senza === 0, `icone in pixel: ${pix.pulsanti} al posto delle faccine e 5 nella barra; senza aspetto da videogioco tornano le faccine`);
   const tema = await A.evaluate(() => { $('#optTema').value = 'pergamena'; $('#optTema').dispatchEvent(new Event('change')); const r = { cls: document.body.classList.contains('pergamena'), sfondo: getComputedStyle(document.body).getPropertyValue('--sfondo').trim(), meta: document.querySelector('meta[name="theme-color"]').content }; $('#optTema').value = 'scuro'; $('#optTema').dispatchEvent(new Event('change')); return { ...r, via: !document.body.classList.contains('pergamena') }; });
   v(tema.cls && tema.sfondo === '#efe3c4' && tema.meta === '#e6d6ae' && tema.via, 'tema chiaro «pergamena» acceso e spento dalle opzioni');
+  // 4.8: personaggio dalla descrizione (il corpo conta) e da una scheda già fatta (foto o PDF)
+  const nuovaSolitaria = async nome => { const P = await nuovo({ width: 412, height: 915 }); await P.goto('http://localhost:8765/'); await P.fill('#cNome', nome); await P.fill('#cMioNome', 'Vincenzo'); await P.check('#cSolitaria'); await P.click('#btnCrea'); await P.waitForSelector('#gioco:not([hidden])', { timeout: 10000 }); await P.evaluate(() => { scrivi('ta_guida_vista', true); $('#invitoGuida').hidden = true; OPZ.narratore = false; Narratore.attivo = false; mostraVista('vScheda'); renderScheda(); }); return P; };
+  const D1 = await nuovaSolitaria('Prova descrizione');
+  await D1.click('#boxDescrivi > summary'); await D1.fill('#cpDescr', 'Brann, nano guerriero alto 140 cm e pesante 95 kg, robusto. Ex minatore, burbero ma leale.');
+  await D1.click('#cpDescrCrea'); await D1.waitForFunction(() => bozza?.razza === 'Nano' && /Brann/.test(bozza.nome), null, { timeout: 15000 }).catch(() => {});
+  const des = await D1.evaluate(() => ({ nome: bozza.nome, car: Object.values(bozza.carBase).sort((a, b) => b - a).join(','), asp: bozza.aspetto, comp: bozza.competenze.length, corpo: $('.corpo-conta')?.textContent || '', testo: $('#cpDescr')?.value }));
+  v(des.car === '15,14,13,12,10,8' && des.asp.corporatura === 'robusta' && des.asp.peso === '95' && !des.asp.occhi?.includes('finto') && des.comp === 2 && /\+2 COS/.test(des.corpo) && /pesante/.test(des.corpo) && /Brann/.test(des.testo), `descrizione → personaggio: ${des.nome}, valori standard (${des.car}), il corpo conta (${des.corpo.split('·')[0].trim()})`);
+  await D1.click('#cpCrea'); await D1.waitForFunction(() => mioPg(), null, { timeout: 8000 }).catch(() => {});
+  const dpg = await D1.evaluate(() => { const p = mioPg(); return p && { corpo: p.carCorpo, vel: p.vel, note: p.note }; });
+  v(dpg && dpg.corpo?.cos === 2 && dpg.corpo?.des === -1 && dpg.vel === 6 && /minatore/.test(dpg.note), 'creato dalla descrizione: robusto e pesante → +2 COS, −1 DES, 6 m di velocità; il passato va nelle note');
+  const D2 = await nuovaSolitaria('Prova scheda');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
+  await D2.setInputFiles('#cpFileScheda', { name: 'scheda.png', mimeType: 'image/png', buffer: png });
+  await D2.waitForFunction(() => bozza?.importa?.livello === 5, null, { timeout: 15000 }).catch(() => {});
+  await D2.click('#cpCrea'); await D2.waitForFunction(() => mioPg(), null, { timeout: 8000 }).catch(() => {});
+  const imp = await D2.evaluate(() => { const p = mioPg(); return p && { liv: p.livello, pf: p.pfMax, car: p.car, corpo: p.carCorpo, equip: p.equip.map(e => e.nome), oro: p.oro, note: p.note, comp: p.competenze }; });
+  v(imp && imp.liv === 5 && imp.pf === 44 && imp.car.for === 17 && imp.car.cos === 16 && !imp.corpo && imp.equip.includes('Ascia da battaglia') && imp.oro === 120 && /foto/.test(imp.note) && !imp.comp.includes('Inesistente'), `foto della scheda → personaggio di livello ${imp?.liv} con ${imp?.pf} PF, caratteristiche come sulla carta e oggetti suoi`);
+  // PDF con testo: si manda il testo, non la foto
+  const pdfTesto = (() => { const riga = 'Garrick Pietrafonda Nano Guerriero livello 5 Forza 17 Destrezza 12 Costituzione 16 Intelligenza 9 Saggezza 13 Carisma 8 Punti ferita 44 Ascia da battaglia Cotta di maglia Scudo Corda di canapa 120 monete';
+    const flusso = `BT /F1 6 Tf 20 700 Td (${riga}) Tj ET`, ogg = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>', `<< /Length ${flusso.length} >>\nstream\n${flusso}\nendstream`, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
+    let s = '%PDF-1.4\n'; const pos = []; ogg.forEach((o, i) => { pos.push(s.length); s += `${i + 1} 0 obj\n${o}\nendobj\n`; }); const x = s.length;
+    s += `xref\n0 ${ogg.length + 1}\n0000000000 65535 f \n${pos.map(p => String(p).padStart(10, '0') + ' 00000 n \n').join('')}trailer\n<< /Size ${ogg.length + 1} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`; return Buffer.from(s, 'latin1'); })();
+  const D3 = await nuovaSolitaria('Prova PDF');
+  await D3.setInputFiles('#cpFileScheda', { name: 'scheda.pdf', mimeType: 'application/pdf', buffer: pdfTesto });
+  await D3.waitForFunction(() => bozza?.importa?.livello === 5, null, { timeout: 20000 }).catch(() => {});
+  v(await D3.evaluate(() => bozza?.importa?.livello === 5 && /testo/.test(bozza.note) && bozza.senzaCorpo), 'PDF della scheda → letto il testo e ricopiato (il corpo non cambia i valori scritti)');
+  for (const P of [D1, D2, D3]) await P.context().close();
   // 4.7.1: pulsante sole/luna, grafica scelta dal dispositivo, nero vero
   const gn = await A.evaluate(() => { const b = $('#btnGiornoNotte'); const r0 = b.getBoundingClientRect(); b.click(); const giorno = { cls: document.body.classList.contains('pergamena'), tema: OPZ.tema, sel: $('#optTema').value };
     b.click(); return { giorno, notte: !document.body.classList.contains('pergamena') && OPZ.tema === 'scuro', basso: r0.bottom > innerHeight * 0.75, vede: r0.width >= 44 }; });

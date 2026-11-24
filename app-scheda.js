@@ -63,7 +63,7 @@ function renderScheda() {
   </div>
   <div class="carta"><h3 style="margin-top:0">Equipaggiamento</h3>
     <ul class="equip">${(pg.equip || []).map((e, i) => `<li class="${e.indossato ? 'ind' : ''}"><span class="icona-ogg" ${puo && tipoOggetto(e.nome) ? `data-trascina="${i}" title="Trascina sul ritratto per indossarlo"` : ''}>${Ritratto.icona(e.nome, 26)}</span><span class="n">${esc(e.nome)}${e.bonus ? ' +' + e.bonus : ''}${e.qta > 1 ? ' ×' + e.qta : ''}${e.rarita ? ` <span class="piccolo" style="color:${COLORI_RARITA[e.rarita] || '#bcae96'}">${esc(e.rarita)}</span>` : ''}${e.indossato ? ' <span class="piccolo">· indossato</span>' : ''}</span>${puo ? `${tipoOggetto(e.nome) ? `<button data-ind="${i}">${e.indossato ? 'Riponi' : 'Indossa'}</button>` : ''}<button data-modogg="${i}" aria-label="Modifica ${esc(e.nome)}">✎</button><button data-tog="${i}" aria-label="Togli ${esc(e.nome)}">Togli</button>` : ''}</li>`).join('') || '<li class="piccolo">Zaino vuoto</li>'}</ul>
-    <p class="piccolo">Capacità di carico: ${Regole.caricoMax(pg)} kg${pg.aspetto?.altezza ? ` · altezza ${esc(pg.aspetto.altezza)} cm` : ''}${pg.aspetto?.peso ? ` · peso ${esc(pg.aspetto.peso)} kg` : ''}</p>
+    <p class="piccolo">Capacità di carico: ${Regole.caricoMax(pg)} kg${pg.aspetto?.altezza ? ` · altezza ${esc(pg.aspetto.altezza)} cm` : ''}${pg.aspetto?.peso ? ` · peso ${esc(pg.aspetto.peso)} kg` : ''}${pg.carCorpo || pg.velCorpo ? ` · il corpo: ${[...Object.entries(pg.carCorpo || {}).map(([k, v]) => `${v > 0 ? '+' : '−'}${Math.abs(v)} ${CAR_SIGLE[k]}`), ...(pg.velCorpo ? [`${pg.velCorpo > 0 ? '+' : '−'}${String(Math.abs(pg.velCorpo)).replace('.', ',')} m`] : [])].join(', ')}` : ''}</p>
     ${puo ? `<form id="formOggetto" class="riga" autocomplete="off" style="margin-top:8px"><input id="nuovoOggetto" maxlength="60" placeholder="Aggiungi oggetto (es. Pozione di guarigione)" list="listaOggetti"><button class="pieno">Aggiungi</button></form>
     <datalist id="listaOggetti">${[...Object.keys(ARMI), ...Object.keys(ARMATURE), ...Object.keys(SCUDI), ...ELMI, 'Mantello', 'Amuleto', 'Pozione di guarigione', 'Torcia', 'Corda (15 m)', 'Razioni'].map(n => `<option value="${esc(n)}">`).join('')}</datalist>` : ''}
     ${Object.keys(pg.valute || {}).length ? `<p class="piccolo">Valute locali: ${Object.entries(pg.valute).map(([k, v]) => `${v} ${esc(k)}${S.st.mondo?.valute?.[k] ? ` (≈ ${Math.round(v * S.st.mondo.valute[k].cambio * 10) / 10} mo)` : ''}`).join(' · ')}</p>` : ''}
@@ -217,20 +217,79 @@ function cartaMagia(pg, puo) {
     <div class="riga" style="margin-top:8px"><button data-riposo="lungo">Riposo lungo (tutto)</button><button data-riposo="breve">Riposo breve</button></div>` : ''}
   </div>`;
 }
+const ALLINEAMENTI = ['Legale buono', 'Neutrale buono', 'Caotico buono', 'Legale neutrale', 'Neutrale', 'Caotico neutrale', 'Legale malvagio', 'Neutrale malvagio', 'Caotico malvagio'];
+const FORME_ASPETTO = { capelli: ['corti', 'lunghi', 'coda', 'ricci', 'cresta', 'calvo'], barba: ['nessuna', 'corta', 'lunga'], corporatura: ['normale', 'snella', 'robusta', 'muscolosa'], figura: ['maschile', 'femminile'] };
 function formAspetto(a, razza) {
   const sel = (id, nome, opz, val) => `<label>${nome}<select data-asp="${id}">${opz.map(o => `<option ${o === val ? 'selected' : ''}>${o}</option>`).join('')}</select></label>`;
   return `<div class="crea-car" style="grid-template-columns:repeat(2,minmax(0,1fr))">
     ${sel('pelle', 'Pelle', Object.keys(Ritratto.PELLE), a.pelle || 'chiara')}
-    ${sel('capelli', 'Capelli', ['corti', 'lunghi', 'coda', 'ricci', 'cresta', 'calvo'], a.capelli || (razza === 'Elfo' ? 'lunghi' : 'corti'))}
+    ${sel('capelli', 'Capelli', FORME_ASPETTO.capelli, a.capelli || (razza === 'Elfo' ? 'lunghi' : 'corti'))}
     ${sel('coloreCapelli', 'Colore capelli', Object.keys(Ritratto.CAPELLI), a.coloreCapelli || (razza === 'Nano' ? 'rosso' : razza === 'Elfo' ? 'biondo' : 'castano'))}
-    ${sel('barba', 'Barba', ['nessuna', 'corta', 'lunga'], a.barba || (razza === 'Nano' ? 'lunga' : 'nessuna'))}
+    ${sel('barba', 'Barba', FORME_ASPETTO.barba, a.barba || (razza === 'Nano' ? 'lunga' : 'nessuna'))}
     ${sel('occhi', 'Occhi', Object.keys(Ritratto.OCCHI), a.occhi || 'marroni')}
-    ${sel('corporatura', 'Corporatura', ['normale', 'snella', 'robusta'], a.corporatura || 'normale')}
-    ${sel('figura', 'Figura', ['maschile', 'femminile'], a.figura || 'maschile')}
+    ${sel('corporatura', 'Corporatura', FORME_ASPETTO.corporatura, a.corporatura || 'normale')}
+    ${sel('figura', 'Figura', FORME_ASPETTO.figura, a.figura || 'maschile')}
     ${razza === 'Dragonide' ? sel('drago', 'Scaglie', Object.keys(Ritratto.DRAGO), a.drago || 'rosso') : ''}
     <label>Altezza (cm)<input type="number" min="60" max="260" data-asp="altezza" value="${esc(a.altezza || '')}" inputmode="numeric"></label>
     <label>Peso (kg)<input type="number" min="10" max="300" data-asp="peso" value="${esc(a.peso || '')}" inputmode="numeric"></label>
   </div>`;
+}
+// il corpo conta: cosa danno altezza, peso e corporatura (come in Le Cronache dei Varchi)
+function rigaCorpo(b) {
+  if (b.senzaCorpo) return '<p class="piccolo">Caratteristiche come sulla tua scheda: il corpo non le cambia.</p>';
+  const c = Regole.corpo(b.razza, b.aspetto), d = [...Object.entries(c.car).map(([k, v]) => `${v > 0 ? '+' : '−'}${Math.abs(v)} ${CAR_SIGLE[k]}`), ...(c.vel ? [`${c.vel > 0 ? '+' : '−'}${String(Math.abs(c.vel)).replace('.', ',')} m`] : [])];
+  return c.motivi.length ? `<p class="piccolo corpo-conta">💪 <strong>Il corpo conta: ${d.join(', ')}</strong> · ${c.motivi.map(esc).join(' · ')}</p>`
+    : '<p class="piccolo corpo-conta">💪 Altezza, peso e corporatura danno piccoli vantaggi pagati con piccoli svantaggi (robusto, snello, muscoloso, alto, basso, pesante, leggero).</p>';
+}
+// creare il personaggio da una descrizione scritta o detta, oppure da una scheda già fatta (PDF o foto)
+function cartaDescrivi() {
+  const a = S.pgTesto || {};
+  return `<details class="carta-mini" id="boxDescrivi"${a.testo || a.attesa ? ' open' : ''}><summary>✍️ Descrivilo tu: l'IA lo crea</summary>
+    <p class="piccolo">Scrivi o detta chi è: nome, razza, classe, carattere, passato, altezza, peso e corporatura. L'IA compila la scheda e il corpo cambia un po' le caratteristiche.</p>
+    <textarea id="cpDescr" rows="5" maxlength="3000" placeholder="Es. Brann, nano guerriero alto 140 cm e pesante 95 kg, robusto. Ex minatore, burbero ma leale, odia i goblin che gli hanno bruciato il villaggio.">${esc(a.testo || '')}</textarea>
+    <div class="riga"><button type="button" id="cpDescrParla">🎙 Detta</button><button type="button" class="pieno" id="cpDescrCrea"${a.attesa ? ' disabled' : ''}>${a.attesa === 'testo' ? "L'IA sta creando…" : 'Crea dalla descrizione'}</button></div>
+    <p class="piccolo"><strong>Hai già una scheda?</strong> Carica il PDF o la foto della scheda di carta: l'IA la legge e la ricopia qui, con livello, oggetti e incantesimi.</p>
+    <label class="bottone largo">${a.attesa === 'scheda' ? "📜 L'IA legge la scheda…" : '📜 PDF o foto della scheda'}<input type="file" id="cpFileScheda" accept="image/*,application/pdf" hidden${a.attesa ? ' disabled' : ''}></label>
+  </details>`;
+}
+function pgDaTestoInvia(dati, modo) {
+  const set = Regole.set(regole());
+  S.pgTesto = { ...(S.pgTesto || {}), attesa: modo };
+  if (!invia({ t: 'pg_da_testo', ...dati, scheda: modo === 'scheda', razze: Object.keys(set.razze), classi: Object.keys(set.classi), abilita: regole() === '5e' ? Object.keys(set.abilita) : [] })) { S.pgTesto.attesa = null; return; }
+  const n = S.pgTesto.n = (S.pgTesto.n || 0) + 1;
+  setTimeout(() => { if (S.pgTesto?.attesa && S.pgTesto.n === n) { S.pgTesto.attesa = null; toast("L'IA non ha risposto: riprova tra poco", true); if (!mioPg()) renderScheda(); } }, 100000);
+  renderScheda(); Report.log('pg-da-testo', { modo, caratteri: dati.testo?.length || 0, foto: !!dati.immagine });
+}
+function pgDaTestoRisposta(m) {
+  const a = S.pgTesto || (S.pgTesto = {}); a.attesa = null;
+  if (!bozza || mioPg()) return;
+  if (m.errore || !m.proposta) { toast(m.errore || "L'IA non ha risposto", true); renderScheda(); return; }
+  const pr = m.proposta, set = Regole.set(regole()), scheda = !!m.scheda;
+  const razza = set.razze[pr.razza] ? pr.razza : bozza.razza, classe = set.classi[pr.classe] ? pr.classe : bozza.classe;
+  const num = (v, min, max) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= min && n <= max ? n : null; };
+  const carBase = { ...bozza.carBase };
+  if (scheda) { for (const k of CAR) { const f = num(pr.car?.[k], 1, 30); if (f !== null) carBase[k] = Math.max(1, Math.min(20, f - (set.razze[razza].car[k] || 0))); } }
+  else { const v = k => Number(pr.car?.[k]) || 0; (PRIORITA[classe] || 'for des cos int sag car').split(' ').sort((x, y) => v(y) - v(x)).forEach((k, i) => carBase[k] = Regole.arrayStandard[i]); } // sempre 15-14-13-12-10-8: la descrizione sceglie l'ordine, non quanto è forte
+  const asp = { ...bozza.aspetto }, scelte = { ...FORME_ASPETTO, pelle: Object.keys(Ritratto.PELLE), coloreCapelli: Object.keys(Ritratto.CAPELLI), occhi: Object.keys(Ritratto.OCCHI) };
+  for (const [k, ok] of Object.entries(scelte)) if (ok.includes(pr.aspetto?.[k])) asp[k] = pr.aspetto[k];
+  const h = num(pr.aspetto?.altezza, 60, 260), p = num(pr.aspetto?.peso, 10, 300); if (h) asp.altezza = String(h); if (p) asp.peso = String(p);
+  const abilita = Object.keys(set.abilita || {}), competenze = regole() === '5e' ? [...new Set((pr.competenze || []).filter(x => abilita.includes(x)))].slice(0, scheda ? 18 : set.classi[classe].abilita || 2) : [];
+  Object.assign(bozza, { nome: String(pr.nome || '').slice(0, 40) || bozza.nome, razza, classe, carBase, aspetto: asp, competenze, allineamento: ALLINEAMENTI.includes(pr.allineamento) ? pr.allineamento : bozza.allineamento, note: pr.storia ? String(pr.storia).slice(0, 1500) : bozza.note, senzaCorpo: scheda,
+    importa: scheda ? { livello: num(pr.livello, 1, 20) || 1, pfMax: num(pr.pfMax, 1, 999), oro: num(pr.oro, 0, 1e6), equip: (pr.equip || []).filter(x => typeof x === 'string' && x.trim()).map(x => x.trim().slice(0, 60)).slice(0, 40), incantesimi: (pr.incantesimi || []).filter(x => x?.nome).map(x => ({ nome: String(x.nome).slice(0, 60), livello: num(x.livello, 0, 9) ?? 0 })).slice(0, 60) } : null });
+  Report.log('pg-da-testo-pronto', { modo: scheda ? 'scheda' : 'testo', razza, classe, livello: bozza.importa?.livello || 1 });
+  renderScheda(); $('#cpNome')?.scrollIntoView({ block: 'center' });
+  toast(scheda ? `Scheda letta: ${bozza.nome}, ${razza} ${classe}${bozza.importa.livello > 1 ? ' di livello ' + bozza.importa.livello : ''}. Controlla e premi «Crea il personaggio»` : `Ecco ${bozza.nome}: controlla, cambia quello che vuoi e premi «Crea il personaggio»`, false, 6000);
+}
+// la scheda già fatta: livello, punti ferita, oggetti, incantesimi e monete come sulla carta
+function applicaImporta(pg, imp) {
+  const set = Regole.set(pg.regole);
+  if (imp.livello > 1) { pg.livello = imp.livello; pg.px = set.px[imp.livello - 1] || 0; pg.pfMax = Regole.pfAlLivello1(pg) + (imp.livello - 1) * Math.max(1, Regole.mediaPf(pg) + mod(pg.car.cos)); }
+  if (imp.pfMax) pg.pfMax = imp.pfMax;
+  pg.pf = pg.pfMax;
+  if (imp.equip.length) { let arma = false, armatura = false, scudo = false; pg.equip = imp.equip.map(nome => { const e = { nome, qta: 1, indossato: false }; if (ARMI[nome] && !arma) arma = e.indossato = true; else if (ARMATURE[nome] && !armatura) armatura = e.indossato = true; else if (SCUDI[nome] !== undefined && !scudo) scudo = e.indossato = true; return e; }); }
+  if (imp.incantesimi.length) pg.incantesimi = imp.incantesimi;
+  if (imp.oro !== null) pg.oro = imp.oro;
+  return Regole.ricalcola(pg);
 }
 function renderCreazione(box) {
   const r = regole(); const set = Regole.set(r);
@@ -241,6 +300,7 @@ function renderCreazione(box) {
     <h2>Crea il tuo personaggio</h2><p class="piccolo">${esc(set.nome)}: tutto il resto (PF, CA, tiri salvezza, abilità) si calcola da solo. Prima volta? <button type="button" class="testo-btn" data-guida>Come si gioca</button></p>
     ${(() => { const c = (S.st.memoriale || []).filter(x => x.chi === S.io).pop(); return c && !bozza.erede ? `<div class="carta-mini"><strong>In ricordo di ${esc(c.nome)}</strong><p class="piccolo">Puoi creare un erede della sua famiglia: riceve ${esc(c.eredita?.nome || 'il suo ricordo')}.</p><button type="button" id="cpErede">Crea un erede</button></div>` : ''; })()}
     ${cartaSessioneZero()}
+    ${cartaDescrivi()}
     <div class="pg-testa"><div class="ritratto" id="anteprima">${Ritratto.svg(anteprima, { dim: 120 })}</div>
       <div class="pg-info"><label>Nome<input id="cpNome" maxlength="40" value="${esc(bozza.nome)}" placeholder="Es. Brann Barbaferro"></label>
       <div class="piccolo">PF ${anteprima.pfMax} · CA ${anteprima.ca} · velocità ${String(anteprima.vel).replace('.', ',')} m</div></div></div>
@@ -253,8 +313,8 @@ function renderCreazione(box) {
     <div class="riga"><button id="cpAuto" type="button">Distribuisci per la classe</button><button id="cpTira" type="button">Tira 4d6</button></div>
     <div class="crea-car">${CAR.map(k => `<label>${CAR_NOMI[k]}<input type="number" min="3" max="18" data-cb="${k}" value="${bozza.carBase[k]}" inputmode="numeric"><span class="piccolo">finale ${anteprima.car[k]} (${segno(mod(anteprima.car[k]))})</span></label>`).join('')}</div>
     ${r === '5e' ? `<h3>Abilità in cui sei competente (${bozza.competenze.length}/${nAb})</h3><div class="chips">${Object.keys(set.abilita).map(ab => `<button type="button" class="chip ${bozza.competenze.includes(ab) ? 'on' : ''}" data-cpab="${esc(ab)}">${esc(ab)}</button>`).join('')}</div>` : '<p class="piccolo">In 3.5 assegnerai i gradi di abilità dalla scheda dopo la creazione.</p>'}
-    <label>Allineamento<select id="cpAll">${['Legale buono', 'Neutrale buono', 'Caotico buono', 'Legale neutrale', 'Neutrale', 'Caotico neutrale', 'Legale malvagio', 'Neutrale malvagio', 'Caotico malvagio'].map(x => `<option ${x === bozza.allineamento ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
-    <details open><summary>Aspetto</summary>${formAspetto(bozza.aspetto, bozza.razza)}</details>
+    <label>Allineamento<select id="cpAll">${ALLINEAMENTI.map(x => `<option ${x === bozza.allineamento ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+    <details open><summary>Aspetto</summary>${formAspetto(bozza.aspetto, bozza.razza)}${rigaCorpo(bozza)}</details>
     <p class="piccolo">Equipaggiamento iniziale: ${esc(set.classi[bozza.classe].equip.join(', '))}.</p>
     <button id="cpCrea" class="pieno grande" type="button">Crea il personaggio</button>
   </div>`;
@@ -264,6 +324,7 @@ $('#scheda').addEventListener('input', e => {
   const t = e.target;
   if (bozza && !mioPg()) {
     if (t.id === 'cpNome') bozza.nome = t.value;
+    if (t.id === 'cpDescr') S.pgTesto = { ...(S.pgTesto || {}), testo: t.value };
     if (t.dataset.cb) { bozza.carBase[t.dataset.cb] = Math.max(3, Math.min(18, Number(t.value) || 10)); aggiornaAnteprima(); }
   }
 });
@@ -289,6 +350,8 @@ $('#scheda').addEventListener('click', async e => {
   if (b.id === 'cpAuto') { const ord = (PRIORITA[bozza.classe] || 'for des cos int sag car').split(' '); ord.forEach((k, i) => bozza.carBase[k] = Regole.arrayStandard[i]); renderScheda(); return; }
   if (b.id === 'cpTira') { const v = CAR.map(() => Regole.tira4d6()).sort((x, y) => y - x); (PRIORITA[bozza.classe] || 'for des cos int sag car').split(' ').forEach((k, i) => bozza.carBase[k] = v[i]); renderScheda(); toast('Tirati: ' + v.join(', ')); return; }
   if (b.dataset.cpab) { const s = new Set(bozza.competenze); const max = Regole.set(regole()).classi[bozza.classe].abilita; s.has(b.dataset.cpab) ? s.delete(b.dataset.cpab) : s.size < max ? s.add(b.dataset.cpab) : toast(`La classe ${bozza.classe} ne ha ${max}`); bozza.competenze = [...s]; renderScheda(); return; }
+  if (b.id === 'cpDescrCrea') { const t = ($('#cpDescr').value || '').trim(); if (t.length < 15) { toast('Scrivi qualcosa in più sul personaggio', true); $('#cpDescr').focus(); return; } pgDaTestoInvia({ testo: t }, 'testo'); return; }
+  if (b.id === 'cpDescrParla') { b.disabled = true; Ascolto.unaFrase({ log: (t, d) => Report.log(t, d) }).then(f => { b.disabled = false; if (!f) return; const el = $('#cpDescr'); el.value = (el.value.trim() + ' ' + f).trim(); S.pgTesto = { ...(S.pgTesto || {}), testo: el.value }; }); setTimeout(() => Ascolto.fineFrase(), 12000); return; }
   if (b.id === 'szInizia' || b.id === 'szInvia') { szInvia(b.id === 'szInizia' ? null : $('#szTesto').value); return; }
   if (b.id === 'szParla') { b.disabled = true; Ascolto.unaFrase({ log: (t, d) => Report.log(t, d) }).then(f => { b.disabled = false; if (f) szInvia(f); }); setTimeout(() => Ascolto.fineFrase(), 9000); return; }
   if (b.id === 'szUsa' && S.sz?.proposta) { const pr = S.sz.proposta; Object.assign(bozza, { nome: pr.nome || bozza.nome, razza: pr.razza, classe: pr.classe, allineamento: pr.allineamento || bozza.allineamento, aspetto: { ...bozza.aspetto, ...(pr.aspetto || {}) }, note: [pr.storia, pr.legami && 'Legami: ' + pr.legami].filter(Boolean).join('\n\n'), competenze: [] }); S.sz.usata = true; renderScheda(); toast('Proposta applicata: scegli le caratteristiche e crea il personaggio'); return; }
@@ -297,10 +360,11 @@ $('#scheda').addEventListener('click', async e => {
   if (b.id === 'cpErede') { const c = (S.st.memoriale || []).filter(x => x.chi === S.io).pop(); if (c) { bozza.nome = `${bozza.nome.split(' ')[0] || 'Nuovo'} ${c.cognome}`.trim(); bozza.erede = c; renderScheda(); toast(`Erede di ${c.nome}: riceverà ${c.eredita?.nome || 'il suo ricordo'}`); } return; }
   if (b.id === 'cpCrea') {
     if (!bozza.nome.trim()) { toast('Dai un nome al personaggio', true); $('#cpNome').focus(); return; }
-    const pg = Regole.nuovo(regole(), bozza);
+    let pg = Regole.nuovo(regole(), bozza);
+    if (bozza.importa) pg = applicaImporta(pg, bozza.importa);
     if (bozza.erede) { if (bozza.erede.eredita) pg.equip = [...(pg.equip || []), { nome: bozza.erede.eredita.nome + ' (eredità)', qta: 1 }]; pg.storia = `Erede di ${bozza.erede.nome}, caduto nella sessione precedente.`; }
     invia({ t: 'scheda', pg, nota: `${pg.nome}, ${pg.razza} ${pg.classe}, entra in gioco` });
-    S.st.pg[S.io] = pg; bozza = null; Report.log('pg-creato', { razza: pg.razza, classe: pg.classe, regole: pg.regole });
+    S.st.pg[S.io] = pg; Report.log('pg-creato', { razza: pg.razza, classe: pg.classe, regole: pg.regole, livello: pg.livello, da: bozza.importa ? 'scheda' : S.pgTesto?.testo ? 'descrizione' : 'modulo', corpo: pg.carCorpo || null }); bozza = null; S.pgTesto = null;
     renderScheda(); toast('Personaggio creato!'); return;
   }
   const pg = S.st?.pg?.[S.viewPg]; if (!pg) return;

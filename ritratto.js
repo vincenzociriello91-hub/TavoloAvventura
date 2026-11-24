@@ -34,7 +34,7 @@ const Ritratto = (() => {
     const occhi = OCCHI[a.occhi] || (razza === 'Tiefling' ? OCCHI.ambra : OCCHI.marroni);
     const [vest, vestOmbra] = VESTITI[classe] || VESTITI.Guerriero;
     const piccolo = ['Halfling', 'Gnomo'].includes(razza);
-    const tozzo = razza === 'Nano' || a.corporatura === 'robusta';
+    const tozzo = razza === 'Nano' || a.corporatura === 'robusta' || a.corporatura === 'muscolosa';
     const snello = razza === 'Elfo' || a.corporatura === 'snella';
     const veste = ['Mago', 'Stregone', 'Warlock', 'Chierico', 'Druido'].includes(classe) && !arm;
 
