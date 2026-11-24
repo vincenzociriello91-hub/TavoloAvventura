@@ -6,14 +6,21 @@ const stileGioco = () => OPZ.stileGioco !== false;
 function vibra(p) { if (OPZ.vibrazione !== false && !menoMoto() && navigator.vibrate) { try { navigator.vibrate(p); } catch {} } }
 // numeri che volano sulla mappa: con i colori per daltonici le cure sono azzurre e i danni arancio
 const coloreBene = () => OPZ.daltonici ? '#7fd4ff' : '#7dff8a', coloreMale = () => OPZ.daltonici ? '#ffab4a' : '#ff6a5a';
+// colori chiari: la pergamena scelta, oppure "come il telefono" quando il telefono usa il tema chiaro
+const temaChiaro = () => OPZ.tema === 'pergamena' || (OPZ.tema === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
 function applicaStile() {
   document.body.classList.toggle('gs', stileGioco());
   document.body.classList.toggle('meno-moto', menoMoto());
   document.body.classList.toggle('contrasto', !!OPZ.contrasto);
   document.body.classList.toggle('daltonici', !!OPZ.daltonici);
-  document.body.classList.toggle('pergamena', OPZ.tema === 'pergamena');
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', OPZ.tema === 'pergamena' ? '#e6d6ae' : '#14110f');
-  Mappa.opzioni?.({ menoMoto: menoMoto(), velocita: velocita(), pixel: stileGioco(), simboli: true });
+  const chiaro = temaChiaro(), q = Dispositivo.qualita();
+  document.body.classList.toggle('pergamena', chiaro);
+  document.body.classList.toggle('oled', !!OPZ.oled && !chiaro);
+  document.body.classList.toggle('q-bassa', q === 'bassa');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', chiaro ? '#e6d6ae' : OPZ.oled ? '#000000' : '#14110f');
+  Mappa.opzioni?.({ menoMoto: menoMoto(), velocita: velocita(), pixel: stileGioco(), simboli: true, dprMax: Dispositivo.dpr(9), particelle: { alta: 1, media: 0.7, bassa: 0.35 }[q], lento: q === 'bassa' });
+  const gn = document.getElementById('btnGiornoNotte');
+  if (gn) { gn.textContent = chiaro ? '🌙' : '☀️'; gn.setAttribute('aria-label', chiaro ? 'Passa ai colori della notte' : 'Passa ai colori del giorno'); }
   Suoni.volMusica = OPZ.volMusica ?? 1; Suoni.volEffetti = OPZ.volEffetti ?? 1; Narratore.volume = OPZ.volVoce ?? 1;
   FondoVivo.aggiorna();
   if (typeof IconePixel !== 'undefined') IconePixel.applica();
@@ -172,7 +179,7 @@ function mostraProva(tiro, cd) {
   const passi = [...el.querySelectorAll('.prova-dado, .prova-mod, .prova-uguale, .prova-tot, .prova-esito')];
   if (menoMoto()) { passi.forEach(p => p.classList.add('su')); setTimeout(chiudi, 3600); return; }
   // se i dadi 3D stanno rotolando si aspetta che si fermino, poi i pezzi arrivano uno alla volta
-  const attesa = OPZ.dadi3d !== false ? 1250 : 0, v = velocita(); let t = attesa;
+  const attesa = dadi3d() ? 1250 : 0, v = velocita(); let t = attesa;
   const nd = el.querySelector('.prova-dado');
   if (!attesa) { const giro = setInterval(() => { nd.textContent = 1 + Math.floor(Math.random() * 20); }, 50); setTimeout(() => { clearInterval(giro); nd.textContent = dado; }, 600 / v); t += 600 / v; }
   for (const p of passi) { setTimeout(() => { p.classList.add('su'); if (p.classList.contains('prova-esito')) { Suoni.effetto(riuscita ? 'successo' : 'fallimento'); vibra(riuscita ? 40 : [60, 40, 60]); } }, t); t += (p.classList.contains('prova-dado') ? 260 : 330) / v; }
@@ -253,7 +260,7 @@ const FondoVivo = (() => {
   function aggiorna() {
     clearInterval(timer); timer = null;
     if (!stileGioco()) return;
-    giro(); if (menoMoto()) return;
+    giro(); if (menoMoto() || Dispositivo.qualita() === 'bassa') return;
     timer = setInterval(() => { if (document.visibilityState === 'visible') giro(); }, 125);
   }
   return { aggiorna, giro, ora: null };
@@ -305,6 +312,7 @@ const IconePixel = (() => {
     'patto': '.kkkkkkkk.../kPpppppppk../kPkkkkkkpPk./.kppppppppk./.kpPPPPPppk./.kppppppppk./.kpPPPPkkkk./.kpppkrrrrk./.kpPkrrRrrRk/..kkkrrrrRk./.....kRRRk../......kkk...',
     'giro': '...kkkkk..../..kgggggk.k./.kgk...kgkgk/kgk.....kggk/kgk....kgggk/kgk....kkkkk/kkkkk....kgk/kgggk....kgk/kggk.....kgk/kgkgk...kgk./.k.kgggggk../....kkkkk...',
     'microfono': '....kkkk..../...kssSSk.../...ksSSSk.../...ksSSSk.../...ksSSSk.../.k.ksSSSk.k./.k.kSSSSk.k./..k.kkkk.k../...kkSSkk.../.....kk...../...kkkkkk.../............',
+    'sole': '.....OO...../.O...OO...O./..O.kkkk.O../...kyyyok.../..kyyoooOk../OOkyoooOOkOO/OOkoooOOOkOO/..kooOOOOk../...kOOOOk.../..O.kkkk.O../.O...OO...O./.....OO.....',
     'luna': '....kkkk..../..kkyyook.../.kyyook...../.kyook....../kyyok......./kyook......./kyook......./kyyok......./.kyook....k./.kyyookkkok./..kkyyoook../....kkkk....',
     'puzzle': '....kk....../...kggk...../.kkkggkkkk../.kgggggggk../.kggggggGkk./kkggggggGggk/kgggggggGggk/kkggggggGkk./.kggggggGk../.kGGGGGGGk../.kkkkkkkkk../............',
     'diavolo': '.k........k./krk......krk/krrkkkkkkrrk/.krrrrrrrrk./krrrrrrrrrRk/krkkrrrkkrRk/krrkyrrkyrRk/krrrrrrrrrRk/.krkkkkkkrk./..krrrrrRk../...kkkkkk.../............',
@@ -316,7 +324,7 @@ const IconePixel = (() => {
     'nav-scheda': '....kkkk..../...kppppk.../...kpkpkk.../...kppppk.../....kPPk..../..kkbbbbkk../.kbbbbbbbBk./.kbkbbbbkBk./.kbkbbbbkBk./.kpkBBBBkpk./..k.kkkk.k../............',
     'nav-altro': '............/............/............/............/.kk..kk..kk./koOkkoOkkoOk/kOOkkOOkkOOk/.kk..kk..kk./............/............/............/............'
   };
-  const EMOJI = { '⚔': 'spade', '🏆': 'coppa', '🗺': 'mappa', '🎲': 'dado', '📌': 'puntina', '🔔': 'campana', '📅': 'calendario', '🔐': 'lucchetto', '📰': 'giornale', '🗳': 'urna', '🧭': 'bussola', '📏': 'righello', '✏': 'matita', '🂠': 'carta', '🃏': 'carta', '📚': 'libri', '✋': 'mano', '💾': 'dischetto', '🚪': 'porta', '✨': 'scintille', '🪙': 'moneta', '🧪': 'pozione', '⛈': 'temporale', '💀': 'teschio', '✍': 'penna', '✒': 'penna', '🎬': 'ciak', '📷': 'fotocamera', '📖': 'libro', '⛏': 'piccone', '🎉': 'festa', '🦴': 'osso', '🤝': 'patto', '🔁': 'giro', '🎙': 'microfono', '🌙': 'luna', '🧩': 'puzzle', '😈': 'diavolo', '⚠': 'attenzione', '📜': 'pergamena', '⚖': 'bilancia', '🎨': 'tavolozza', '🔍': 'lente' };
+  const EMOJI = { '⚔': 'spade', '🏆': 'coppa', '🗺': 'mappa', '🎲': 'dado', '📌': 'puntina', '🔔': 'campana', '📅': 'calendario', '🔐': 'lucchetto', '📰': 'giornale', '🗳': 'urna', '🧭': 'bussola', '📏': 'righello', '✏': 'matita', '🂠': 'carta', '🃏': 'carta', '📚': 'libri', '✋': 'mano', '💾': 'dischetto', '🚪': 'porta', '✨': 'scintille', '🪙': 'moneta', '🧪': 'pozione', '⛈': 'temporale', '💀': 'teschio', '✍': 'penna', '✒': 'penna', '🎬': 'ciak', '📷': 'fotocamera', '📖': 'libro', '⛏': 'piccone', '🎉': 'festa', '🦴': 'osso', '🤝': 'patto', '🔁': 'giro', '🎙': 'microfono', '🌙': 'luna', '☀': 'sole', '🧩': 'puzzle', '😈': 'diavolo', '⚠': 'attenzione', '📜': 'pergamena', '⚖': 'bilancia', '🎨': 'tavolozza', '🔍': 'lente' };
   const NAV = { vMappa: 'mappa', vScheda: 'nav-scheda', vDadi: 'dado', vDiario: 'libro', vAltro: 'nav-altro' };
   const uri = {};
   const src = n => uri[n] || (uri[n] = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" shape-rendering="crispEdges">${GRIGLIE[n].split('/').map((r, y) => [...r].map((c, x) => PAL[c] ? `<rect x="${x}" y="${y}" width="1" height="1" fill="${PAL[c]}"/>` : '').join('')).join('')}</svg>`));

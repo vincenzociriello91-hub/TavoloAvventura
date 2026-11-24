@@ -34,7 +34,7 @@ const MappaMondo = (() => {
     const { idx, viaggi, attuale, seme, nome } = dati;
     posizioni = calcolaPosizioni(idx, viaggi);
     const ids = Object.keys(posizioni);
-    const largh = Math.max(720, cv.parentElement.clientWidth), sc = largh / LW, dpr = Math.min(2, window.devicePixelRatio || 1);
+    const largh = Math.max(720, cv.parentElement.clientWidth), sc = largh / LW, dpr = window.Dispositivo?.dpr(2) ?? Math.min(2, window.devicePixelRatio || 1);
     cv.width = largh * dpr; cv.height = LH * sc * dpr; cv.style.width = largh + 'px'; cv.style.height = LH * sc + 'px';
     const c = cv.getContext('2d'); c.setTransform(dpr * sc, 0, 0, dpr * sc, 0, 0);
     const n = rumore(seme), m = rumore(seme ^ 0x9e3779b9);

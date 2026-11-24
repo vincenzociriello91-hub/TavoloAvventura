@@ -62,7 +62,7 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: .9rem; color
 .carta-mini { background: var(--superficie2); border: 1px solid var(--bordo); border-radius: 12px; padding: 12px; margin: 10px 0; }
 
 /* Ingresso */
-main { padding: 16px; padding-bottom: calc(var(--navh) + 24px + env(safe-area-inset-bottom)); max-width: 1500px; margin: 0 auto; }
+main { padding: 16px; padding-bottom: calc(var(--navh) + 88px + env(safe-area-inset-bottom)); max-width: 1500px; margin: 0 auto; }
 .ingresso { max-width: 980px; margin: 0 auto; }
 .eroe { text-align: center; padding: 24px 8px 16px; }
 .eroe p { color: var(--tenue); max-width: 640px; margin: 0 auto; }
@@ -882,3 +882,23 @@ body.gs.pergamena .duello { background: linear-gradient(160deg, #d9dee6, var(--s
 body.pergamena .narrazione, body.gs.pergamena .narrazione { background: #fbf4e0; border-color: #c4ab7c; background-clip: padding-box; }
 body.pergamena .narr-volto { background: #f1e5c4; }
 body.pergamena .diario li.narrazione-ev { background: #fbf4e0; border-color: #c4ab7c; }
+
+/* ============ 4.7.1: pulsante sole/luna, nero vero, grafica bassa ============ */
+/* in basso a sinistra, sopra la barra: il pollice ci arriva senza allungarsi; il microfono resta a destra */
+.giorno-notte { position: fixed; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 26; width: 48px; height: 48px; padding: 0; border-radius: 50%; display: grid; place-items: center; font-size: 22px; line-height: 1; background: var(--superficie2); color: var(--testo); border: 1px solid var(--bordo); box-shadow: var(--ombra); }
+.gioco:not([hidden]) ~ .giorno-notte { bottom: calc(var(--navh) + 16px + env(safe-area-inset-bottom)); }
+.giorno-notte:active { transform: scale(.94); }
+.giorno-notte img.pi { width: 24px; height: 24px; margin: 0; }
+body.gs .giorno-notte { border-radius: 0; border: 3px solid #0b0810; box-shadow: 0 3px 0 rgba(0,0,0,.35), inset 0 0 0 2px var(--bordo); }
+body.pergamena .giorno-notte { background: #fffaf0; border-color: #c9b183; }
+body.gs.pergamena .giorno-notte { border-color: #5a3418; box-shadow: 0 3px 0 rgba(90,64,24,.25), inset 0 0 0 2px #c9b183; }
+body.tv .giorno-notte, html.rientro .giorno-notte { display: none; }
+/* sul computer in basso a destra: a sinistra ci sono i comandi della mappa */
+@media (min-width: 1100px) { .gioco:not([hidden]) ~ .giorno-notte { bottom: 24px; left: auto; right: 24px; } main:has(.gioco:not([hidden])) { padding-bottom: 88px; } }
+@media print { .giorno-notte { display: none; } }
+/* nero vero: con i colori scuri lo sfondo si spegne del tutto sugli schermi OLED */
+body.oled, body.gs.oled { --sfondo: #000; --superficie: #0e0b10; --superficie2: #18131c; background: #000; }
+body.oled .barra, body.oled .nav { background: #000; }
+/* grafica bassa: niente vetri sfocati e ombre larghe, che sui telefoni lenti costano di più */
+body.q-bassa .barra { backdrop-filter: none; -webkit-backdrop-filter: none; }
+body.q-bassa .carta { box-shadow: none; }

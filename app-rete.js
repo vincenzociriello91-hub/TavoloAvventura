@@ -81,7 +81,7 @@ function gestisci(m) {
       if (m.tiro.chi === S.io) { S.ultimoMio = m.tiro; $('#tiroAzioni').hidden = false; if (!temaCrit) Suoni.effetto(m.tiro.critico ? 'critico' : m.tiro.fallimento ? 'fallimento' : 'dado'); }
       const conPannello = m.tiro.chi === S.io && provaInVista(m.tiro);
       if (m.tiro.chi === S.io || document.body.classList.contains('tv')) mostraTiro(m.tiro, conPannello);
-      if (OPZ.dadi3d !== false && (m.tiro.chi === S.io || S.vista === 'vMappa' || document.body.classList.contains('tv'))) import('./dadi3d.js').then(d => d.lancia(m.tiro, m.tiro.chi === S.io ? { colore: OPZ.dadiColore, materiale: OPZ.dadiMateriale } : { colore: S.st.membri?.[m.tiro.chi]?.colore, materiale: 'opaco' })).catch(e => Report.log('dadi-3d', { errore: String(e?.message || e) }));
+      if (dadi3d() && (m.tiro.chi === S.io || S.vista === 'vMappa' || document.body.classList.contains('tv'))) import('./dadi3d.js').then(d => d.lancia(m.tiro, m.tiro.chi === S.io ? { colore: OPZ.dadiColore, materiale: OPZ.dadiMateriale } : { colore: S.st.membri?.[m.tiro.chi]?.colore, materiale: 'opaco' })).catch(e => Report.log('dadi-3d', { errore: String(e?.message || e) }));
       if (m.tiro.critico && /^1?d20/.test(m.tiro.formula) && !m.tiro.segreto) momentoEpico(m.tiro);
       if (m.tiro.fallimento && /^1?d20/.test(m.tiro.formula) && !m.tiro.segreto && (m.tiro.chi === S.io || document.body.classList.contains('tv'))) momentoFiasco(m.tiro);
       renderTiri(); renderRapidi(); return;
@@ -321,6 +321,7 @@ function mostraVista(id) {
   $$('#nav button').forEach(b => b.classList.toggle('attivo', b.dataset.v === id));
   if (id === 'vScheda') renderScheda();
   if (id === 'vMappa') Mappa.adatta();
+  if (id === 'vAltro' && typeof infoDispositivo === 'function') infoDispositivo();
   Report.log('vista', { id }); if (window.passoFatto) passoFatto({ t: 'vista', id });
 }
 $('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) mostraVista(b.dataset.v); });

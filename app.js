@@ -1,6 +1,14 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.7.0';
+const VERSION = '4.7.1';
 const CHANGELOG = [
+  { v: '4.7.1', data: '24/11/2026', voci: [
+    'Pulsante sole/luna in basso a sinistra: un tocco e passi ai colori chiari del giorno o a quelli scuri della notte',
+    'Il tavolo riconosce il dispositivo (telefono, tablet, computer, TV): in Altro → Gioco vedi schermo, Hz, memoria e grafica scelta',
+    'Grafica da sola come in Varchi: sui telefoni lenti, con la batteria scarica o quando il telefono scalda si alleggerisce (o la scegli tu)',
+    'Colori «come il telefono»: chiari o scuri seguendo il tema del telefono',
+    'Nero vero per gli schermi OLED, che consuma meno batteria',
+    'Più spazio in fondo alle pagine: i tasti in basso non coprono più l\'ultima riga'
+  ] },
   { v: '4.7.0', data: '24/11/2026', voci: [
     'Icona nuova in pixel art: un d20 dorato con il 20 ben leggibile. Su Android si adatta al cerchio o alla goccia del telefono e c\'è anche la versione a un colore per le icone a tema.',
     'L\'icona della scheda del browser cambia con le stagioni: d\'inverno, ad Halloween e a Carnevale.',
@@ -514,6 +522,53 @@ function riepilogoStato() {
 /* ============ STATO ============ */
 const S = { codice: null, io: null, chiave: null, st: null, ws: null, vista: 'vMappa', viewPg: null, undo: [], pendenti: {}, tentativi: 0, ultimoParlato: 0, trad: new Map(), attesaTrad: {} };
 const OPZ = Object.assign({ narratore: true, avvisi: true, master: true, grandi: false, suoni: false, volume: 0.5 }, leggi('ta_opzioni', {}));
+
+/* ============ DISPOSITIVO (4.7.1): che cos'è, quanto è potente e com'è lo schermo; la grafica si sceglie da sola, come in Le Cronache dei Varchi ============ */
+const Dispositivo = window.Dispositivo = (() => {
+  const mm = q => matchMedia(q).matches;
+  const stato = { batteria: null, carica: true, caldo: false, modello: '', hz: 0 };
+  const memoria = () => navigator.deviceMemory || 0, nuclei = () => navigator.hardwareConcurrency || 0;
+  function tipo() {
+    if (/[?&]tv=1/.test(location.search) || /\b(TV|AFT\w*|BRAVIA|SmartTV|GoogleTV|CrKey)\b/.test(navigator.userAgent)) return 'tv';
+    if (/Odin|Retroid|AYN|AYANEO|Steam ?Deck/i.test(stato.modello + ' ' + navigator.userAgent)) return 'console';
+    if (mm('(pointer: coarse)')) return Math.min(screen.width, screen.height) >= 600 ? 'tablet' : 'telefono';
+    return 'computer';
+  }
+  // come qualita_effettiva() di Varchi: memoria (Chrome la dice fino a 8 GB), poi risparmio energetico e telefono caldo abbassano tutto
+  function automatica() {
+    if (navigator.connection?.saveData || stato.caldo || (stato.batteria !== null && stato.batteria < 0.15 && !stato.carica)) return 'bassa';
+    const m = memoria(), n = nuclei();
+    if (m) return m >= 6 ? 'alta' : m >= 3 ? 'media' : 'bassa';
+    if (tipo() === 'computer') return 'alta';
+    return n >= 8 ? 'alta' : n >= 4 ? 'media' : 'bassa';
+  }
+  const manuale = () => ['alta', 'media', 'bassa'].includes(OPZ.grafica);
+  const qualita = () => manuale() ? OPZ.grafica : automatica();
+  // nitidezza delle immagini disegnate: con la grafica media o bassa si disegnano meno pixel
+  const dpr = max => Math.min(window.devicePixelRatio || 1, max, { alta: 9, media: 1.5, bassa: 1 }[qualita()]);
+  let ultima = qualita();
+  function cambiato() { const q = qualita(); if (q === ultima) return; ultima = q; Report.log('grafica', { qualita: q, auto: !manuale(), caldo: stato.caldo, batteria: stato.batteria }); if (typeof applicaStile === 'function') applicaStile(); }
+  try { navigator.getBattery?.().then(b => { const su = () => { stato.batteria = b.level; stato.carica = b.charging; cambiato(); }; su(); b.addEventListener('levelchange', su); b.addEventListener('chargingchange', su); }).catch(() => {}); } catch {}
+  // processore sotto sforzo (telefono che scalda): la grafica scende dopo 15 secondi e risale dopo un minuto tranquillo, senza saltare avanti e indietro
+  let attesaCaldo = null;
+  const caldoDopo = (v, ms) => { clearTimeout(attesaCaldo); attesaCaldo = setTimeout(() => { stato.caldo = v; cambiato(); }, ms); };
+  try { if ('PressureObserver' in window) new PressureObserver(r => { const sotto = ['serious', 'critical'].includes(r.at(-1)?.state); if (sotto && !stato.caldo) caldoDopo(true, 15000); else if (!sotto && stato.caldo) caldoDopo(false, 60000); else clearTimeout(attesaCaldo); }).observe('cpu', { sampleInterval: 5000 }).catch(() => {}); } catch {}
+  try { navigator.userAgentData?.getHighEntropyValues(['model']).then(v => { stato.modello = v.model || ''; }).catch(() => {}); } catch {}
+  // frequenza dello schermo: fotogrammi contati in un secondo, arrotondati ai valori veri (60, 90, 120…)
+  function misuraHz() {
+    if (stato.hz) return Promise.resolve(stato.hz);
+    return new Promise(ok => { let n = 0; const t0 = performance.now(); const giro = t => { if (t - t0 < 1000) { n++; requestAnimationFrame(giro); return; } stato.hz = [30, 48, 50, 60, 72, 75, 90, 120, 144, 165, 240].reduce((a, b) => Math.abs(b - n) < Math.abs(a - n) ? b : a); ok(stato.hz); }; requestAnimationFrame(giro); });
+  }
+  function profilo() {
+    const d = window.devicePixelRatio || 1;
+    return { tipo: tipo(), modello: stato.modello, schermo: `${screen.width}x${screen.height}`, pixel: `${Math.round(screen.width * d)}x${Math.round(screen.height * d)}`, finestra: `${innerWidth}x${innerHeight}`, dpr: d,
+      hz: stato.hz, verticale: mm('(orientation: portrait)'), tocco: mm('(pointer: coarse)'), memoria: memoria(), nuclei: nuclei(), qualita: qualita(), auto: !manuale(),
+      caldo: stato.caldo, batteria: stato.batteria, risparmioDati: !!navigator.connection?.saveData, temaTelefono: mm('(prefers-color-scheme: light)') ? 'chiaro' : 'scuro' };
+  }
+  return { tipo, qualita, dpr, misuraHz, profilo, cambiato };
+})();
+// dadi 3D: sui dispositivi lenti partono spenti, finché chi gioca non li riaccende
+const dadi3d = () => OPZ.dadi3d ?? Dispositivo.qualita() !== 'bassa';
 const me = () => S.st?.membri?.[S.io];
 const capo = () => !!(me() && (me().ruolo === 'master' || me().admin));
 const mioPg = () => S.st?.pg?.[S.io] || null;
