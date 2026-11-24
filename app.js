@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.6.0';
+const VERSION = '4.6.1';
 const CHANGELOG = [
+  { v: '4.6.1', data: '24/11/2026', voci: [
+    'Riepilogo illustrato della serata più affidabile: l\'IA ha più tempo per scriverlo e, se non risponde, arriva lo stesso con i numeri della serata.'
+  ] },
   { v: '4.6.0', data: '24/11/2026', voci: [
     'Mercato tra di voi: mettete sulla bancarella (o regalate) gli oggetti dell\'inventario, le monete passano da una scheda all\'altra.',
     'Duello amichevole tra due personaggi o con il campione dell\'arena: colpo dopo colpo, senza ferite vere.',
