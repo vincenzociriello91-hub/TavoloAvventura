@@ -1,6 +1,10 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.8.6';
+const VERSION = '4.9.0';
 const CHANGELOG = [
+  { v: '4.9.0', data: '25/11/2026', voci: [
+    'Effetti magici in pixel sulla mappa: palla di fuoco che scoppia, saetta dal cielo, gelo, ombra, luce, cura, colonne di fiamme nelle aree e scintille quando cade un nemico',
+    'Pacchetto Simple Pixel Spell Effects di Willibab, gratuito (nei crediti)'
+  ] },
   { v: '4.8.6', data: '25/11/2026', voci: [
     'Mappa: lo stesso personaggio chiamato in due modi dal master (per esempio "Hilde" e "Hilde, minatrice ferita", oppure "Oste" e "Tobia l\'oste") resta una figura sola',
     'Traduzione automatica più affidabile: se l\'IA è lenta si passa subito a un altro modello, e una traduzione vuota non compare più'

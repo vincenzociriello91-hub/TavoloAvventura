@@ -12,7 +12,7 @@ FILES="index.html styles.css qrcode.js regole.js comandi.js ritratto.js lpc.js m
 mkdir -p "$tmp/prova"
 for f in $FILES; do cp "$f" "$tmp/prova/$f"; done
 mkdir -p "$tmp/prova/lpc" "$tmp/prova/vendor" && cp lpc/* "$tmp/prova/lpc/" && cp -r vendor/. "$tmp/prova/vendor/" && mkdir -p "$tmp/prova/audio" && cp -r audio/. "$tmp/prova/audio/" && mkdir -p "$tmp/prova/icone" && cp -r icone/. "$tmp/prova/icone/"
-if [ "$canale" = pubblico ]; then for f in $FILES README.md; do cp "$f" "$tmp/$f"; done; mkdir -p "$tmp/lpc" "$tmp/vendor" "$tmp/audio" && cp lpc/* "$tmp/lpc/" && cp -r vendor/. "$tmp/vendor/" && cp -r audio/. "$tmp/audio/" && mkdir -p "$tmp/icone" && cp -r icone/. "$tmp/icone/"; fi
+if [ "$canale" = pubblico ]; then for f in $FILES README.md; do cp "$f" "$tmp/$f"; done; mkdir -p "$tmp/lpc" "$tmp/vendor" "$tmp/audio" && cp lpc/* "$tmp/lpc/" && cp -r vendor/. "$tmp/vendor/" && cp -r audio/. "$tmp/audio/" && mkdir -p "$tmp/icone" && cp -r icone/. "$tmp/icone/" && mkdir -p "$tmp/effetti" && cp -r effetti/. "$tmp/effetti/"; fi
 versione=$(sed -n 's/.*"versione": "\([^"]*\)".*/\1/p' version.json)
 (cd "$tmp" && git add -A && git commit -q -m "Pubblica $versione sul canale $canale" && git push -q origin HEAD:gh-pages)
 git worktree remove --force "$tmp"
