@@ -190,6 +190,11 @@ verifica((await A.aspetta(m => m.t === 'reazione')).emoji === '👏' && await A.
 S1.invia({ t: 'gioco_apri', tipo: 'dadi', posta: 5 }); S1.invia({ t: 'nota_mappa', x: 3, y: 3, testo: 'spam' });
 D.invia({ t: 'traduci', id: 'x1', testo: 'La taverna si fa silenziosa.', lingua: 'en' });
 verifica((await D.aspetta(m => m.t === 'traduzione' && m.id === 'x1', 8000)).testo === 'The tavern falls silent.', 'traduzione automatica');
+D.invia({ t: 'traduci', id: 'x2', testo: 'Silenzio vuoto.', lingua: 'en' });
+const tv1 = await D.aspetta(m => m.t === 'traduzione' && m.id === 'x2', 8000);
+D.invia({ t: 'traduci', id: 'x3', testo: 'Silenzio vuoto.', lingua: 'en' });
+const tv2 = await D.aspetta(m => m.t === 'traduzione' && m.id === 'x3', 8000);
+verifica(tv1.errore && !tv1.testo && tv2.errore, 'traduzione vuota: arriva come errore (si legge l\'originale) e non resta in memoria');
 D.invia({ t: 'nota_mappa', x: 2, y: 2, testo: 'trappola qui' });
 const nm = await A.aspetta(m => m.t === 'note_mappa' && m.note.length);
 verifica(nm.note.length === 1 && nm.note[0].testo === 'trappola qui', 'nota sulla mappa (gli spettatori non ne mettono)');

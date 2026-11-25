@@ -40,6 +40,7 @@ http.createServer((req, res) => {
       if (ue.some(e => e.includes('musica di festa'))) eventi.push({ tipo: 'musica', umore: 'festa' });
       if (ue.some(e => e.includes('una porta con le rune'))) eventi.push({ tipo: 'rompicapo', forma: 'rune', trappola: 'fulmine', titolo: 'La porta delle rune' });
       if (ue.some(e => e.includes('torneo in piazza'))) eventi.push({ tipo: 'torneo' });
+      if (ue.some(e => e.includes('prova dei png doppi'))) eventi.push({ tipo: 'png', nome: 'Hilde', x: 3, y: 3 }, { tipo: 'png', nome: 'Hilde, minatrice ferita', x: 5, y: 3 }, { tipo: 'png', nome: 'Oste', x: 3, y: 5 }, { tipo: 'png', nome: "Tobia l'oste" }, { tipo: 'png', nome: 'Guardia 1', x: 7, y: 5 }, { tipo: 'png', nome: 'Guardia 2', x: 8, y: 5 }, { tipo: 'png', nome: 'Mastro Gino', x: 7, y: 7 }, { tipo: 'png', nome: 'Mastro Pino', x: 8, y: 7 });
       if (ue.some(e => e.includes('promettete un favore al mugnaio'))) eventi.push({ tipo: 'patto', png: 'Mugnaio Gerardo', cosa: 'ritrovare la sua mula', chi_deve: 'gruppo' });
       if (ue.some(e => e.includes('premiate il cane'))) eventi.push({ tipo: 'esperienza', pg: Object.keys(ctx.personaggi || {}).length ? ctx.personaggi.find(x => (x.compagni || []).length)?.id : undefined, quantita: 400 });
       const distanza = ue.some(e => e.includes('prova della prima partita')) ? ` [prima:${/PRIMA PARTITA/.test(sys)}|distanza:${/gioco a distanza/.test(String(ctx.giro))}]` : '';
@@ -47,6 +48,7 @@ http.createServer((req, res) => {
       const gia = (ctx.png_incontrati || []).map(p => p.nome).join(', ');
       out = JSON.stringify({ narrazione: 'Una rissa scoppia nella locanda. Un boccale vola verso di voi.' + (gia ? ` Di nuovo: ${gia}.` : '') + regia + distanza + vg + ((ctx.patti_e_debiti || []).length ? ` [patti:${ctx.patti_e_debiti.length}]` : ''), png: 'Oste Bruno', scelte: ['Parla con l\'oste', 'Cerca indizi nella sala', 'Esci in strada'], eventi });
     } else if (/comando per modificare/.test(testoUtente)) out = JSON.stringify({ ops: [{ op: 'car', car: 'sag', delta: 1 }] });
+    else if (/^Traduci in inglese/.test(testoUtente) && /Silenzio vuoto/.test(testoUtente)) out = ''; // per le prove: il modello risponde senza testo
     else if (/^Traduci in inglese/.test(testoUtente)) out = 'The tavern falls silent.';
     else if (/Domanda di regole/.test(testoUtente)) out = 'In 5e un attacco di opportunità si fa con la reazione.';
     else if (/Racconta la serata/.test(testoUtente) && /serata senza IA/.test(testoUtente)) { res.writeHead(503, { 'Content-Type': 'application/json' }); return res.end('{}'); } // per le prove: IA che non risponde al riepilogo

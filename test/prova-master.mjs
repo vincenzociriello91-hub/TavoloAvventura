@@ -115,5 +115,12 @@ const sb = await C.aspetta(m => m.t === 'segnalini' && Object.values(m.segnalini
 v(lb && sb, 'scena del bosco: luogo e lupi sulla mappa');
 const db = await C.aspetta(m => m.t === 'diario' && m.ev?.tipo === 'luogo' && /Bosco dei Corvi/.test(m.ev.testo), 8000).catch(() => null);
 v(/per la prima volta/.test(db?.ev?.testo || ''), 'luogo preparato dall\'avventura: la prima visita non dice "torna a"');
+// lo stesso PNG nominato in due modi ("Hilde" e "Hilde, minatrice ferita", "Oste" e "Tobia l'oste") resta una figura sola sulla mappa
+C.invia({ t: 'parlato', testo: 'prova dei png doppi', alMaster: true });
+const sp = await C.aspetta(m => m.t === 'segnalini' && Object.values(m.segnalini).some(x => x.nome === 'Mastro Pino'), 10000).catch(() => null);
+const pngs = Object.values(sp?.segnalini || {}).filter(x => x.tipo === 'png'), nomiP = pngs.map(x => x.nome);
+v(sp && pngs.filter(x => /^Hilde/.test(x.nome)).length === 1 && pngs.filter(x => /oste/i.test(x.nome)).length === 1 && nomiP.includes('Guardia 1') && nomiP.includes('Guardia 2') && nomiP.includes('Mastro Gino'), `un PNG nominato in due modi resta una figura sola (${nomiP.join(', ')})`);
+const tob = pngs.find(x => /oste/i.test(x.nome));
+v(tob?.nome === "Tobia l'oste" && Math.abs(tob.x - 3) + Math.abs(tob.y - 5) <= 3, `la figura tiene il nome più completo e il suo posto (${tob?.nome} ${tob?.x},${tob?.y})`);
 C.ws.close();
 console.log(`\n${ok} ok, ${ko} falliti`); process.exit(ko ? 1 : 0);
