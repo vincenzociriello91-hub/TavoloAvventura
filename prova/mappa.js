@@ -21,6 +21,15 @@ const Mappa = (() => {
   // strumenti (4.0): righello, lavagna a mano libera
   let modo = null, riga = null, tratto = null;
   let tileManuale = 0, gCache = null, pizzico = null, pan = null, dopoPizzico = false; const tocchi = new Map();
+  // effetti magici animati in pixel (effetti/, creati da strumenti/effetti.py): si caricano una volta, se mancano restano gli effetti disegnati
+  const FX = { cat: null, img: {} };
+  fetch('effetti/catalogo.json').then(r => r.json()).then(c => { FX.cat = c; for (const n of Object.keys(c)) { const i = new Image(); i.src = `effetti/${n}.png`; FX.img[n] = i; } }).catch(() => {});
+  const FX_MAGIA = [[/fuoco|fiamm|infern|brucia/i, 'fuoco'], [/gelo|ghiacc|fredd|neve/i, 'gelo'], [/fulmin|tuono|elettr|lampo|saett/i, 'saetta'], [/necro|ombra|morte|oscur|veleno|acid/i, 'ombra'], [/luce|sacr|radios|benedi|divin/i, 'luce']];
+  const fxMagia = motivo => (FX_MAGIA.find(([re]) => re.test(motivo || '')) || [0, 'arcano'])[1];
+  function fxAnim(nome, pos, scala = 1.6, ritardo = 0) {
+    const c = FX.cat?.[nome]; if (!c || !FX.img[nome]?.complete || !pos || gusti.menoMoto) return false;
+    effetti.push({ tipo: 'sprite', nome, pos: { x: pos.x, y: pos.y }, scala, t0: performance.now() + ritardo, durata: c.n * 60 / (gusti.velocita || 1) }); return true;
+  }
   // scelte di chi gioca (da Altro → Gioco): meno movimento, velocità delle animazioni, scritte in pixel, simboli oltre ai colori
   let gusti = { menoMoto: false, velocita: 1, pixel: true, simboli: true, dprMax: 9, particelle: 1, lento: false };
   function opzioni(o) { gusti = { ...gusti, ...o }; cacheChiave = ''; disegna(); }
@@ -1191,6 +1200,10 @@ const Mappa = (() => {
         for (let k = 0; k < 6; k++) { const fk = Math.max(0, f - k * 0.035), X = (e.da.x + (e.a.x - e.da.x) * fk) * t + t / 2, Y = (e.da.y + (e.a.y - e.da.y) * fk) * t + t * 0.3 - Math.sin(fk * Math.PI) * t * (e.arco ? 0.8 : 0.15), r = t * (e.arco ? 0.07 : 0.16) * (1 - k / 7); ovale(ctx, X, Y, r, r, `rgba(${e.rgb},${0.8 * (1 - k / 6)})`); }
         if (!e.arco) { const g = ctx.createRadialGradient(x, y, 0, x, y, t * 0.7); g.addColorStop(0, `rgba(${e.rgb},.45)`); g.addColorStop(1, `rgba(${e.rgb},0)`); ctx.fillStyle = g; ctx.fillRect(x - t * 0.7, y - t * 0.7, t * 1.4, t * 1.4); }
         ctx.restore();
+      } else if (e.tipo === 'sprite') {
+        // fotogramma dell'animazione in pixel; la saetta cade dall'alto e tocca terra sul bersaglio
+        const c = FX.cat[e.nome], i = Math.min(c.n - 1, Math.floor(f * c.n)), k = t * e.scala / Math.max(c.w, c.h), W = c.w * k, H = c.h * k, x = e.pos.x * t + t / 2, y = e.pos.y * t + t / 2;
+        ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(FX.img[e.nome], (i % c.c) * c.w, Math.floor(i / c.c) * c.h, c.w, c.h, x - W / 2, e.nome === 'saetta' ? y + t * 0.4 - H : y - H / 2, W, H); ctx.restore();
       } else if (e.tipo === 'scoppio') {
         const x = e.pos.x * t + t / 2, y = e.pos.y * t + t * 0.3;
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -1202,8 +1215,8 @@ const Mappa = (() => {
   }
   // chiamati dall'app quando succede qualcosa
   function effettoTesto(id, testo, colore, pos) { effetti.push({ tipo: 'testo', id, testo, colore, pos, t0: performance.now(), durata: 1400 }); disegna(); }
-  function effettoArea(area) { effetti.push({ tipo: 'area', area, t0: performance.now(), durata: 1500 }); disegna(); }
-  function sconfitto(pos, nome) { const grande = GRANDI.test(nomeMostro(nome)); effetti.push({ tipo: 'sconfitto', pos, grande, t0: performance.now(), durata: grande ? 1300 : 950 }); scuoti(grande ? 2.2 : 1.3); disegna(); }
+  function effettoArea(area) { effetti.push({ tipo: 'area', area, t0: performance.now(), durata: 1500 }); const m = fxMagia(area.nome); fxAnim(m === 'fuoco' ? 'fiamme' : m === 'saetta' ? 'fulmine' : m, area, Math.min(6, 2 + (area.dim || 3) * 0.7)); disegna(); }
+  function sconfitto(pos, nome) { const grande = GRANDI.test(nomeMostro(nome)); effetti.push({ tipo: 'sconfitto', pos, grande, t0: performance.now(), durata: grande ? 1300 : 950 }); fxAnim('scintille', pos, grande ? 3.4 : 2.4); scuoti(grande ? 2.2 : 1.3); disegna(); }
   const opposti = s => Object.entries(segnalini).filter(([, o]) => s.tipo === 'nemico' ? ['pg', 'alleato'].includes(o.tipo) || o.animale : o.tipo === 'nemico').sort(([, a], [, b]) => Math.hypot(a.x - s.x, a.y - s.y) - Math.hypot(b.x - s.x, b.y - s.y));
   // la mappa trema per un attimo (colpi forti, nemici che cadono); niente scosse se chi gioca ha chiesto meno movimento
   function scuoti(forza = 1) {
@@ -1224,7 +1237,7 @@ const Mappa = (() => {
     if (!gusti.menoMoto) fermoFino = adesso + 50;
     scuoti(forza);
   }
-  function cura(id) { if (!segnalini[id]) return; effetti.push({ tipo: 'cura', id, t0: performance.now(), durata: 1000 }); disegna(); }
+  function cura(id) { if (!segnalini[id]) return; effetti.push({ tipo: 'cura', id, t0: performance.now(), durata: 1000 }); fxAnim('cura', segnalini[id], 2.6); disegna(); }
   // freccia o incantesimo che vola verso il nemico più vicino (o verso [a]); all'arrivo scoppia
   const TINTE_MAGIA = [[/fuoco|fiamm|infern|brucia/i, '255,130,40'], [/gelo|ghiacc|fredd|neve/i, '130,215,255'], [/fulmin|tuono|elettr|lampo/i, '250,240,150'], [/acid|veleno/i, '140,225,80'], [/necro|ombra|morte|oscur/i, '170,100,230'], [/luce|sacr|radios|cura|guarig/i, '255,240,190']];
   function proiettile(da, motivo, a) {
@@ -1233,6 +1246,7 @@ const Mappa = (() => {
     const arco = /arco|frecci|balestr|quadrell|fionda|giavellott|lanci/i.test(motivo || ''), rgb = arco ? '235,225,200' : (TINTE_MAGIA.find(([re]) => re.test(motivo || '')) || [0, '190,150,255'])[1];
     const adesso = performance.now(), dist = Math.hypot(b.x - s.x, b.y - s.y), durata = Math.min(700, 180 + dist * 45), parte = adesso + 180;
     effetti.push({ tipo: 'proiettile', da: { x: s.x, y: s.y }, a: { x: b.x, y: b.y }, rgb, arco, t0: parte, durata }, { tipo: 'scoppio', pos: { x: b.x, y: b.y }, rgb, t0: parte + durata, durata: 380 });
+    if (!arco) { const m = fxMagia(motivo); fxAnim(m, b, m === 'saetta' ? 4.5 : 2.8, parte + durata - adesso); }
     disegna();
   }
   function attacco(id) {
