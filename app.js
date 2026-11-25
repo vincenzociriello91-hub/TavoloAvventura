@@ -1,6 +1,10 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.8.5';
+const VERSION = '4.8.6';
 const CHANGELOG = [
+  { v: '4.8.6', data: '25/11/2026', voci: [
+    'Mappa: lo stesso personaggio chiamato in due modi dal master (per esempio "Hilde" e "Hilde, minatrice ferita", oppure "Oste" e "Tobia l\'oste") resta una figura sola',
+    'Traduzione automatica più affidabile: se l\'IA è lenta si passa subito a un altro modello, e una traduzione vuota non compare più'
+  ] },
   { v: '4.8.5', data: '24/11/2026', voci: [
     'Master più pronto quando l\'IA gratuita è sovraccarica: i modelli che non rispondono si saltano per un po\' invece di aspettarli a ogni turno',
     'Partita bot: alla fine dice quante volte il master ha risposto davvero e quante con una frase di riserva'
