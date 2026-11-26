@@ -58,6 +58,9 @@ const errori = [], foto = [];
   const M = await nuovo({ width: 412, height: 915 }, 'Master'); await M.goto(APP + '?v=' + Date.now()); await M.waitForSelector('#cartaCrea');
   await M.evaluate(() => connetti(codiceNuovo(), () => ({ t: 'crea', nome: 'Master umano', regole: '3.5', masterTipo: 'umano', ruolo: 'master', mioNome: 'Master', prova: true })));
   await M.waitForSelector('#gioco:not([hidden])'); await M.waitForTimeout(1500); await chiudiDialogo(M); await vista(M, 'vAltro'); await scatta(M, 'altro-master-umano'); await vista(M, 'vDiario'); await scatta(M, 'diario-master-umano', { full: false });
-  await vista(M, 'vScheda'); await scatta(M, 'scheda-3.5-creazione', { full: false });
+  await vista(M, 'vScheda'); await scatta(M, 'scheda-master-umano', { full: false });
+  // 12. giocatore nella campagna 3.5: il modulo di creazione del personaggio con le regole 3.5
+  const G = await nuovo({ width: 412, height: 915 }, 'Giocatore 3.5'); await G.goto(await M.evaluate(() => linkInvito())); await G.fill('#eNome', 'Sara'); await G.click('#btnEntra'); await G.waitForSelector('#gioco:not([hidden])'); await G.waitForTimeout(1500); await chiudiDialogo(G);
+  await vista(G, 'vScheda'); await scatta(G, 'scheda-3.5-creazione');
   console.log(JSON.stringify({ foto, errori }, null, 1)); await b.close();
 })().catch(e => { console.log('ERRORE', e.message, JSON.stringify({ foto, errori })); process.exit(1); });

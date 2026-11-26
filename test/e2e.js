@@ -214,6 +214,8 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
   await T.waitForSelector('#gioco:not([hidden])', { timeout: 8000 });
   await T.waitForTimeout(600);
   v(await T.evaluate(() => document.body.classList.contains('tv') && me().ruolo === 'spettatore'), 'modalità TV: entra come spettatore');
+  // il televisore non si tocca: niente invito a toccare i dadi
+  v(await T.evaluate(() => !$('#ultimoTiro').textContent.trim() ? getComputedStyle($('#ultimoTiro')).display === 'none' : true), 'TV: niente "Tocca un dado per tirare"');
   await T.screenshot({ path: OUT + '/7-tv.png' });
   v(await T.evaluate(() => { renderScheda(); return S.st.membri[S.viewPg]?.ruolo === 'giocatore' && !/non ha ancora creato/.test(document.querySelector('#scheda').textContent); }), 'chi non gioca (spettatore, master) vede la scheda di un giocatore, non "X non ha ancora creato il personaggio"');
 
@@ -341,6 +343,15 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
     await A.evaluate(n => invia({ t: 'vai', nome: n }), nome); await A.waitForFunction(n => S.st.luogo?.nome === n, nome, { timeout: 10000 });
     const p = await A.evaluate(() => Mappa.controllo()); v(!p.length, `mappa "${nome}" senza problemi grafici${p.length ? ': ' + p.join(' | ') : ''}`);
   }
+  // due figure una sopra l'altra: il nome di quella dietro resta leggibile (sul televisore il nome di Lira spariva sotto Valerio)
+  const coperti = await A.evaluate(async () => {
+    const l = S.st.luogo, sg = JSON.parse(JSON.stringify(S.st.segnalini)), pg = Object.keys(sg).filter(id => sg[id].tipo === 'pg'), occ = new Set(Object.values(sg).map(o => o.x + ',' + o.y)), libera = (x, y) => '.,=_'.includes(l.celle[y]?.[x] || '#') && !occ.has(x + ',' + y);
+    let c = null; for (let y = 1; y < l.h - 1 && !c; y++) for (let x = 1; x < l.w - 1 && !c; x++) if (libera(x, y) && libera(x, y + 1)) c = { x, y };
+    if (pg.length < 2 || !c) return 'manca il posto o la seconda figura';
+    Object.assign(sg[pg[0]], c); Object.assign(sg[pg[1]], { x: c.x, y: c.y + 1 }); Mappa.aggiornaSegnalini(sg);
+    await new Promise(r => setTimeout(r, 2500)); const p = (await Mappa.controllo()).filter(x => /coperto/.test(x)); Mappa.aggiornaSegnalini(S.st.segnalini); return p.join(' | ');
+  });
+  v(!coperti, `figure una sopra l'altra con il nome leggibile${coperti ? ': ' + coperti : ''}`);
   await A.screenshot({ path: OUT + '/viadotto.png' }).catch(() => {});
   // la vignetta degli avvisi non deve coprire il contenuto (nome del luogo, mappa) né essere enorme, e un fallimento è rosso
   await A.click('#nav button[data-v="vMappa"]').catch(() => {});
