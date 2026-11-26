@@ -1,6 +1,11 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.9.0';
+const VERSION = '4.9.1';
 const CHANGELOG = [
+  { v: '4.9.1', data: '26/11/2026', voci: [
+    'Mappa: quando due figure stanno una sopra l\'altra il nome di quella dietro resta leggibile (prima spariva sotto l\'altra figura, per esempio sul televisore)',
+    'Televisore: niente più "Tocca un dado per tirare", perché la TV non si tocca',
+    'Canale di prova: ora ha anche gli effetti magici animati'
+  ] },
   { v: '4.9.0', data: '25/11/2026', voci: [
     'Effetti magici in pixel sulla mappa: palla di fuoco che scoppia, saetta dal cielo, gelo, ombra, luce, cura, colonne di fiamme nelle aree e scintille quando cade un nemico',
     'Pacchetto Simple Pixel Spell Effects di Willibab, gratuito (nei crediti)'

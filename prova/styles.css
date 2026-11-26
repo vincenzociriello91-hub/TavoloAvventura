@@ -405,6 +405,7 @@ details.aiuto-mappa > summary { cursor: pointer; color: var(--oro2); font-size: 
 .guida-invito[hidden] { display: none; }
 /* il tasto del microfono non copre gli ultimi comandi: sotto ogni vista resta spazio per scorrere */
 .gioco > .vista { padding-bottom: 92px; }
+body.tv .ultimo-tiro:empty { display: none !important; } /* il televisore non si tocca */
 .ultimo-tiro:empty::before { content: 'Tocca un dado per tirare'; color: var(--testo2, #a89c8a); font-size: .95rem; display: block; padding-top: 28px; }
 
 /* Inter e Cinzel dentro l'app (SIL OFL 1.1, da Fontsource): niente richieste a Google, funzionano anche senza rete */

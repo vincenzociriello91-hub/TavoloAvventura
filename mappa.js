@@ -813,7 +813,7 @@ const Mappa = (() => {
   // scritte sulla mappa: in pixel quando l'aspetto da videogioco è attivo
   const fontPixel = px => gusti.pixel ? `${Math.round(px * 1.32)}px 'Jersey 15', Inter, system-ui, sans-serif` : `600 ${px}px Inter, system-ui, sans-serif`;
   // nome sotto la figura: la prima parola, più il numero se ce n'è uno ("Goblin 2")
-  let targhe = []; // nomi già scritti in questo fotogramma
+  let targhe = [], figureFatte = [], passoDisegno = 0, segnalinoOra = null; // nomi e figure di questo fotogramma, con l'ordine in cui finiscono sul disegno
   function etichetta(nome, bx, y, t, nemico, ignoto) {
     if (ignoto) nome = extra.vedeTutto ? `${String(nome || '').split(/\s+/)[0]}?` : '???'; // nome non ancora svelato: i giocatori vedono ???, il master un punto di domanda
     if (t < 12 || !nome) return;
@@ -824,9 +824,15 @@ const Mappa = (() => {
     const nw = ctx.measureText(n).width, hh = Math.max(12, t * 0.42), x0 = Math.max(0, Math.min(bx - nw / 2 - 4, (luogo?.w || 1e4) * t - nw - 8)); // figura sul bordo: il nome resta dentro la mappa, non tagliato
     // due figure vicine: il secondo nome scende sotto il primo invece di coprirlo
     for (let k = 0; k < 3 && targhe.some(r => x0 < r.x + r.w && x0 + nw + 8 > r.x && y < r.y + r.h && y + hh > r.y); k++) y += hh + 1;
-    targhe.push({ x: x0, y, w: nw + 8, h: hh });
-    ctx.fillStyle = nemico ? 'rgba(70,14,12,.85)' : 'rgba(20,17,15,.78)'; rr(ctx, x0, y, nw + 8, hh, gusti.pixel ? 0 : 4); ctx.fill();
-    ctx.fillStyle = '#f3ead9'; ctx.fillText(n, x0 + 4, y + hh * 0.78);
+    targhe.push({ x: x0, y, w: nw + 8, h: hh, n, nome: String(nome), id: segnalinoOra, nemico, font: ctx.font });
+  }
+  // i nomi si scrivono dopo tutte le figure: una figura davanti non copre più il nome di quella dietro
+  function scriviTarghe() {
+    ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+    for (const r of targhe) {
+      ctx.font = r.font; ctx.fillStyle = r.nemico ? 'rgba(70,14,12,.85)' : 'rgba(20,17,15,.78)'; rr(ctx, r.x, r.y, r.w, r.h, gusti.pixel ? 0 : 4); ctx.fill();
+      ctx.fillStyle = '#f3ead9'; ctx.fillText(r.n, r.x + 4, r.y + r.h * 0.78); r.passo = ++passoDisegno;
+    }
   }
   // stati del personaggio scritti sotto il nome (avvelenato, prono...): non solo un colore
   function statoTag(stati, bx, y, t) {
@@ -1093,7 +1099,7 @@ const Mappa = (() => {
   }
 
   function disegna(animando) {
-    targhe = [];
+    targhe = []; figureFatte = []; passoDisegno = 0;
     if (!ctx || !luogo) return;
     const t = tile;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(strato(), 0, 0);
@@ -1148,8 +1154,10 @@ const Mappa = (() => {
     }
     Object.entries(segnalini).map(([id, s]) => [id, s, trascina?.id === id ? trascina : passi.get(id) || s]).sort((a, b) => a[2].y - b[2].y).forEach(([id, s, pos]) => {
       if (!extra.vedeTutto && (s.tipo === 'nemico' || s.tipo === 'png') && ((luogo.visto && luogo.visto[s.y * luogo.w + s.x] === '0') || !vedo(s.x, s.y))) return;
-      segnalino(id, s, pos, t);
+      segnalinoOra = id; segnalino(id, s, pos, t); segnalinoOra = null;
+      figureFatte.push({ id, nome: s.nome || id, x: (pos.x - 0.25) * t, y: (pos.y - 0.9) * t, w: t * 1.5, h: t * 1.9, passo: ++passoDisegno });
     });
+    scriviTarghe();
     if ((chiome && !gusti.menoMoto) || tetti) davanti(t);
     if (!gusti.menoMoto) vitaAria(t);
     disegnaRighello(t);
@@ -1392,6 +1400,8 @@ const Mappa = (() => {
       if (scure.length) prob.push(`${scure.length} caselle nere sul terreno all'aperto (${scure.slice(0, 6).join('; ')})`);
     }
     for (const [id, s] of Object.entries(segnalini)) if (['pg', 'alleato'].includes(s.tipo) && !ritratto(id, s)) { await new Promise(r => setTimeout(r, 300)); if (!ritratto(id, s)) prob.push(`segnalino senza figura: ${s.nome || id}`); }
+    // nome coperto da una figura disegnata dopo (due figure una sopra l'altra)
+    for (const r of targhe) { const f = figureFatte.find(f => f.id !== r.id && f.passo > (r.passo || 0) && r.x < f.x + f.w && r.x + r.w > f.x && r.y < f.y + f.h && r.y + r.h > f.y); if (f) prob.push(`nome di ${r.nome} coperto dalla figura di ${f.nome}`); }
     const n = (luogo.nome || '').toLowerCase();
     if (/ponte|viadott|guado|fiume|torrente/.test(n) && !luogo.celle.some(r => r.includes('~'))) prob.push(`il nome "${luogo.nome}" parla d'acqua o di un ponte ma sulla mappa non ce n'è`);
     if (/foresta|bosco|selva/.test(n) && luogo.tipo !== 'foresta') prob.push(`"${luogo.nome}" disegnato come ${luogo.tipo}`);
