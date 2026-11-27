@@ -303,9 +303,9 @@ main { padding-bottom: calc(var(--navh) + 96px + env(safe-area-inset-bottom)); }
 .diario li, .lista-tiri li { padding: 10px 12px; line-height: 1.45; }
 .diario li .chi { display: block; margin-bottom: 2px; }
 .diario li.illustrazione-ev img { aspect-ratio: auto; max-height: 70vh; }
-/* sottotitoli: sopra la barra in basso, senza coprire il tasto per parlare */
+/* sottotitoli: sopra la barra in basso, senza coprire il tasto per parlare né il pulsante sole/luna */
 @media (max-width: 1099px) {
-  #sottotitoli { left: 12px; right: 92px; width: auto; transform: none; bottom: calc(var(--navh) + 18px + env(safe-area-inset-bottom)); font-size: clamp(16px, 4.4vw, 22px); padding: 10px 14px; text-align: left; }
+  #sottotitoli { left: 76px; right: 92px; width: auto; transform: none; bottom: calc(var(--navh) + 18px + env(safe-area-inset-bottom)); font-size: clamp(16px, 4.4vw, 22px); padding: 10px 14px; text-align: left; }
   .btn-parla { z-index: 56; }
 }
 /* dadi: etichette e risultato più ordinati */
