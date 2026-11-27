@@ -80,7 +80,7 @@ v(Object.values(pz?.segnalini || {}).filter(x => x.tipo === 'nemico').length >= 
 A.invia({ t: 'strumento', tipo: 'tesoro', gs: 3 });
 v((await A.aspetta(m => m.t === 'strumento' && m.tipo === 'tesoro').catch(() => null))?.ris.oro > 0, 'tesoro casuale');
 A.invia({ t: 'strumento', tipo: 'png' });
-v((await A.aspetta(m => m.t === 'strumento' && m.tipo === 'png').catch(() => null))?.ris.nome, 'PNG generato');
+v((await A.aspetta(m => m.t === 'strumento' && m.tipo === 'png').catch(() => null))?.ris.nome, 'PNG generato subito anche se il modello pieno è lento (strumenti del master col modello leggero)');
 A.invia({ t: 'note_master', testo: 'Il barone è il traditore' });
 v((await A.aspetta(m => m.t === 'note_master').catch(() => null))?.testo === 'Il barone è il traditore', 'note segrete del master salvate');
 A.invia({ t: 'libro' });

@@ -214,12 +214,13 @@ Narratore.onInizio = () => { Ascolto.pausa(true); $('#av-master')?.classList.add
 Narratore.onFine = () => { Ascolto.pausa(false); $('#av-master')?.classList.remove('parla'); };
 // sottotitoli: il testo del master a frasi, ognuna per il tempo che ci mette a dirla
 let timerSottotitoli = [];
-Narratore.onFrase = (testoS, durata) => {
+function mostraSottotitoli(testoS, durata) {
   timerSottotitoli.forEach(clearTimeout); timerSottotitoli = [];
   const el = $('#sottotitoli');
-  if (!testoS || OPZ.sottotitoli === false) { el.hidden = true; return; }
+  if (!testoS || OPZ.sottotitoli === false || (S.vista === 'vDiario' && !largo())) { el.hidden = true; return; } // nel diario il testo è già scritto: i sottotitoli lo coprirebbero
   const frasi = testoS.match(/[^.!?…]+[.!?…]*["»”]?\s*/g)?.map(f => f.trim()).filter(Boolean) || [testoS];
   const tot = frasi.reduce((a, f) => a + f.length, 0); let t = 0;
   frasi.forEach(f => { timerSottotitoli.push(setTimeout(() => { el.textContent = f; el.hidden = false; }, t)); t += durata * f.length / tot; });
   timerSottotitoli.push(setTimeout(() => { el.hidden = true; }, t + 600));
-};
+}
+Narratore.onFrase = mostraSottotitoli;

@@ -7,6 +7,7 @@ http.createServer((req, res) => {
     const j = JSON.parse(b || '{}');
     if (/Descrivi l'interno di .*Borgo Lento/.test(j.contents?.[0]?.parts?.[0]?.text || '') && !req.ritardato) { req.ritardato = true; return setTimeout(() => req.emit('end'), 14000); } // per le prove: un'IA lenta
     const testoUtente = j.contents?.[0]?.parts?.[0]?.text || '';
+    if (/^Inventa un personaggio non giocante/.test(testoUtente) && !/lite/.test(req.url) && !req.ritardato) { req.ritardato = true; return setTimeout(() => req.emit('end'), 20000); } // per le prove: il modello pieno è lento, gli strumenti del master devono usare quello leggero
     let out;
     if (j.generationConfig?.responseModalities?.includes('AUDIO')) { // voce: mezzo secondo di tono a 24 kHz
       ultimo.voci = [...(ultimo.voci || []), { modello: (req.url.match(/models\/([^:]+)/) || [])[1], testo: testoUtente.slice(0, 80) }].slice(-10);

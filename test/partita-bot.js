@@ -87,7 +87,7 @@ const chiedi = (p, msg, tipo, ms = 45000) => p.evaluate(([msg, tipo, ms]) => new
     for (const nome of ['Viadotto Spezzato', 'Ponte del Re', 'Passo dei Corvi', 'Bosco dei Corvi', 'Villaggio di Brina', 'Città di Argentea', 'Porto di Salmastro', 'Castello Nero']) {
       await A.evaluate(n => invia({ t: 'vai', nome: n }), nome); await A.waitForFunction(n => S.st.luogo?.nome === n, nome, { timeout: 30000 });
       await A.waitForTimeout(1200); const p = await A.evaluate(() => Mappa.controllo()); if (p.length) esiti[nome] = p;
-      await A.screenshot({ path: `${OUT}/mappa-${nome.replace(/\W+/g, '_')}.png` }).catch(() => {});
+      await A.locator('#mappaBox').screenshot({ path: `${OUT}/mappa-${nome.replace(/\W+/g, '_')}.png` }).catch(() => {}); // solo la mappa: sul telefono sta sotto il riquadro del master
     }
     if (Object.keys(esiti).length) throw new Error(JSON.stringify(esiti).slice(0, 900));
     return true;
