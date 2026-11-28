@@ -93,4 +93,8 @@ v(mg.slotLiberi[1] === 1, `slot liberi per il master: speso uno slot di 1° live
 const sugM = Regole.suggerisciIncantesimi(mg).map(x => x.nome), chi = Regole.nuovo('5e', { nome: 'Ada', razza: 'Umano', classe: 'Chierico', carBase: { for: 8, des: 12, cos: 14, int: 10, sag: 15, car: 12 } });
 v(sugM.includes('Dardo incantato') && !sugM.includes('Cura ferite') && Regole.suggerisciIncantesimi(chi).some(x => x.nome === 'Cura ferite'), `incantesimi proposti alla salita: al mago arcani (${sugM.join(', ')}), al chierico divini`);
 v(!Regole.suggerisciIncantesimi(pg).length && Regole.talentiDaScegliere(p35).length >= 10, 'al guerriero nessun incantesimo; nella 3.5 talenti da scegliere con la spiegazione');
+// figure dei PNG: ogni nome ha vestiti, capelli e colori (con certi nomi il conto dava un numero negativo e la figura restava nuda e calva)
+vm.runInContext(fs.readFileSync(require('path').join(__dirname, '..', 'lpc.js'), 'utf8').replace(/^const /gm, 'var '), ctx);
+const nudi = ["Tobia l'oste", 'Hilde, minatrice ferita', 'Gerlinda', 'Mastro Gino', 'Guardia 1', 'Sindaca Gerlinda', 'Bandito', 'Oste'].filter(n => { const d = ctx.Lpc.daNome(n, n === 'Bandito' ? 'nemico' : 'png'); return d.strati.some(x => !x.pezzo) || Object.values(d.colori).some(c => !c); });
+v(!nudi.length, `figure dei PNG complete di vestiti, capelli e colori${nudi.length ? ' (incomplete: ' + nudi.join(', ') + ')' : ''}`);
 console.log(`${ok} ok, ${ko} falliti`); process.exit(ko ? 1 : 0);

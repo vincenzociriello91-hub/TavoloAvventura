@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.9.3';
+const VERSION = '4.9.4';
 const CHANGELOG = [
+  { v: '4.9.4', data: '28/11/2026', voci: [
+    'Mappa: circa metà dei personaggi del master (per esempio l\'oste o la minatrice) compariva senza vestiti e senza capelli; ora hanno tutti abiti, capelli e colori'
+  ] },
   { v: '4.9.3', data: '28/11/2026', voci: [
     'Mappa: quando due personaggi stanno uno davanti all\'altro, il nome di quello dietro va sopra la sua testa invece di coprire la faccia di quello davanti'
   ] },
