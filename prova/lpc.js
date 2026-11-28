@@ -90,7 +90,7 @@ const Lpc = (() => {
   const hash = s => [...String(s || '')].reduce((x, c) => (x * 31 + c.charCodeAt(0)) >>> 0, 7);
   // personaggi del master (PNG) e nemici con forma umana o di orco: aspetto stabile dal nome
   function daNome(nome, tipo) {
-    const n = String(nome || '').toLowerCase(), h = hash(nome), pick = (arr, k = 0) => arr[(h >> k) % arr.length];
+    const n = String(nome || '').toLowerCase(), h = hash(nome), pick = (arr, k = 0) => arr[(h >>> k) % arr.length];
     const orco = /goblin|orco|orchi|hobgoblin|bugbear/.test(n);
     const umano = tipo === 'png' || tipo === 'alleato' || /bandit|brigant|guardi|soldat|cultist|mago|strega|ladro|assassin|cavalier|mercenar|predon|pirat|negromant|sacerdot|capitan|elfo oscuro|drow|stregon/.test(n);
     if (tipo === 'nemico' && !orco && !umano) return null; // mostri: segnalino classico
