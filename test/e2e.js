@@ -343,13 +343,13 @@ let ok = 0, ko = 0; const v = (c, n) => { c ? ok++ : ko++; console.log(c ? 'OK  
     await A.evaluate(n => invia({ t: 'vai', nome: n }), nome); await A.waitForFunction(n => S.st.luogo?.nome === n, nome, { timeout: 10000 });
     const p = await A.evaluate(() => Mappa.controllo()); v(!p.length, `mappa "${nome}" senza problemi grafici${p.length ? ': ' + p.join(' | ') : ''}`);
   }
-  // due figure una sopra l'altra: il nome di quella dietro resta leggibile (sul televisore il nome di Lira spariva sotto Valerio)
+  // due figure una sopra l'altra: il nome di quella dietro resta leggibile (sul televisore il nome di Lira spariva sotto Valerio) e non copre la faccia di quella davanti
   const coperti = await A.evaluate(async () => {
     const l = S.st.luogo, sg = JSON.parse(JSON.stringify(S.st.segnalini)), pg = Object.keys(sg).filter(id => sg[id].tipo === 'pg'), occ = new Set(Object.values(sg).map(o => o.x + ',' + o.y)), libera = (x, y) => '.,=_'.includes(l.celle[y]?.[x] || '#') && !occ.has(x + ',' + y);
     let c = null; for (let y = 1; y < l.h - 1 && !c; y++) for (let x = 1; x < l.w - 1 && !c; x++) if (libera(x, y) && libera(x, y + 1)) c = { x, y };
     if (pg.length < 2 || !c) return 'manca il posto o la seconda figura';
     Object.assign(sg[pg[0]], c); Object.assign(sg[pg[1]], { x: c.x, y: c.y + 1 }); Mappa.aggiornaSegnalini(sg);
-    await new Promise(r => setTimeout(r, 2500)); const p = (await Mappa.controllo()).filter(x => /coperto/.test(x)); Mappa.aggiornaSegnalini(S.st.segnalini); return p.join(' | ');
+    await new Promise(r => setTimeout(r, 2500)); const p = (await Mappa.controllo()).filter(x => /copert|copre/.test(x)); Mappa.aggiornaSegnalini(S.st.segnalini); return p.join(' | ');
   });
   v(!coperti, `figure una sopra l'altra con il nome leggibile${coperti ? ': ' + coperti : ''}`);
   await A.screenshot({ path: OUT + '/viadotto.png' }).catch(() => {});

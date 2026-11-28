@@ -827,8 +827,19 @@ const Mappa = (() => {
     targhe.push({ x: x0, y, w: nw + 8, h: hh, n, nome: String(nome), id: segnalinoOra, nemico, font: ctx.font });
   }
   // i nomi si scrivono dopo tutte le figure: una figura davanti non copre più il nome di quella dietro
-  function scriviTarghe() {
+  // faccia di una figura (rettangolo intorno alla testa): un nome sopra la faccia di un'altra figura la nasconde
+  const testa = (f, t) => ({ x: f.x + t * 0.4, y: f.y + t * 0.45, w: t * 0.7, h: t * 0.7 });
+  const sopra = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  const copreFaccia = (r, t) => figureFatte.find(f => f.id !== r.id && sopra(r, testa(f, t)));
+  function scriviTarghe(t) {
     ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+    // figura subito davanti (una sotto l'altra): il nome di quella dietro va sopra la sua testa invece che sulla faccia dell'altra
+    for (const r of targhe) {
+      const mia = r.id && figureFatte.find(f => f.id === r.id);
+      if (!mia || !copreFaccia(r, t)) continue;
+      const su = { ...r, y: Math.max(0, mia.y + t * 0.3 - r.h) };
+      if (!copreFaccia(su, t) && !targhe.some(o => o !== r && sopra(su, o))) r.y = su.y;
+    }
     for (const r of targhe) {
       ctx.font = r.font; ctx.fillStyle = r.nemico ? 'rgba(70,14,12,.85)' : 'rgba(20,17,15,.78)'; rr(ctx, r.x, r.y, r.w, r.h, gusti.pixel ? 0 : 4); ctx.fill();
       ctx.fillStyle = '#f3ead9'; ctx.fillText(r.n, r.x + 4, r.y + r.h * 0.78); r.passo = ++passoDisegno;
@@ -1157,7 +1168,7 @@ const Mappa = (() => {
       segnalinoOra = id; segnalino(id, s, pos, t); segnalinoOra = null;
       figureFatte.push({ id, nome: s.nome || id, x: (pos.x - 0.25) * t, y: (pos.y - 0.9) * t, w: t * 1.5, h: t * 1.9, passo: ++passoDisegno });
     });
-    scriviTarghe();
+    scriviTarghe(t);
     if ((chiome && !gusti.menoMoto) || tetti) davanti(t);
     if (!gusti.menoMoto) vitaAria(t);
     disegnaRighello(t);
@@ -1401,7 +1412,7 @@ const Mappa = (() => {
     }
     for (const [id, s] of Object.entries(segnalini)) if (['pg', 'alleato'].includes(s.tipo) && !ritratto(id, s)) { await new Promise(r => setTimeout(r, 300)); if (!ritratto(id, s)) prob.push(`segnalino senza figura: ${s.nome || id}`); }
     // nome coperto da una figura disegnata dopo (due figure una sopra l'altra)
-    for (const r of targhe) { const f = figureFatte.find(f => f.id !== r.id && f.passo > (r.passo || 0) && r.x < f.x + f.w && r.x + r.w > f.x && r.y < f.y + f.h && r.y + r.h > f.y); if (f) prob.push(`nome di ${r.nome} coperto dalla figura di ${f.nome}`); }
+    for (const r of targhe) { const f = figureFatte.find(f => f.id !== r.id && f.passo > (r.passo || 0) && r.x < f.x + f.w && r.x + r.w > f.x && r.y < f.y + f.h && r.y + r.h > f.y); if (f) prob.push(`nome di ${r.nome} coperto dalla figura di ${f.nome}`); const g = copreFaccia(r, tile); if (g) prob.push(`nome di ${r.nome} copre la faccia di ${g.nome}`); }
     const n = (luogo.nome || '').toLowerCase();
     if (/ponte|viadott|guado|fiume|torrente/.test(n) && !luogo.celle.some(r => r.includes('~'))) prob.push(`il nome "${luogo.nome}" parla d'acqua o di un ponte ma sulla mappa non ce n'è`);
     if (/foresta|bosco|selva/.test(n) && luogo.tipo !== 'foresta') prob.push(`"${luogo.nome}" disegnato come ${luogo.tipo}`);

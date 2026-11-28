@@ -1,6 +1,9 @@
 /* Tavolo d'Avventura — app principale: ingresso, stanza online, scheda, dadi, mappa, diario, voce, rapporti, aggiornamenti */
-const VERSION = '4.9.2';
+const VERSION = '4.9.3';
 const CHANGELOG = [
+  { v: '4.9.3', data: '28/11/2026', voci: [
+    'Mappa: quando due personaggi stanno uno davanti all\'altro, il nome di quello dietro va sopra la sua testa invece di coprire la faccia di quello davanti'
+  ] },
   { v: '4.9.2', data: '27/11/2026', voci: [
     'Sottotitoli del master: sul telefono non coprono più il pulsante sole/luna, e nel diario non compaiono sopra il testo che c\'è già scritto',
     'Schermo del master: "Genera un PNG" e "Incontro bilanciato" rispondono in pochi secondi anche quando l\'intelligenza artificiale è lenta (prima si poteva aspettare più di un minuto)'
